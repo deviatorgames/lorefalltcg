@@ -893,11 +893,8 @@
                         </button>
                     )}
                     {deckCount > 0 && (
-						<button onClick={() => { 
-							setStatsTargetDeck(null); 
-							setShowStatsModal(true); 
-						}} className="w-full mt-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold uppercase tracking-wider rounded transition border border-slate-700">📊 View Deck Stats</button>
-					)}
+                        <button onClick={() => setShowStatsModal(true)} className="w-full mt-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold uppercase tracking-wider rounded transition border border-slate-700">📊 View Deck Stats</button>
+                    )}
                   </div>
                   <div className="flex-1 overflow-y-auto p-3 md:p-4 pb-24 md:pb-4 space-y-2 min-h-0 w-full">
                     {Object.values(deck).map(({ card, count }) => (
