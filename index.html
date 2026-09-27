@@ -705,17 +705,12 @@
           const competencyRating = Math.max(0, Math.min(10, compScore)).toFixed(1);
 
 
-          // Archetype Calculation (0 = Aggro, 100 = Control)
-          // 1. Total Cost: cards costing <= 1.5 total resource scale near 0%, 4+ total resource hits 100%
-          const normMana = Math.max(0, Math.min(100, (avgManaCost - 1.5) * 40));
+          // Archetype Calculation (0 = Hard Aggro, 100 = Hard Control)
+          // Baseline 2.0 = 0% (Hard Aggro), 3.5 = 50% (Moderate), 5.0+ = 100% (Control)
+          const normMana = Math.max(0, Math.min(100, (avgManaCost - 2.0) * 33.3));
+          const normHealth = Math.max(0, Math.min(100, (avgHealthNum - 4.0) * 15));
+          const normSurvive = Math.max(0, Math.min(100, (survivingTurnsNum - 3) * 15));
 
-          // 2. Health: Low HP frontline (under 5) pulls heavily left
-          const normHealth = Math.max(0, Math.min(100, (avgHealthNum - 4.0) * 20));
-
-          // 3. Survival: Under 5 turns registers as Aggro
-          const normSurvive = Math.max(0, Math.min(100, (survivingTurnsNum - 4) * 20));
-
-          // 70% weight on resource cost so cheap decks stick hard to the left
           const archetypeValue = (normMana * 0.7) + (normHealth * 0.15) + (normSurvive * 0.15);
 
           let archetypeLabel = "Moderate";
