@@ -504,9 +504,20 @@
       };
 
 		const deckAnalytics = useMemo(() => {
+          const getDiceAvg = (diceStr) => {
+              if (!diceStr) return 0;
+              const match = String(diceStr).match(/D(\d+)/i);
+              if (match) {
+                  const sides = parseInt(match[1], 10);
+                  return (sides + 1) / 2;
+              }
+              return 0;
+          };
+
           const allDeckCards = Object.values(deck).flatMap(item => Array(item.count).fill(item.card));
           const manaIntake = parseFloat(selectedHero?.Mana) || 0;
           const heroHealth = parseFloat(selectedHero?.Health) || 0;
+          const heroPower = parseFloat(selectedHero?.Power) || 0;
           
           const cardsWithCost = allDeckCards.filter(c => parseFloat(c["Mana Cost"]) > 0 || parseFloat(c["Charge Requirement"]) > 0);
           const totalCost = cardsWithCost.reduce((sum, c) => sum + (parseFloat(c["Mana Cost"]) || 0) + (parseFloat(c["Charge Requirement"]) || 0), 0);
@@ -539,6 +550,25 @@
           const avgHealthNum = allies.length ? (totalAllyHealth / allies.length) : 0;
           const avgHealth = avgHealthNum.toFixed(1);
           const avgDex = allies.length ? (allies.reduce((sum, c) => sum + (parseFloat(c.Dexterity) || 0), 0) / allies.length).toFixed(1) : 0;
+
+          // Offensive Strike Math
+          let totalAllyStrike = 0;
+          allies.forEach(c => {
+              if (c["Attack Type"] === 'Melee') totalAllyStrike += getDiceAvg(c.Attack) + (parseFloat(c.Power) || 0);
+              else if (c["Attack Type"] === 'Ranged') totalAllyStrike += (parseFloat(c["Ranged Attack"]) || 0);
+          });
+          const avgAllyStrike = allies.length ? (totalAllyStrike / allies.length) : 0;
+
+          const skills = allDeckCards.filter(c => c._type === 'Skill');
+          let totalHeroStrike = 0;
+          skills.forEach(c => {
+              if (c["Attack Type"] === 'Melee') totalHeroStrike += getDiceAvg(c.Attack) + heroPower;
+              else if (c["Attack Type"] === 'Ranged') totalHeroStrike += (parseFloat(c["Ranged Attack"]) || 0);
+          });
+          const avgHeroStrike = skills.length ? (totalHeroStrike / skills.length) : 0;
+
+          const totalAttackCards = allies.length + skills.length;
+          const avgDeckStrike = totalAttackCards ? ((totalAllyStrike + totalHeroStrike) / totalAttackCards) : 0;
 
           // Breakthrough Math (Assuming avg mid-to-late game strike power of 8)
           const enemyStrike = 8;
@@ -578,6 +608,7 @@
               manaIntake, avgManaCost: avgManaCost.toFixed(1), avgGoldCost: avgGoldCost.toFixed(1), 
               sustainText, sustainColor, 
               avgPower, avgRangedAttack, avgHealth, avgDex, 
+              avgAllyStrike: avgAllyStrike.toFixed(1), avgHeroStrike: avgHeroStrike.toFixed(1), avgDeckStrike: avgDeckStrike.toFixed(1),
               heroHealth, survivingTurns, longevityText, longevityColor,
               curve, maxCurve, types, maxType, cardCount: allDeckCards.length 
           };
@@ -1290,6 +1321,26 @@
                         </div>
                         <div className={`text-center font-semibold text-xs md:text-sm ${deckAnalytics.longevityColor} bg-slate-900 py-2.5 px-3 rounded-lg border border-slate-800/50 break-words`}>
                             {deckAnalytics.longevityText}
+                        </div>
+                    </div>
+
+					<div className="col-span-1 md:col-span-2 lg:col-span-3 bg-slate-800/50 p-4 md:p-5 rounded-xl border border-slate-700/50 shadow-inner">
+                        <h4 className="text-xs uppercase font-bold text-slate-400 tracking-widest mb-3 border-b border-slate-700 pb-1.5">Offensive Output (Expected Strike Damage)</h4>
+                        <div className="flex flex-col sm:flex-row gap-4 md:gap-6 items-center justify-around mb-2">
+                            <div className="text-center">
+                                <div className="text-2xl md:text-3xl font-black text-rose-400">{deckAnalytics.avgAllyStrike}</div>
+                                <div className="text-xs text-slate-400 uppercase font-bold mt-1">Avg Ally Strike</div>
+                            </div>
+                            <div className="hidden sm:block text-lg text-slate-600 font-black">+</div>
+                            <div className="text-center">
+                                <div className="text-2xl md:text-3xl font-black text-amber-500">{deckAnalytics.avgHeroStrike}</div>
+                                <div className="text-xs text-slate-400 uppercase font-bold mt-1">Avg Hero Strike (Skills)</div>
+                            </div>
+                            <div className="hidden sm:block text-lg text-slate-700 font-black">=</div>
+                            <div className="text-center">
+                                <div className="text-2xl md:text-3xl font-black text-purple-400">{deckAnalytics.avgDeckStrike}</div>
+                                <div className="text-xs text-slate-400 uppercase font-bold mt-1">Overall Deck Avg</div>
+                            </div>
                         </div>
                     </div>
 
