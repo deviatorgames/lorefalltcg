@@ -526,9 +526,9 @@
               return strike;
           };
 
-          // 1. Meta Threat Calculation (Top 3 Finishers across saved decks)
+          // 1. Meta Threat Calculation (Top-Tier Board & Finishers across saved decks)
           let metaPeakTotal = 0;
-          let metaAvgTotal = 0;
+          let metaBoardTotal = 0;
           let validDecksCount = 0;
           
           Object.values(savedDecks).forEach(sDeck => {
@@ -548,18 +548,26 @@
               
               if (sDeckStrikes.length > 0) {
                   sDeckStrikes.sort((a, b) => b - a);
+                  // Top 3 Finishers (Strike 1)
                   const top3 = sDeckStrikes.slice(0, 3);
                   const sDeckPeak = top3.reduce((sum, val) => sum + val, 0) / top3.length;
-                  const sDeckAvg = sDeckStrikes.reduce((sum, val) => sum + val, 0) / sDeckStrikes.length;
+                  
+                  // Active Board Strikes: Top 4-8 cards (Strikes 2 & 3)
+                  const topBoard = sDeckStrikes.slice(3, 8);
+                  const sDeckBoard = topBoard.length > 0
+                      ? (topBoard.reduce((sum, val) => sum + val, 0) / topBoard.length)
+                      : sDeckPeak;
                   
                   metaPeakTotal += sDeckPeak;
-                  metaAvgTotal += sDeckAvg;
+                  metaBoardTotal += sDeckBoard;
                   validDecksCount++;
               }
           });
           
-          const metaPeakStrike = validDecksCount > 0 ? (metaPeakTotal / validDecksCount) : 9.5;
-          const metaAvgStrike = validDecksCount > 0 ? (metaAvgTotal / validDecksCount) : 5.5;
+          // Apply a 1.15x Critical Hit / Dice Surge Multiplier to meta attacks
+          const CRIT_MODIFIER = 1.15;
+          const metaPeakStrike = (validDecksCount > 0 ? (metaPeakTotal / validDecksCount) : 9.5) * CRIT_MODIFIER;
+          const metaBoardStrike = (validDecksCount > 0 ? (metaBoardTotal / validDecksCount) : 6.0) * CRIT_MODIFIER;
 
           // 2. Active Deck Calculations (Dynamic Target)
           const activeDeck = statsTargetDeck ? statsTargetDeck.cards : deck;
@@ -584,13 +592,13 @@
               sustainText = "Excellent sustainability. Your hero consistently generates more than enough mana for your average card costs.";
               sustainColor = "text-emerald-400";
           } else if (diff >= -0.2) {
-              sustainText = "Balanced sustainability. Your mana intake perfectly matches your average turn costs.";
+              sustainText = "Balanced sustainability. Your mana intake matches your average turn costs.";
               sustainColor = "text-blue-400";
           } else if (diff >= -1.5) {
-              sustainText = "Risky sustainability. Your average costs slightly exceed your intake. You will need to pace yourself or use items.";
+              sustainText = "Risky sustainability. Costs slightly exceed intake. Pacing or items required.";
               sustainColor = "text-amber-400";
           } else {
-              sustainText = "Unsustainable! Your deck is far too expensive for your Hero's natural mana intake.";
+              sustainText = "Unsustainable! Deck is far too expensive for your Hero's natural mana intake.";
               sustainColor = "text-rose-400";
           }
 
@@ -602,7 +610,45 @@
           const avgHealth = avgHealthNum.toFixed(1);
           const avgDex = allies.length ? (allies.reduce((sum, c) => sum + (parseFloat(c.Dexterity) || 0), 0) / allies.length).toFixed(1) : 0;
 
-          // Offensive Strike Math for Active Deck (Top 3)
+          // Top 3 Vanguard Health Average (Realistic Frontline Anchor)
+          const allyHealthList = allies.map(a => parseFloat(a.Health) || 0).sort((a, b) => b - a);
+          const top3HealthList = allyHealthList.slice(0, 3);
+          const top3VanguardHealth = top3HealthList.length > 0
+              ? (top3HealthList.reduce((sum, h) => sum + h, 0) / top3HealthList.length)
+              : 0;
+
+          // Sequential 3-Strike Health Carry-Over Simulation
+          let currentVanguardHP = top3VanguardHealth;
+          let turnCycleHeroBleed = 0;
+
+          // Strike 1: Peak Finisher Assault
+          if (metaPeakStrike > currentVanguardHP) {
+              turnCycleHeroBleed += (metaPeakStrike - currentVanguardHP);
+              currentVanguardHP = 0;
+          } else {
+              currentVanguardHP -= metaPeakStrike;
+          }
+
+          // Strike 2: Board Assault (hits remaining vanguard HP; if 0, bleeds to hero)
+          if (metaBoardStrike > currentVanguardHP) {
+              turnCycleHeroBleed += (metaBoardStrike - currentVanguardHP);
+              currentVanguardHP = 0;
+          } else {
+              currentVanguardHP -= metaBoardStrike;
+          }
+
+          // Strike 3: Board Assault (hits remaining vanguard HP; if 0, bleeds to hero)
+          if (metaBoardStrike > currentVanguardHP) {
+              turnCycleHeroBleed += (metaBoardStrike - currentVanguardHP);
+              currentVanguardHP = 0;
+          } else {
+              currentVanguardHP -= metaBoardStrike;
+          }
+
+          const survivingTurnsNum = turnCycleHeroBleed > 0 ? Math.floor(heroHealth / turnCycleHeroBleed) : 99;
+          const survivingTurns = survivingTurnsNum === 99 ? "99+" : survivingTurnsNum;
+
+          // Offensive Strike Math for Active Deck
           let activeStrikes = [];
           allDeckCards.forEach(c => {
               if (c._type === 'Ally' || c._type === 'Skill') {
@@ -612,31 +658,22 @@
           });
           
           const overallDeckStrike = activeStrikes.length > 0 ? (activeStrikes.reduce((sum, val) => sum + val, 0) / activeStrikes.length) : 0;
-          
           activeStrikes.sort((a, b) => b - a);
           const top3Active = activeStrikes.slice(0, 3);
           const peakDeckStrike = top3Active.length > 0 ? (top3Active.reduce((sum, val) => sum + val, 0) / top3Active.length) : 0;
 
-          // Realistic Breakthrough Turn Cycle: 1 Peak Finisher Strike + 2 Baseline Strikes
-          const primaryBreakthrough = Math.max(0, metaPeakStrike - avgHealthNum);
-          const secondaryBreakthrough = Math.max(0, metaAvgStrike - avgHealthNum) * 2;
-          const damagePerTurnCycle = primaryBreakthrough + secondaryBreakthrough;
-          
-          const survivingTurnsNum = damagePerTurnCycle > 0 ? Math.floor(heroHealth / damagePerTurnCycle) : 99;
-          const survivingTurns = survivingTurnsNum === 99 ? "99+" : survivingTurnsNum;
-
           let longevityText = ""; let longevityColor = "";
           if (survivingTurnsNum >= 8) {
-              longevityText = `Exceptional protection. Your vanguard soaks up all secondary pressure and cushions the meta's ${metaPeakStrike.toFixed(1)}-damage finisher. Your hero can comfortably survive ~${survivingTurns} turn cycles.`;
+              longevityText = `Exceptional protection. Top frontline (${top3VanguardHealth.toFixed(1)} HP avg) absorbs deep into the 3-strike cycle. Leaking only ~${turnCycleHeroBleed.toFixed(1)} bleed/turn (Surviving ~${survivingTurns} turns).`;
               longevityColor = "text-emerald-400";
-          } else if (survivingTurnsNum >= 5) {
-              longevityText = `Solid protection. The enemy's ${metaPeakStrike.toFixed(1)}-damage finisher deals ${primaryBreakthrough.toFixed(1)} breakthrough, but secondary attacks are largely checked. Surviving ~${survivingTurns} turn cycles under pressure.`;
+          } else if (survivingTurnsNum >= 4) {
+              longevityText = `Solid defense. Top frontline cushions the initial surge, leaking ~${turnCycleHeroBleed.toFixed(1)} total bleed across remaining strikes (Surviving ~${survivingTurns} turns).`;
               longevityColor = "text-blue-400";
-          } else if (survivingTurnsNum >= 3) {
-              longevityText = `Risky protection. Your vanguard cannot withstand the primary finisher and takes bleed-through on follow-up strikes (${damagePerTurnCycle.toFixed(1)} total dmg/cycle). Surviving ~${survivingTurns} turns.`;
+          } else if (survivingTurnsNum >= 2) {
+              longevityText = `High pressure! Frontline falls quickly. Follow-up strikes hammer the Hero directly (~${turnCycleHeroBleed.toFixed(1)} bleed/turn, surviving ~${survivingTurns} turns).`;
               longevityColor = "text-amber-400";
           } else {
-              longevityText = `Highly vulnerable! Fragile vanguards allow both primary and secondary strikes to bleed through heavily (${damagePerTurnCycle.toFixed(1)} dmg/cycle). Your hero only survives ~${survivingTurns} turns.`;
+              longevityText = `Critical vulnerability! Frontline drops immediately, permitting near-total bleedthrough (~${turnCycleHeroBleed.toFixed(1)} dmg/turn cycle). Hero falls in ~${survivingTurns} turns.`;
               longevityColor = "text-rose-400";
           }
 
@@ -655,8 +692,10 @@
           return { 
               manaIntake, avgManaCost: avgManaCost.toFixed(1), avgGoldCost: avgGoldCost.toFixed(1), 
               sustainText, sustainColor, 
-              avgPower, avgRangedAttack, avgHealth, avgDex, 
-              overallDeckStrike: overallDeckStrike.toFixed(1), peakDeckStrike: peakDeckStrike.toFixed(1), metaPeakStrike: metaPeakStrike.toFixed(1),
+              avgPower, avgRangedAttack, avgHealth, avgDex,
+              top3VanguardHealth: top3VanguardHealth.toFixed(1),
+              overallDeckStrike: overallDeckStrike.toFixed(1), peakDeckStrike: peakDeckStrike.toFixed(1), 
+              metaPeakStrike: metaPeakStrike.toFixed(1), metaBoardStrike: metaBoardStrike.toFixed(1),
               heroHealth, survivingTurns, longevityText, longevityColor,
               curve, maxCurve, types, maxType, cardCount: allDeckCards.length 
           };
@@ -1366,8 +1405,9 @@
                             </div>
                             <div className="text-lg text-slate-600 font-black">+</div>
                             <div className="text-center">
-                                <div className="text-2xl md:text-3xl font-black text-amber-500">{deckAnalytics.avgHealth}</div>
-                                <div className="text-xs text-slate-400 uppercase font-bold mt-1">Avg Vanguard Buffer</div>
+                                <div className="text-2xl md:text-3xl font-black text-amber-500">{deckAnalytics.top3VanguardHealth}</div>
+                                <div className="text-xs text-slate-400 uppercase font-bold mt-1">Top 3 Vanguard Avg</div>
+                                <div className="text-[9px] text-slate-500 mt-0.5">Deck Avg: {deckAnalytics.avgHealth}</div>
                             </div>
                             <div className="hidden sm:block text-lg text-slate-700 font-black">|</div>
                             <div className="text-center">
