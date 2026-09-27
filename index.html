@@ -83,12 +83,22 @@
     function formatImageUrl(url) {
         if (!url) return null;
         let finalUrl = String(url).trim();
-        if (finalUrl.includes('github.com') && finalUrl.includes('/blob/')) {
+
+        // 1. Detect if it's a GitHub permalink with a 40-character commit hash:
+        // e.g. https://github.com/user/repo/blob/1a2b3c4d.../path/image.png
+        const commitHashRegex = /github\.com\/([^\/]+)\/([^\/]+)\/blob\/[a-f0-9]{40}\/(.+)/i;
+        if (commitHashRegex.test(finalUrl)) {
+            finalUrl = finalUrl.replace(commitHashRegex, 'raw.githubusercontent.com/$1/$2/refs/heads/main/$3');
+        } else if (finalUrl.includes('github.com') && finalUrl.includes('/blob/')) {
+            // Standard branch URL: e.g. github.com/user/repo/blob/main/path/image.png
             finalUrl = finalUrl.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
         }
+
+        // Clean out existing query params before attaching cache buster
         if (finalUrl.includes('raw.githubusercontent.com')) {
             finalUrl = finalUrl.split('?')[0];
         }
+
         return finalUrl;
     }
 
@@ -914,7 +924,7 @@
                             <div className="flex-1 flex flex-col min-w-0">
                               {card["Image URL"] && (
                                 <div className="w-full aspect-[4/3] sm:h-44 md:h-48 mb-2.5 rounded-lg bg-black/60 border border-slate-700/50 flex items-center justify-center p-2 shrink-0">
-                                    <img src={`${formatImageUrl(card["Image URL"])}?v=${sessionBuster}`} alt={card["Card Name"] || card["Hero Name"]} className="max-w-full max-h-full object-contain drop-shadow-md rounded" loading="lazy" />
+                                    <img src={`${formatImageUrl(card["Image URL"])}?t=${sessionBuster}`} alt={card["Card Name"] || card["Hero Name"]} className="max-w-full max-h-full object-contain drop-shadow-md rounded" loading="lazy" />
                                 </div>
                               )}
                               <div className="flex justify-between items-start gap-1 mb-1">
@@ -1247,7 +1257,7 @@
                     <div className="w-full max-w-xs md:max-w-sm relative z-10 bg-slate-800 border border-slate-600 rounded-2xl shadow-xl flex flex-col overflow-hidden min-w-0">
                         {forgeData["Image URL"] ? (
                             <div className="w-full h-32 md:h-64 bg-black flex items-center justify-center border-b border-slate-700 p-2">
-                                <img src={`${formatImageUrl(forgeData["Image URL"])}?v=${sessionBuster}`} className="max-w-full max-h-full object-contain drop-shadow-md rounded-lg" />
+                                <img src={`${formatImageUrl(forgeData["Image URL"])}?t=${Date.now()}`} className="max-w-full max-h-full object-contain drop-shadow-md rounded" />
                             </div>
                         ) : (
                             <div className="w-full h-20 md:h-44 bg-slate-900 flex items-center justify-center border-b border-slate-700 text-slate-600 font-bold text-xs uppercase tracking-widest">
@@ -1546,7 +1556,7 @@
               <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl p-0 max-h-[95dvh] flex flex-col sm:flex-row shadow-2xl overflow-hidden min-w-0">
 				{modalCard["Image URL"] && (
 					<div className="w-full sm:w-1/2 h-[30dvh] sm:min-h-[600px] bg-black border-b sm:border-b-0 sm:border-r border-slate-800 flex items-center justify-center p-2 md:p-4 shrink-0">
-						<img src={`${formatImageUrl(modalCard["Image URL"])}?v=${sessionBuster}`} className="max-w-full max-h-full object-contain drop-shadow-2xl rounded-xl" />
+						<img src={`${formatImageUrl(modalCard["Image URL"])}?t=${Date.now()}`} className="max-w-full max-h-full object-contain drop-shadow-2xl rounded-xl" />
 					</div>
 				)}
                 
