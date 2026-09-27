@@ -704,16 +704,23 @@
           if (overallDeckStrike >= metaBoardStrike) compScore += 1.0; else compScore -= 0.5;
           const competencyRating = Math.max(0, Math.min(10, compScore)).toFixed(1);
 
-          // Archetype Calculation (0 = Aggro, 100 = Control)
-          const normMana = Math.max(0, Math.min(100, (avgManaCost - 1.0) * 33));
-          const normSurvive = Math.max(0, Math.min(100, (survivingTurnsNum - 2) * 20));
-          const normPower = avgPower > 0 ? Math.max(0, Math.min(100, (avgPower / (avgHealthNum || 1)) * 50)) : 50; 
           
-          const archetypeValue = (normMana + normSurvive + (100 - normPower)) / 3;
+          // Archetype Calculation (0 = Aggro, 100 = Control)
+          const normMana = Math.max(0, Math.min(100, (avgManaCost - 1.0) * 33.3));
+          const normHealth = Math.max(0, Math.min(100, (avgHealthNum - 3.0) * 15));
+          const normSurvive = Math.max(0, Math.min(100, (survivingTurnsNum - 3) * 25));
+
+          const archetypeValue = (normMana * 0.5) + (normHealth * 0.25) + (normSurvive * 0.25);
+
           let archetypeLabel = "Moderate";
           let archetypeColor = "text-blue-400";
-          if (archetypeValue < 40) { archetypeLabel = "Aggressive"; archetypeColor = "text-rose-400"; }
-          else if (archetypeValue > 60) { archetypeLabel = "Controlled"; archetypeColor = "text-indigo-400"; }
+          if (archetypeValue < 42) { 
+              archetypeLabel = "Aggressive"; 
+              archetypeColor = "text-rose-400"; 
+          } else if (archetypeValue > 58) { 
+              archetypeLabel = "Controlled"; 
+              archetypeColor = "text-indigo-400"; 
+          }
 
           const curve = { "0-1": 0, "2": 0, "3": 0, "4": 0, "5+": 0 };
           allDeckCards.forEach(c => {
