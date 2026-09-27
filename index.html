@@ -704,20 +704,26 @@
           if (overallDeckStrike >= metaBoardStrike) compScore += 1.0; else compScore -= 0.5;
           const competencyRating = Math.max(0, Math.min(10, compScore)).toFixed(1);
 
-          
-          // Archetype Calculation (0 = Aggro, 100 = Control)
-          const normMana = Math.max(0, Math.min(100, (avgManaCost - 1.0) * 33.3));
-          const normHealth = Math.max(0, Math.min(100, (avgHealthNum - 3.0) * 15));
-          const normSurvive = Math.max(0, Math.min(100, (survivingTurnsNum - 3) * 25));
 
-          const archetypeValue = (normMana * 0.5) + (normHealth * 0.25) + (normSurvive * 0.25);
+          // Archetype Calculation (0 = Aggro, 100 = Control)
+          // 1. Total Cost: cards costing <= 1.5 total resource scale near 0%, 4+ total resource hits 100%
+          const normMana = Math.max(0, Math.min(100, (avgManaCost - 1.5) * 40));
+
+          // 2. Health: Low HP frontline (under 5) pulls heavily left
+          const normHealth = Math.max(0, Math.min(100, (avgHealthNum - 4.0) * 20));
+
+          // 3. Survival: Under 5 turns registers as Aggro
+          const normSurvive = Math.max(0, Math.min(100, (survivingTurnsNum - 4) * 20));
+
+          // 70% weight on resource cost so cheap decks stick hard to the left
+          const archetypeValue = (normMana * 0.7) + (normHealth * 0.15) + (normSurvive * 0.15);
 
           let archetypeLabel = "Moderate";
           let archetypeColor = "text-blue-400";
-          if (archetypeValue < 42) { 
+          if (archetypeValue < 35) { 
               archetypeLabel = "Aggressive"; 
               archetypeColor = "text-rose-400"; 
-          } else if (archetypeValue > 58) { 
+          } else if (archetypeValue > 65) { 
               archetypeLabel = "Controlled"; 
               archetypeColor = "text-indigo-400"; 
           }
