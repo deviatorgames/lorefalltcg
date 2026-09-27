@@ -554,8 +554,8 @@
                   
                   // Active Board Strikes: Top 4-8 cards (Strikes 2 & 3)
                   const topBoard = sDeckStrikes.slice(3, 8);
-                  const sDeckBoard = topBoard.length > 0
-                      ? (topBoard.reduce((sum, val) => sum + val, 0) / topBoard.length)
+                  const sDeckBoard = topBoard.length > 0 
+                      ? (topBoard.reduce((sum, val) => sum + val, 0) / topBoard.length) 
                       : sDeckPeak;
                   
                   metaPeakTotal += sDeckPeak;
@@ -564,10 +564,8 @@
               }
           });
           
-          // Apply a 1.15x Critical Hit / Dice Surge Multiplier to meta attacks
-          const CRIT_MODIFIER = 1.15;
-          const metaPeakStrike = (validDecksCount > 0 ? (metaPeakTotal / validDecksCount) : 9.5) * CRIT_MODIFIER;
-          const metaBoardStrike = (validDecksCount > 0 ? (metaBoardTotal / validDecksCount) : 6.0) * CRIT_MODIFIER;
+          const metaPeakStrike = validDecksCount > 0 ? (metaPeakTotal / validDecksCount) : 9.5;
+          const metaBoardStrike = validDecksCount > 0 ? (metaBoardTotal / validDecksCount) : 6.0;
 
           // 2. Active Deck Calculations (Dynamic Target)
           const activeDeck = statsTargetDeck ? statsTargetDeck.cards : deck;
@@ -610,40 +608,59 @@
           const avgHealth = avgHealthNum.toFixed(1);
           const avgDex = allies.length ? (allies.reduce((sum, c) => sum + (parseFloat(c.Dexterity) || 0), 0) / allies.length).toFixed(1) : 0;
 
-          // Top 3 Vanguard Health Average (Realistic Frontline Anchor)
+          // Vanguard Health Model: Top 3 Vanguard average anchors the frontline
           const allyHealthList = allies.map(a => parseFloat(a.Health) || 0).sort((a, b) => b - a);
           const top3HealthList = allyHealthList.slice(0, 3);
-          const top3VanguardHealth = top3HealthList.length > 0
-              ? (top3HealthList.reduce((sum, h) => sum + h, 0) / top3HealthList.length)
+          const top3VanguardHealth = top3HealthList.length > 0 
+              ? (top3HealthList.reduce((sum, h) => sum + h, 0) / top3HealthList.length) 
               : 0;
 
-          // Sequential 3-Strike Health Carry-Over Simulation
-          let currentVanguardHP = top3VanguardHealth;
+          // Secondary/Support Ally Buffer (Steps up when the primary vanguard falls)
+          const supportAllyHealth = avgHealthNum;
+
+          // SEQUENTIAL 3-STRIKE PERSISTENT DAMAGE SIMULATION
+          let currentFrontlineHP = top3VanguardHealth;
           let turnCycleHeroBleed = 0;
+          let hasDeployedSupport = false;
 
-          // Strike 1: Peak Finisher Assault
-          if (metaPeakStrike > currentVanguardHP) {
-              turnCycleHeroBleed += (metaPeakStrike - currentVanguardHP);
-              currentVanguardHP = 0;
-          } else {
-              currentVanguardHP -= metaPeakStrike;
-          }
+          const incomingStrikes = [metaPeakStrike, metaBoardStrike, metaBoardStrike];
 
-          // Strike 2: Board Assault (hits remaining vanguard HP; if 0, bleeds to hero)
-          if (metaBoardStrike > currentVanguardHP) {
-              turnCycleHeroBleed += (metaBoardStrike - currentVanguardHP);
-              currentVanguardHP = 0;
-          } else {
-              currentVanguardHP -= metaBoardStrike;
-          }
+          incomingStrikes.forEach((strikeDmg) => {
+              let damageRemaining = strikeDmg;
 
-          // Strike 3: Board Assault (hits remaining vanguard HP; if 0, bleeds to hero)
-          if (metaBoardStrike > currentVanguardHP) {
-              turnCycleHeroBleed += (metaBoardStrike - currentVanguardHP);
-              currentVanguardHP = 0;
-          } else {
-              currentVanguardHP -= metaBoardStrike;
-          }
+              // 1. Damage current active defender
+              if (currentFrontlineHP > 0) {
+                  if (damageRemaining >= currentFrontlineHP) {
+                      damageRemaining -= currentFrontlineHP;
+                      currentFrontlineHP = 0; // Defender defeated
+                  } else {
+                      currentFrontlineHP -= damageRemaining;
+                      damageRemaining = 0;
+                  }
+              }
+
+              // 2. If primary vanguard died and support hasn't deployed yet, step up
+              if (currentFrontlineHP <= 0 && !hasDeployedSupport && supportAllyHealth > 0) {
+                  hasDeployedSupport = true;
+                  currentFrontlineHP = supportAllyHealth;
+
+                  // Remaining strike damage hits the newly stepped-up support ally
+                  if (damageRemaining > 0) {
+                      if (damageRemaining >= currentFrontlineHP) {
+                          damageRemaining -= currentFrontlineHP;
+                          currentFrontlineHP = 0; // Support also defeated
+                      } else {
+                          currentFrontlineHP -= damageRemaining;
+                          damageRemaining = 0;
+                      }
+                  }
+              }
+
+              // 3. Any unabsorbed damage bleeds directly through to the Hero
+              if (damageRemaining > 0) {
+                  turnCycleHeroBleed += damageRemaining;
+              }
+          });
 
           const survivingTurnsNum = turnCycleHeroBleed > 0 ? Math.floor(heroHealth / turnCycleHeroBleed) : 99;
           const survivingTurns = survivingTurnsNum === 99 ? "99+" : survivingTurnsNum;
@@ -664,16 +681,16 @@
 
           let longevityText = ""; let longevityColor = "";
           if (survivingTurnsNum >= 8) {
-              longevityText = `Exceptional protection. Top frontline (${top3VanguardHealth.toFixed(1)} HP avg) absorbs deep into the 3-strike cycle. Leaking only ~${turnCycleHeroBleed.toFixed(1)} bleed/turn (Surviving ~${survivingTurns} turns).`;
+              longevityText = `Exceptional protection. Top frontline (${top3VanguardHealth.toFixed(1)} HP) and reserves absorb nearly all 3 strikes. Hero takes only ~${turnCycleHeroBleed.toFixed(1)} bleed/cycle (Surviving ~${survivingTurns} turns).`;
               longevityColor = "text-emerald-400";
           } else if (survivingTurnsNum >= 4) {
-              longevityText = `Solid defense. Top frontline cushions the initial surge, leaking ~${turnCycleHeroBleed.toFixed(1)} total bleed across remaining strikes (Surviving ~${survivingTurns} turns).`;
+              longevityText = `Solid defense. Top frontline falls to early pressure, but backup allies stabilize. Hero absorbs ~${turnCycleHeroBleed.toFixed(1)} bleed/cycle (Surviving ~${survivingTurns} turns).`;
               longevityColor = "text-blue-400";
           } else if (survivingTurnsNum >= 2) {
-              longevityText = `High pressure! Frontline falls quickly. Follow-up strikes hammer the Hero directly (~${turnCycleHeroBleed.toFixed(1)} bleed/turn, surviving ~${survivingTurns} turns).`;
+              longevityText = `High pressure! Both vanguard and backup allies break under the 3-strike assault (~${turnCycleHeroBleed.toFixed(1)} dmg/turn cycle, surviving ~${survivingTurns} turns).`;
               longevityColor = "text-amber-400";
           } else {
-              longevityText = `Critical vulnerability! Frontline drops immediately, permitting near-total bleedthrough (~${turnCycleHeroBleed.toFixed(1)} dmg/turn cycle). Hero falls in ~${survivingTurns} turns.`;
+              longevityText = `Critical vulnerability! Fragile frontline permits heavy unblocked strikes directly to the Hero (~${turnCycleHeroBleed.toFixed(1)} dmg/turn cycle). Falls in ~${survivingTurns} turns.`;
               longevityColor = "text-rose-400";
           }
 
