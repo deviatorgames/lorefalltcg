@@ -112,6 +112,7 @@
       const [activeTab, setActiveTab] = useState('Hero');
       const [modalCard, setModalCard] = useState(null);
       const [showStatsModal, setShowStatsModal] = useState(false);
+	  const [statsTargetDeck, setStatsTargetDeck] = useState(null);
       const [notification, setNotification] = useState(null);
       const [mobileDeckView, setMobileDeckView] = useState(false);
 
@@ -525,8 +526,9 @@
               return strike;
           };
 
-          // 1. Meta Threat Calculation (Idea 4 - Scans all saved decks)
-          let metaStrikeTotal = 0;
+          // 1. Meta Threat Calculation (Top 3 Finishers across saved decks)
+          let metaPeakTotal = 0;
+          let metaAvgTotal = 0;
           let validDecksCount = 0;
           
           Object.values(savedDecks).forEach(sDeck => {
@@ -546,21 +548,27 @@
               
               if (sDeckStrikes.length > 0) {
                   sDeckStrikes.sort((a, b) => b - a);
-                  const top5 = sDeckStrikes.slice(0, 5); // Take top 5 finishers
-                  const sDeckPeak = top5.reduce((sum, val) => sum + val, 0) / top5.length;
-                  metaStrikeTotal += sDeckPeak;
+                  const top3 = sDeckStrikes.slice(0, 3);
+                  const sDeckPeak = top3.reduce((sum, val) => sum + val, 0) / top3.length;
+                  const sDeckAvg = sDeckStrikes.reduce((sum, val) => sum + val, 0) / sDeckStrikes.length;
+                  
+                  metaPeakTotal += sDeckPeak;
+                  metaAvgTotal += sDeckAvg;
                   validDecksCount++;
               }
           });
           
-          // If no decks exist, default to 8.0
-          const metaStrike = validDecksCount > 0 ? (metaStrikeTotal / validDecksCount) : 8.0;
+          const metaPeakStrike = validDecksCount > 0 ? (metaPeakTotal / validDecksCount) : 9.5;
+          const metaAvgStrike = validDecksCount > 0 ? (metaAvgTotal / validDecksCount) : 5.5;
 
-          // 2. Active Deck Calculations
-          const allDeckCards = Object.values(deck).flatMap(item => Array(item.count).fill(item.card));
-          const manaIntake = parseFloat(selectedHero?.Mana) || 0;
-          const heroHealth = parseFloat(selectedHero?.Health) || 0;
-          const heroPower = parseFloat(selectedHero?.Power) || 0;
+          // 2. Active Deck Calculations (Dynamic Target)
+          const activeDeck = statsTargetDeck ? statsTargetDeck.cards : deck;
+          const activeHero = statsTargetDeck ? cards.find(c => c._id === statsTargetDeck.heroId) : selectedHero;
+
+          const allDeckCards = Object.values(activeDeck).flatMap(item => Array(item.count).fill(item.card));
+          const manaIntake = parseFloat(activeHero?.Mana) || 0;
+          const heroHealth = parseFloat(activeHero?.Health) || 0;
+          const heroPower = parseFloat(activeHero?.Power) || 0;
           
           const cardsWithCost = allDeckCards.filter(c => parseFloat(c["Mana Cost"]) > 0 || parseFloat(c["Charge Requirement"]) > 0);
           const totalCost = cardsWithCost.reduce((sum, c) => sum + (parseFloat(c["Mana Cost"]) || 0) + (parseFloat(c["Charge Requirement"]) || 0), 0);
@@ -594,7 +602,7 @@
           const avgHealth = avgHealthNum.toFixed(1);
           const avgDex = allies.length ? (allies.reduce((sum, c) => sum + (parseFloat(c.Dexterity) || 0), 0) / allies.length).toFixed(1) : 0;
 
-          // Offensive Strike Math for Active Deck
+          // Offensive Strike Math for Active Deck (Top 3)
           let activeStrikes = [];
           allDeckCards.forEach(c => {
               if (c._type === 'Ally' || c._type === 'Skill') {
@@ -606,27 +614,29 @@
           const overallDeckStrike = activeStrikes.length > 0 ? (activeStrikes.reduce((sum, val) => sum + val, 0) / activeStrikes.length) : 0;
           
           activeStrikes.sort((a, b) => b - a);
-          const top5Active = activeStrikes.slice(0, 5);
-          const peakDeckStrike = top5Active.length > 0 ? (top5Active.reduce((sum, val) => sum + val, 0) / top5Active.length) : 0;
+          const top3Active = activeStrikes.slice(0, 3);
+          const peakDeckStrike = top3Active.length > 0 ? (top3Active.reduce((sum, val) => sum + val, 0) / top3Active.length) : 0;
 
-          // Breakthrough Math (Using dynamic Meta Strike)
-          const breakthroughPerStrike = Math.max(0, metaStrike - avgHealthNum);
-          const damagePerTurnCycle = breakthroughPerStrike * 3;
+          // Realistic Breakthrough Turn Cycle: 1 Peak Finisher Strike + 2 Baseline Strikes
+          const primaryBreakthrough = Math.max(0, metaPeakStrike - avgHealthNum);
+          const secondaryBreakthrough = Math.max(0, metaAvgStrike - avgHealthNum) * 2;
+          const damagePerTurnCycle = primaryBreakthrough + secondaryBreakthrough;
+          
           const survivingTurnsNum = damagePerTurnCycle > 0 ? Math.floor(heroHealth / damagePerTurnCycle) : 99;
           const survivingTurns = survivingTurnsNum === 99 ? "99+" : survivingTurnsNum;
 
           let longevityText = ""; let longevityColor = "";
-          if (survivingTurnsNum >= 7) {
-              longevityText = `Exceptional protection. Your average vanguard buffer limits an average ${metaStrike.toFixed(1)}-damage meta strike to just ${breakthroughPerStrike.toFixed(1)} breakthrough damage. Your hero can survive roughly ${survivingTurns} turn cycles under heavy pressure.`;
+          if (survivingTurnsNum >= 8) {
+              longevityText = `Exceptional protection. Your vanguard soaks up all secondary pressure and cushions the meta's ${metaPeakStrike.toFixed(1)}-damage finisher. Your hero can comfortably survive ~${survivingTurns} turn cycles.`;
               longevityColor = "text-emerald-400";
-          } else if (survivingTurnsNum >= 4) {
-              longevityText = `Moderate protection. Against a ${metaStrike.toFixed(1)}-damage meta strike, ${breakthroughPerStrike.toFixed(1)} damage bleeds through to your hero. You have enough health to survive around ${survivingTurns} turn cycles.`;
+          } else if (survivingTurnsNum >= 5) {
+              longevityText = `Solid protection. The enemy's ${metaPeakStrike.toFixed(1)}-damage finisher deals ${primaryBreakthrough.toFixed(1)} breakthrough, but secondary attacks are largely checked. Surviving ~${survivingTurns} turn cycles under pressure.`;
               longevityColor = "text-blue-400";
-          } else if (survivingTurnsNum >= 2) {
-              longevityText = `Risky protection. High breakthrough damage will bleed through your vanguards, costing your hero ${damagePerTurnCycle.toFixed(1)} health per cycle. You only have ~${survivingTurns} turns to win.`;
+          } else if (survivingTurnsNum >= 3) {
+              longevityText = `Risky protection. Your vanguard cannot withstand the primary finisher and takes bleed-through on follow-up strikes (${damagePerTurnCycle.toFixed(1)} total dmg/cycle). Surviving ~${survivingTurns} turns.`;
               longevityColor = "text-amber-400";
           } else {
-              longevityText = `Highly vulnerable! Your allies cannot withstand ${metaStrike.toFixed(1)}-damage meta strikes. Your hero will take a brutal ${damagePerTurnCycle.toFixed(1)} damage a turn, leaving you ${survivingTurns} turns or fewer to survive.`;
+              longevityText = `Highly vulnerable! Fragile vanguards allow both primary and secondary strikes to bleed through heavily (${damagePerTurnCycle.toFixed(1)} dmg/cycle). Your hero only survives ~${survivingTurns} turns.`;
               longevityColor = "text-rose-400";
           }
 
@@ -646,11 +656,11 @@
               manaIntake, avgManaCost: avgManaCost.toFixed(1), avgGoldCost: avgGoldCost.toFixed(1), 
               sustainText, sustainColor, 
               avgPower, avgRangedAttack, avgHealth, avgDex, 
-              overallDeckStrike: overallDeckStrike.toFixed(1), peakDeckStrike: peakDeckStrike.toFixed(1), metaStrike: metaStrike.toFixed(1),
+              overallDeckStrike: overallDeckStrike.toFixed(1), peakDeckStrike: peakDeckStrike.toFixed(1), metaPeakStrike: metaPeakStrike.toFixed(1),
               heroHealth, survivingTurns, longevityText, longevityColor,
               curve, maxCurve, types, maxType, cardCount: allDeckCards.length 
           };
-      }, [deck, selectedHero, savedDecks, cards]);
+      }, [deck, selectedHero, savedDecks, cards, statsTargetDeck]);
 
       const filteredPool = useMemo(() => {
         let pool = cards.filter(c => c._type !== 'Hero');
@@ -883,8 +893,11 @@
                         </button>
                     )}
                     {deckCount > 0 && (
-                        <button onClick={() => setShowStatsModal(true)} className="w-full mt-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold uppercase tracking-wider rounded transition border border-slate-700">📊 View Deck Stats</button>
-                    )}
+						<button onClick={() => { 
+							setStatsTargetDeck(null); 
+							setShowStatsModal(true); 
+						}} className="w-full mt-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold uppercase tracking-wider rounded transition border border-slate-700">📊 View Deck Stats</button>
+					)}
                   </div>
                   <div className="flex-1 overflow-y-auto p-3 md:p-4 pb-24 md:pb-4 space-y-2 min-h-0 w-full">
                     {Object.values(deck).map(({ card, count }) => (
@@ -977,6 +990,20 @@
 										}
 									}} className="px-3.5 py-2 bg-rose-900/80 hover:bg-rose-800 text-rose-200 rounded font-bold text-xs md:text-sm transition">Delete</button>
 								)}
+							<div className="flex gap-2 shrink-0">
+								<button onClick={() => {
+									setStatsTargetDeck(sDeck);
+									setShowStatsModal(true);
+								}} className="flex-1 sm:flex-none px-3.5 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded font-bold text-xs md:text-sm shadow transition border border-slate-600">
+									📊 Stats
+								</button>
+								<button onClick={() => {
+									setSelectedHeroId(sDeck.heroId);
+									setDeck(JSON.parse(JSON.stringify(sDeck.cards)));
+									setView('deck-builder');
+									triggerToast("Deck loaded into Builder!", false);
+								}} className="flex-1 sm:flex-none px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold text-xs md:text-sm shadow transition">Load into Builder</button>
+								// ... (Keep existing Delete button logic) ...
 							</div>
                           </div>
                           
@@ -1375,7 +1402,7 @@
                             <div className="text-center">
                                 <div className="text-2xl md:text-3xl font-black text-purple-400">{deckAnalytics.peakDeckStrike}</div>
                                 <div className="text-xs text-amber-400 uppercase font-bold mt-1">Peak Finisher Avg</div>
-                                <div className="text-[9px] text-slate-500 mt-0.5">Top 5 Strongest Attacks</div>
+                                <div className="text-[9px] text-slate-500 mt-0.5">Top 3 Strongest Attacks</div>
                             </div>
                         </div>
                     </div>
