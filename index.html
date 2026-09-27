@@ -958,26 +958,26 @@
                                 <p className="text-xs md:text-sm text-slate-400 mt-0.5">Total Main Deck: <strong className="text-amber-500">{sDeckTotal} / 40 Cards</strong></p>
                             </div>
                             <div className="flex gap-2 shrink-0">
-                              <button onClick={() => {
-                                 setSelectedHeroId(sDeck.heroId);
-                                 setDeck(sDeck.cards);
-                                 setView('deck-builder');
-                                 triggerToast("Deck loaded into Builder!", false);
-                              }} className="flex-1 sm:flex-none px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold text-xs md:text-sm shadow transition">Load into Builder</button>
-                              {(!sDeck.creator || sDeck.creator === currentUser) && (
-                                  <button onClick={async () => {
-                                     if(confirm(`Are you sure you want to delete "${selectedSavedDeck}"?`)) {
-                                       const newDecks = {...savedDecks};
-                                       delete newDecks[selectedSavedDeck];
-                                       setSavedDecks(newDecks);
-                                       setSelectedSavedDeck(null);
-                                       if (supabase) {
-                                         await supabase.from('saved_decks').delete().eq('name', selectedSavedDeck);
-                                       }
-                                     }
-                                  }} className="px-3.5 py-2 bg-rose-900/80 hover:bg-rose-800 text-rose-200 rounded font-bold text-xs md:text-sm transition">Delete</button>
-                              )}
-                            </div>
+								<button onClick={() => {
+									setSelectedHeroId(sDeck.heroId);
+									setDeck(JSON.parse(JSON.stringify(sDeck.cards)));
+									setView('deck-builder');
+									triggerToast("Deck loaded into Builder!", false);
+								}} className="flex-1 sm:flex-none px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold text-xs md:text-sm shadow transition">Load into Builder</button>
+								{(!sDeck.creator || sDeck.creator === currentUser) && (
+									<button onClick={async () => {
+										if (confirm(`Are you sure you want to delete "${selectedSavedDeck}"?`)) {
+											const newDecks = { ...savedDecks };
+											delete newDecks[selectedSavedDeck];
+											setSavedDecks(newDecks);
+											setSelectedSavedDeck(null);
+											if (supabase) {
+												await supabase.from('saved_decks').delete().eq('name', selectedSavedDeck);
+											}
+										}
+									}} className="px-3.5 py-2 bg-rose-900/80 hover:bg-rose-800 text-rose-200 rounded font-bold text-xs md:text-sm transition">Delete</button>
+								)}
+							</div>
                           </div>
                           
                           {hero && (
