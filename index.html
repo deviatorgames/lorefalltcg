@@ -617,8 +617,13 @@
           const avgHealth = avgHealthNum.toFixed(1);
           const avgDex = allies.length ? (allies.reduce((sum, c) => sum + (parseFloat(c.Dexterity) || 0), 0) / allies.length).toFixed(1) : 0;
 
-          const vanguardBaseHealth = avgHealthNum;
-          const supportAllyHealth = avgHealthNum;
+          // Deployment Sustainability Ratio
+          // If intake >= cost, deployRatio = 1.0 (100% frontline uptime).
+          // If intake < cost, frontline HP is scaled down by cast reliability.
+          const deployRatio = avgManaCost > 0 ? Math.min(1.0, manaIntake / avgManaCost) : 1.0;
+
+          const vanguardBaseHealth = avgHealthNum * deployRatio;
+          const supportAllyHealth = avgHealthNum * deployRatio;
 
           let currentFrontlineHP = vanguardBaseHealth;
           let turnCycleHeroBleed = 0;
