@@ -854,14 +854,13 @@
                   <span>👤</span><span>Login / Register</span>
                 </button>
               )}
-              <button onClick={handleEnableEdit} className={`shrink-0 px-2.5 py-1 md:px-3 md:py-1.5 rounded-md text-xs font-semibold transition border ${editMode ? 'bg-amber-600/20 text-amber-500 border-amber-600 shadow-[0_0_15px_rgba(217,119,6,0.3)] hover:bg-amber-600/30' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'}`}>
-                {editMode ? '✓ Edit Active' : '🔓 Edit Mode'}
-              </button>
               <div className="flex bg-slate-800 rounded-lg p-0.5 md:p-1 border border-slate-700 shrink-0 ml-1">
                 <button onClick={() => setView('deck-builder')} className={`px-2.5 py-1 md:px-3 md:py-1.5 rounded-md text-xs font-semibold transition ${view === 'deck-builder' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}>Deck Builder</button>
                 <button onClick={() => setView('saved-decks')} className={`px-2.5 py-1 md:px-3 md:py-1.5 rounded-md text-xs font-semibold transition ${view === 'saved-decks' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}>Saved Decks</button>
                 <button onClick={() => setView('card-forge')} className={`px-2.5 py-1 md:px-3 md:py-1.5 rounded-md text-xs font-semibold transition ${view === 'card-forge' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}>Card Forge</button>
-                <button onClick={() => setView('database')} className={`px-2.5 py-1 md:px-3 md:py-1.5 rounded-md text-xs font-semibold transition ${view === 'database' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}>Database</button>
+                {currentUser === 'Gavin' && (
+                  <button onClick={() => setView('database')} className={`px-2.5 py-1 md:px-3 md:py-1.5 rounded-md text-xs font-semibold transition ${view === 'database' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}>Database</button>
+                )}
               </div>
             </div>
           </header>
@@ -1310,7 +1309,7 @@
                     </div>
                 </div>
               </div>
-            ) : (
+            ) : currentUser === 'Gavin' ? (
 
               /* VIEW: DATABASE */
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-slate-950 relative w-full max-w-full">
@@ -1404,6 +1403,10 @@
                     </tbody>
                   </table>
                 </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
+                Access restricted.
               </div>
             )}
           </div>
@@ -1561,19 +1564,19 @@
             </div>
           )}
 
-          {/* SINGLE CARD MODAL */}
+          {/* SINGLE CARD MODAL WITH IN-PLACE EDITING */}
           {modalCard && (
             <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 md:p-4 z-[70]">
               <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl p-0 max-h-[95dvh] flex flex-col sm:flex-row shadow-2xl overflow-hidden min-w-0">
-				{modalCard["Image URL"] && (
-					<div className="w-full sm:w-1/2 h-[30dvh] sm:min-h-[600px] bg-black border-b sm:border-b-0 sm:border-r border-slate-800 flex items-center justify-center p-2 md:p-4 shrink-0">
-						<img src={`${formatImageUrl(modalCard["Image URL"])}?t=${Date.now()}`} className="max-w-full max-h-full object-contain drop-shadow-2xl rounded-xl" />
-					</div>
-				)}
+                {modalCard["Image URL"] && (
+                  <div className="w-full sm:w-1/2 h-[30dvh] sm:min-h-[600px] bg-black border-b sm:border-b-0 sm:border-r border-slate-800 flex items-center justify-center p-2 md:p-4 shrink-0">
+                    <img src={`${formatImageUrl(modalCard["Image URL"])}?t=${Date.now()}`} className="max-w-full max-h-full object-contain drop-shadow-2xl rounded-xl" />
+                  </div>
+                )}
                 
                 <div className="flex-1 flex flex-col min-w-0 max-h-[60dvh] sm:max-h-[90dvh]">
                   <div className="px-4 py-3 md:px-6 md:py-4 border-b border-slate-800 flex justify-between items-start bg-slate-800/40 shrink-0">
-                    <div className="min-w-0">
+                    <div className="min-w-0 pr-2">
                       <div className="flex items-center gap-2">
                           <h3 className="text-base md:text-xl font-bold text-slate-100 truncate">{modalCard["Card Name"] || modalCard["Hero Name"]}</h3>
                           <span className={`text-[8px] uppercase font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0 border ${String(modalCard["Is Official"]) === "true" || modalCard.Creator === 'Gavin' ? 'bg-slate-800 text-slate-400 border-slate-600' : 'bg-purple-900/60 text-purple-300 border-purple-700/50'}`}>
@@ -1582,22 +1585,89 @@
                       </div>
                       <p className="text-xs md:text-sm text-amber-500 font-semibold mt-0.5 truncate">{modalCard._type} • {modalCard["Card Rarity"] || "Common"}</p>
                     </div>
-                    <button onClick={() => setModalCard(null)} className="text-slate-400 hover:text-white font-bold text-xl p-1 leading-none rounded hover:bg-slate-700 transition shrink-0 ml-2">✕</button>
-                  </div>
-                  <div className="p-4 md:p-6 overflow-y-auto space-y-3 text-xs md:text-sm divide-y divide-slate-800/60 flex-1 relative min-w-0">
-                    {editMode && view === 'database' && (
-                        <div className="absolute top-2 right-4 md:top-4 md:right-6 z-10">
-                            <button onClick={() => handleDeleteCard(modalCard._id)} className="px-3 py-1.5 bg-rose-900/40 text-rose-300 text-xs font-bold rounded hover:bg-rose-700 hover:text-white transition">Delete</button>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Only Card Creator or Gavin can edit/delete */}
+                      {currentUser && (currentUser === modalCard.Creator || currentUser === 'Gavin') && (
+                        <div className="flex items-center gap-1.5">
+                          <button 
+                            onClick={() => setModalEditMode(!modalEditMode)} 
+                            className={`px-2.5 py-1 rounded text-xs font-bold transition border ${modalEditMode ? 'bg-amber-600 text-white border-amber-500 shadow-sm' : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'}`}>
+                            {modalEditMode ? '✓ Done' : '✏️ Edit'}
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteCard(modalCard._id)} 
+                            className="px-2 py-1 rounded bg-rose-900/50 hover:bg-rose-800 text-rose-300 text-xs font-bold transition border border-rose-800/50" 
+                            title="Delete Card">
+                            🗑️
+                          </button>
                         </div>
-                    )}
+                      )}
+                      <button onClick={() => { setModalCard(null); setModalEditMode(false); }} className="text-slate-400 hover:text-white font-bold text-xl p-1 leading-none rounded hover:bg-slate-700 transition">✕</button>
+                    </div>
+                  </div>
+
+                  <div className="p-4 md:p-6 overflow-y-auto space-y-3 text-xs md:text-sm divide-y divide-slate-800/60 flex-1 relative min-w-0">
                     {Object.entries(modalCard).map(([key, val]) => {
-                      if (key.startsWith('_') || val === "" || val === null || val === undefined || key === "Image URL") return null;
+                      if (key.startsWith('_') || key === "Creator" || key === "Is Official") return null;
+                      if (!modalEditMode && (val === "" || val === null || val === undefined || key === "Image URL")) return null;
+
+                      const spec = FIELD_TYPES[key] || { type: 'text' };
+                      const v = val === undefined || val === null ? "" : val;
+
                       return (
                         <div key={key} className="pt-2.5 flex flex-col sm:flex-row sm:justify-between sm:gap-6 gap-1 min-w-0">
-                          <span className="text-slate-500 font-medium shrink-0 uppercase tracking-wider text-[10px] sm:text-xs sm:mt-0.5">{key}</span>
-                          <span className="text-left sm:text-right text-slate-200 break-words whitespace-pre-wrap flex-1 leading-relaxed min-w-0">
-                              {key === 'Abilities' ? renderAbilityText(val) : String(val)}
-                          </span>
+                          <span className="text-slate-500 font-medium shrink-0 uppercase tracking-wider text-[10px] sm:text-xs sm:mt-1">{key}</span>
+                          
+                          {modalEditMode ? (
+                            <div className="flex-1 sm:max-w-md w-full">
+                              {spec.type === 'textarea' ? (
+                                <textarea 
+                                  value={v} 
+                                  onChange={e => {
+                                    handleInlineChange(modalCard._id, key, e.target.value);
+                                    setModalCard(prev => ({ ...prev, [key]: e.target.value }));
+                                  }} 
+                                  className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded px-2.5 py-1.5 text-xs text-slate-200 min-h-[60px]" 
+                                />
+                              ) : spec.type === 'select' ? (
+                                <select 
+                                  value={v} 
+                                  onChange={e => {
+                                    handleInlineChange(modalCard._id, key, e.target.value);
+                                    setModalCard(prev => ({ ...prev, [key]: e.target.value }));
+                                  }} 
+                                  className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded px-2 py-1 text-xs text-slate-200">
+                                  {spec.options.map(o => <option key={o} value={o}>{o === "" ? "None" : o}</option>)}
+                                </select>
+                              ) : spec.type === 'number' ? (
+                                <input 
+                                  type="number" 
+                                  step="any" 
+                                  value={v} 
+                                  onChange={e => {
+                                    handleInlineChange(modalCard._id, key, e.target.value);
+                                    setModalCard(prev => ({ ...prev, [key]: e.target.value }));
+                                  }} 
+                                  className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded px-2.5 py-1 text-xs text-slate-200" 
+                                />
+                              ) : (
+                                <input 
+                                  type="text" 
+                                  value={v} 
+                                  onChange={e => {
+                                    handleInlineChange(modalCard._id, key, e.target.value);
+                                    setModalCard(prev => ({ ...prev, [key]: e.target.value }));
+                                  }} 
+                                  className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded px-2.5 py-1 text-xs text-slate-200" 
+                                />
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-left sm:text-right text-slate-200 break-words whitespace-pre-wrap flex-1 leading-relaxed min-w-0">
+                                {key === 'Abilities' ? renderAbilityText(val) : String(val)}
+                            </span>
+                          )}
                         </div>
                       );
                     })}
