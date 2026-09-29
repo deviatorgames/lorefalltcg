@@ -134,6 +134,7 @@
       const [filterStatValue, setFilterStatValue] = useState('');
       const [filterFaction, setFilterFaction] = useState('All');
       const [includeCommunity, setIncludeCommunity] = useState(false);
+      const [editMode, setEditMode] = useState(false);
       const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
       
       const [currentUser, setCurrentUser] = useState(() => localStorage.getItem('lorefall_user') || '');
@@ -301,7 +302,20 @@
         setTimeout(() => setNotification(null), 3500);
       };
 
-      const [modalEditMode, setModalEditMode] = useState(false);
+      const handleEnableEdit = () => {
+        if (editMode) {
+            setEditMode(false);
+            triggerToast("Spreadsheet Edit Mode Disabled", false);
+            return;
+        }
+        const pw = prompt("Enter admin password to enable Inline Editing:");
+        if (pw === "deviator") {
+            setEditMode(true);
+            triggerToast("Spreadsheet Edit Mode Enabled!", false);
+        } else if (pw !== null) {
+            triggerToast("Incorrect password.", true);
+        }
+      };
 
       const handleInlineChange = async (cardId, key, val) => {
           if (FIELD_TYPES[key]?.type === 'number' && val !== "") val = parseFloat(val);
