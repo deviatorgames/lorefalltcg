@@ -987,14 +987,29 @@
                       <div className={`h-full transition-all duration-300 ${deckCount === MAX_DECK ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${Math.min((deckCount / MAX_DECK) * 100, 100)}%` }} />
                     </div>
                     {deckCount > 0 && (
-						<button onClick={handleClearDeck} className="w-full py-1.5 mb-1.5 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-700/60 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5">
-							🗑️ Clear Deck
-						</button>
+                      <div className="flex gap-1.5 mt-2.5">
+                        <button 
+                          onClick={() => {
+                            setStatsTargetDeck(null);
+                            setShowStatsModal(true);
+                          }} 
+                          className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-xs font-bold uppercase tracking-wider transition flex items-center justify-center gap-1">
+                          📊 Deck Stats
+                        </button>
+                        <button 
+                          onClick={handleClearDeck} 
+                          className="px-3 py-1.5 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-700/60 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1" 
+                          title="Clear all cards from active deck">
+                          🗑️ Clear
+                        </button>
+                      </div>
                     )}
                     {deckCount === MAX_DECK && (
-                        <button onClick={handleSaveDeck} className={`w-full mt-1.5 py-2 text-white text-xs font-bold uppercase tracking-wider rounded transition shadow-[0_0_10px_rgba(5,150,105,0.3)] ${currentUser ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-slate-700 hover:bg-slate-600'}`}>
-                            {currentUser ? 'Save Deck' : 'Login to Save Deck'}
-                        </button>
+                      <button 
+                        onClick={handleSaveDeck} 
+                        className={`w-full mt-2 py-2 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition shadow-[0_0_10px_rgba(5,150,105,0.3)] ${currentUser ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-slate-700 hover:bg-slate-600'}`}>
+                        {currentUser ? 'Save Deck' : 'Login to Save Deck'}
+                      </button>
                     )}
                   </div>
                   <div className="flex-1 overflow-y-auto p-3 md:p-4 pb-24 md:pb-4 space-y-2 min-h-0 w-full">
