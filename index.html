@@ -1619,7 +1619,8 @@
                     ).filter(key => {
                       if (key.startsWith('_') || key === "Creator" || key === "Is Official" || key === "Status Notes") return false;
                       const canEditThisCard = modalEditMode && currentUser && (currentUser === modalCard.Creator || currentUser === 'Gavin');
-                      if (!canEditThisCard && (val === "" || val === null || val === undefined || key === "Image URL")) return false;
+					  const cardValue = modalCard[key];
+					  if (!canEditThisCard && (cardValue === "" || cardValue === null || cardValue === undefined || key === "Image URL")) return false;
 
                       if (canEditThisCard) {
                         const cat = modalCard._type;
