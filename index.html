@@ -368,6 +368,13 @@
           }
       };
 
+	  const handleClearDeck = () => {
+	    if (Object.keys(deck).length === 0) return;
+	    if (confirm("Are you sure you want to remove all cards from your current deck?")) {
+		  setDeck({});
+	    }
+	  };
+
       const handleSort = (key) => {
           let direction = 'ascending';
           if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -979,16 +986,15 @@
                     <div className="w-full bg-slate-700/50 h-2 rounded-full overflow-hidden">
                       <div className={`h-full transition-all duration-300 ${deckCount === MAX_DECK ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${Math.min((deckCount / MAX_DECK) * 100, 100)}%` }} />
                     </div>
+                    {deckCount > 0 && (
+						<button onClick={handleClearDeck} className="w-full py-1.5 mb-1.5 bg-rose-900/60 hover:bg-rose-800 text-rose-200 border border-rose-700/60 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5">
+							🗑️ Clear Deck
+						</button>
+                    )}
                     {deckCount === MAX_DECK && (
-                        <button onClick={handleSaveDeck} className={`w-full mt-2.5 py-2 text-white text-xs font-bold uppercase tracking-wider rounded transition shadow-[0_0_10px_rgba(5,150,105,0.3)] ${currentUser ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-slate-700 hover:bg-slate-600'}`}>
+                        <button onClick={handleSaveDeck} className={`w-full mt-1.5 py-2 text-white text-xs font-bold uppercase tracking-wider rounded transition shadow-[0_0_10px_rgba(5,150,105,0.3)] ${currentUser ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-slate-700 hover:bg-slate-600'}`}>
                             {currentUser ? 'Save Deck' : 'Login to Save Deck'}
                         </button>
-                    )}
-                    {deckCount > 0 && (
-                        <button onClick={() => {
-                            setStatsTargetDeck(null);
-                            setShowStatsModal(true);
-                        }} className="w-full mt-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold uppercase tracking-wider rounded transition border border-slate-700">📊 View Deck Stats</button>
                     )}
                   </div>
                   <div className="flex-1 overflow-y-auto p-3 md:p-4 pb-24 md:pb-4 space-y-2 min-h-0 w-full">
@@ -998,7 +1004,10 @@
                           <span className="font-bold text-amber-400 mr-2">{count}×</span>
                           <span className="text-slate-200">{card["Card Name"] || card["Hero Name"]}</span>
                         </div>
-                        <button onClick={() => handleRemoveCard(card._id)} className="w-6 h-6 rounded bg-rose-900/40 text-rose-300 flex items-center justify-center text-xs font-bold shrink-0 transition hover:bg-rose-700 hover:text-white">✕</button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button onClick={() => handleAddCard(card)} className="w-6 h-6 rounded bg-emerald-900/40 text-emerald-300 flex items-center justify-center text-xs font-bold transition hover:bg-emerald-700 hover:text-white leading-none" title="Add another copy">+</button>
+                          <button onClick={() => handleRemoveCard(card._id)} className="w-6 h-6 rounded bg-rose-900/40 text-rose-300 flex items-center justify-center text-xs font-bold transition hover:bg-rose-700 hover:text-white">✕</button>
+                        </div>
                       </div>
                     ))}
                   </div>
