@@ -820,11 +820,8 @@
             return iA - iB;
         });
 
-        if (!editMode) {
-            colArray = colArray.filter(col => col !== "Image URL" && col !== "Is Official");
-        }
         return colArray;
-	}, [tabCards, editMode]);
+	}, [tabCards]);
 
 		const FORGE_LAYOUTS = {
           "Hero": ["Card Name", "Faction", "Class", "Race", "Mana", "Health", "Power", "Dexterity", "Abilities", "Image URL"],
