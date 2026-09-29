@@ -1608,57 +1608,163 @@
                   </div>
 
                   <div className="p-4 md:p-6 overflow-y-auto space-y-3 text-xs md:text-sm divide-y divide-slate-800/60 flex-1 relative min-w-0">
-                    {Object.entries(modalCard).map(([key, val]) => {
-                      if (key.startsWith('_') || key === "Creator" || key === "Is Official") return null;
-                      if (!modalEditMode && (val === "" || val === null || val === undefined || key === "Image URL")) return null;
+                    {(modalEditMode 
+                      ? (FORGE_LAYOUTS[modalCard._type] || Object.keys(modalCard).filter(k => !k.startsWith('_')))
+                      : Object.keys(modalCard).filter(k => !k.startsWith('_'))
+                    ).filter(key => {
+                      if (key.startsWith('_') || key === "Creator" || key === "Is Official" || key === "Status Notes") return false;
+                      const val = modalCard[key];
+                      if (!modalEditMode && (val === "" || val === null || val === undefined || key === "Image URL")) return false;
 
+                      if (modalEditMode) {
+                        const cat = modalCard._type;
+                        const at = modalCard["Attack Type"];
+                        const flashSub = modalCard["Flash Subtype"];
+                        const eqType = modalCard["Equipment Type"];
+                        
+                        if (key === "Attack Type") {
+                            if (cat === 'Equipment' && (eqType === 'Armor' || eqType === 'Shield' || eqType === 'Accessory' || !eqType)) return false;
+                        }
+
+                        if (["Attack", "Ranged Attack", "Power", "Power Modifier"].includes(key)) {
+                            if (cat === 'Equipment' && (eqType === 'Armor' || eqType === 'Shield' || eqType === 'Accessory' || !eqType)) return false;
+                            if (!at || at === "") return false;
+                            if (at === "Melee" && key === "Ranged Attack") return false;
+                            if (at === "Ranged" && (key === "Attack" || key === "Power" || key === "Power Modifier")) return false;
+                        }
+                        
+                        if (key === "Power" && modalCard["Attack"] === "None") return false;
+                        if (key === "Power Modifier" && modalCard["Attack"] !== "None") return false;
+                        
+                        if (key === "Charge Requirement") {
+                            if (cat === 'Equipment') {
+                                if (eqType === 'Armor' || eqType === 'Accessory' || !eqType) return false;
+                                if (eqType === 'Shield') return true;
+                                if ((eqType === 'One-Handed Weapon' || eqType === 'Two-Handed Weapon') && (!at || at === "")) return false;
+                            } else {
+                                if (!at || at === "") return false;
+                            }
+                        }
+
+                        if (cat === 'Flash') {
+                            if (flashSub === 'Item' && (key === 'Mana Cost' || key === 'Faction')) return false;
+                            if (flashSub === 'Event' && key === 'Gold Cost') return false;
+                        }
+
+                        if (cat === 'Equipment') {
+                            if (eqType === 'Armor' && key === 'Defense Die Roll Modifier') return false;
+                            if (eqType === 'Shield' && key === 'Defense Modifier') return false;
+                            if ((eqType === 'One-Handed Weapon' || eqType === 'Two-Handed Weapon' || eqType === 'Accessory' || !eqType) && (key === 'Defense Modifier' || key === 'Defense Die Roll Modifier')) return false;
+                        }
+                      }
+
+                      return true;
+                    }).map(key => {
+                      const val = modalCard[key];
                       const spec = FIELD_TYPES[key] || { type: 'text' };
                       const v = val === undefined || val === null ? "" : val;
+                      const cat = modalCard._type;
+
+                      const updateVal = (newVal) => {
+                        handleInlineChange(modalCard._id, key, newVal);
+                        setModalCard(prev => ({ ...prev, [key]: newVal }));
+                      };
 
                       return (
                         <div key={key} className="pt-2.5 flex flex-col sm:flex-row sm:justify-between sm:gap-6 gap-1 min-w-0">
                           <span className="text-slate-500 font-medium shrink-0 uppercase tracking-wider text-[10px] sm:text-xs sm:mt-1">{key}</span>
                           
                           {modalEditMode ? (
-                            <div className="flex-1 sm:max-w-md w-full">
-                              {spec.type === 'textarea' ? (
-                                <textarea 
+                            <div className="flex-1 sm:max-w-md w-full min-w-0">
+                              {key === 'Class' && cat === 'Hero' ? (
+                                <select 
                                   value={v} 
-                                  onChange={e => {
-                                    handleInlineChange(modalCard._id, key, e.target.value);
-                                    setModalCard(prev => ({ ...prev, [key]: e.target.value }));
-                                  }} 
-                                  className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded px-2.5 py-1.5 text-xs text-slate-200 min-h-[60px]" 
-                                />
+                                  onChange={e => updateVal(e.target.value)} 
+                                  className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                                  {["", "Assassin", "Berserker", "Mage", "Paladin", "Ranger", "Warrior"].map(o => (
+                                    <option key={o} value={o}>{o === "" ? "-- Select --" : o}</option>
+                                  ))}
+                                </select>
+                              ) : (key === 'Class' && cat === 'Ally') || (key === 'Equipment Subtype' && cat === 'Equipment') ? (
+                                <>
+                                  <input 
+                                    list={`modal-${key.replace(/\s+/g, '-').toLowerCase()}-list`} 
+                                    type="text" 
+                                    value={v} 
+                                    onChange={e => updateVal(e.target.value)} 
+                                    className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded px-2.5 py-1.5 text-xs text-slate-200" 
+                                    placeholder={`Select or type ${key.toLowerCase()}...`} 
+                                  />
+                                  <datalist id={`modal-${key.replace(/\s+/g, '-').toLowerCase()}-list`}>
+                                    {FIELD_TYPES[key].options.map(o => <option key={o} value={o} />)}
+                                  </datalist>
+                                </>
+                              ) : spec.type === 'textarea' ? (
+                                <div className="flex flex-col gap-1.5 w-full min-w-0">
+                                  {key === 'Abilities' && (
+                                    <div className="flex gap-2 w-full">
+                                      <button type="button" onClick={() => updateVal((v || '') + '[Mana:2]')} className="text-[10px] bg-purple-900/60 border border-purple-700/60 text-purple-200 px-2 py-0.5 rounded hover:bg-purple-800/80 transition flex items-center gap-1">
+                                        <span className="w-3 h-3 rounded-full bg-purple-600 inline-flex items-center justify-center text-[8px] font-bold text-white">M</span> + Mana
+                                      </button>
+                                      <button type="button" onClick={() => updateVal((v || '') + '[Gold:2]')} className="text-[10px] bg-amber-900/60 border border-amber-700/60 text-amber-200 px-2 py-0.5 rounded hover:bg-amber-800/80 transition flex items-center gap-1">
+                                        <span className="w-3 h-3 rounded-full bg-amber-500 inline-flex items-center justify-center text-[8px] font-bold text-slate-950">G</span> + Gold
+                                      </button>
+                                    </div>
+                                  )}
+                                  <textarea 
+                                    value={v} 
+                                    onChange={e => updateVal(e.target.value)} 
+                                    className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded px-2.5 py-1.5 text-xs text-slate-200 min-h-[60px]" 
+                                  />
+                                </div>
                               ) : spec.type === 'select' ? (
                                 <select 
                                   value={v} 
-                                  onChange={e => {
-                                    handleInlineChange(modalCard._id, key, e.target.value);
-                                    setModalCard(prev => ({ ...prev, [key]: e.target.value }));
-                                  }} 
+                                  onChange={e => updateVal(e.target.value)} 
                                   className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded px-2 py-1 text-xs text-slate-200">
-                                  {spec.options.map(o => <option key={o} value={o}>{o === "" ? "None" : o}</option>)}
+                                  {spec.options.map(o => <option key={o} value={o}>{o === "" ? "-- Select --" : o}</option>)}
                                 </select>
+                              ) : spec.type === 'multiselect' ? (
+                                (() => {
+                                  let currentOptions = spec.options;
+                                  if (cat === 'Hero' && key === 'Faction') {
+                                    currentOptions = currentOptions.filter(o => o.toLowerCase() !== 'factionless');
+                                  }
+                                  const selectedArr = parseCommaList(v).map(s => currentOptions.find(o => o.toLowerCase() === s) || s);
+                                  return (
+                                    <select 
+                                      multiple 
+                                      size={4} 
+                                      value={selectedArr} 
+                                      onChange={e => { 
+                                        const s = Array.from(e.target.selectedOptions, opt => opt.value); 
+                                        if (key === 'Faction') {
+                                          const max = cat === 'Hero' ? 1 : 2;
+                                          if (s.length > max) return triggerToast(`Max ${max} faction(s) allowed for ${cat}.`, true);
+                                        }
+                                        if (key === 'Compatible Classes' && cat === 'Skill') {
+                                          if (s.length > 3) return triggerToast(`Max 3 compatible classes allowed.`, true);
+                                        }
+                                        updateVal(s.join(", ")); 
+                                      }} 
+                                      className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded px-2 py-1 text-xs text-slate-200 h-[75px]">
+                                      {currentOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                                    </select>
+                                  );
+                                })()
                               ) : spec.type === 'number' ? (
                                 <input 
                                   type="number" 
                                   step="any" 
                                   value={v} 
-                                  onChange={e => {
-                                    handleInlineChange(modalCard._id, key, e.target.value);
-                                    setModalCard(prev => ({ ...prev, [key]: e.target.value }));
-                                  }} 
+                                  onChange={e => updateVal(e.target.value)} 
                                   className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded px-2.5 py-1 text-xs text-slate-200" 
                                 />
                               ) : (
                                 <input 
                                   type="text" 
                                   value={v} 
-                                  onChange={e => {
-                                    handleInlineChange(modalCard._id, key, e.target.value);
-                                    setModalCard(prev => ({ ...prev, [key]: e.target.value }));
-                                  }} 
+                                  onChange={e => updateVal(e.target.value)} 
                                   className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded px-2.5 py-1 text-xs text-slate-200" 
                                 />
                               )}
