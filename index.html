@@ -134,10 +134,12 @@
       const [filterStatValue, setFilterStatValue] = useState('');
       const [filterFaction, setFilterFaction] = useState('All');
       const [includeCommunity, setIncludeCommunity] = useState(false);
-      const [modalEditMode, setModalEditMode] = useState(false);
       const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
       
       const [currentUser, setCurrentUser] = useState(() => localStorage.getItem('lorefall_user') || '');
+	  const [modalEditMode, setModalEditMode] = useState(false);
+	  const editMode = currentUser === 'Gavin';
+      const handleEnableEdit = () => {};
       const [savedDeckTab, setSavedDeckTab] = useState('All');
       const [showAuthModal, setShowAuthModal] = useState(false);
       const [authUsername, setAuthUsername] = useState('');
