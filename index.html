@@ -1449,7 +1449,7 @@
               <div className="flex-1 flex flex-col min-h-0 bg-slate-950 overflow-hidden w-full max-w-full">
                 {/* Section Tabs */}
                 <div className="h-12 md:h-14 border-b border-slate-800 px-3 md:px-6 flex items-center gap-2 bg-slate-900 shrink-0 overflow-x-auto scrollbar-hide w-full">
-                  {['Quickstart', 'Card Anatomy', 'Turn Structure', 'Combat Rules', 'Glossary'].map(tab => (
+                  {['Quickstart', 'Card Anatomy', 'Turn Structure', 'Combat Rules'].map(tab => (
                     <button key={tab} onClick={() => setLearnTab(tab)} className={`shrink-0 px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-bold uppercase tracking-wider transition ${learnTab === tab ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>{tab}</button>
                   ))}
                 </div>
@@ -1553,76 +1553,81 @@
                         <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-xl">
                           <h3 className="text-lg font-bold text-sky-400 mb-2">Phase 1: Mana Phase</h3>
                           <ul className="list-disc pl-5 space-y-1">
-                            <li>Draw 1 card.[cite: 11, 12]</li>
-                            <li>Hero generates Mana = their Mana stat.[cite: 11, 12]</li>
-                            <li>Check hand limit (max 10).[cite: 11, 12]</li>
+                            <li><strong>Draw:</strong> Draw 1 Card from your Loot Deck.</li>
+                            <li><strong>Generate Mana:</strong> Your Hero generates Mana equal to their current Mana stat. Add these tokens to your Mana Pool.</li>
+                            <li><strong>Hand Limit Check:</strong> You have a maximum hand size of 10 cards. If drawing brings you to 11, discard one.</li>
                           </ul>
                         </div>
                         
                         <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-xl">
-                          <h3 className="text-lg font-bold text-emerald-400 mb-2">Phase 2: Command Phase</h3>
+                          <h3 className="text-lg font-bold text-emerald-400 mb-2">Phase 2: Command Phase (The Tactical Phase)</h3>
                           <ul className="list-disc pl-5 space-y-1">
-                            <li><strong>Play Cards:</strong> Summon Allies, learn Skills, place Synergy cards, or attach Equipment by paying their Mana/Gold costs.[cite: 11]</li>
-                            <li><strong>Charge Up:</strong> Allocate Mana from pool to Allies/Skills/Equipment as Charge.[cite: 12]</li>
-                            <li><strong>Form Up:</strong> Deploy, swap, or retreat Allies between your 3-slot Battle Zone and your 3-slot Bench.[cite: 12]</li>
-                            <li><strong>Bench Lock:</strong> Allies played to the Bench cannot be moved to the Battle Zone until their next Command Phase.[cite: 12]</li>
+                            <li><strong>Play Cards:</strong> Summon Allies, place Synergy, or attach Equipment.[cite: 11] You may also Learn Skills <em>(Maximum of 1 Skill learned per turn)</em>.[cite: 11]</li>
+                            <li><strong>Charge Up:</strong> Allocate Mana from your pool to your Allies or Skills. This Charge is required to strike and counterstrike.</li>
+                            <li><strong>Form Up:</strong> Deploy from your hand, Swap positions, or Retreat an Ally to the Bench.</li>
+                            <li><strong>Bench Lock:</strong> Allies deployed to the Bench are locked and cannot enter the Battle Zone until your next turn's Command Phase.</li>
                           </ul>
                         </div>
 
                         <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-xl">
-                          <h3 className="text-lg font-bold text-rose-400 mb-2">Phase 3: Combat Phase</h3>
+                          <h3 className="text-lg font-bold text-rose-400 mb-2">Phase 3: Combat Phase (The Action Phase)</h3>
                           <ul className="list-disc pl-5 space-y-1">
-                            <li>You have 3 Strikes total on your turn.[cite: 12]</li>
-                            <li>Declare Strike attacks one at a time.[cite: 12]</li>
-                            <li>Melee attacks must target enemy Vanguard. Ranged attacks can target any enemy Ally in the Battle Zone and Bench (or Hero if Battle Zone empty).[cite: 12]</li>
-                            <li>Defender chooses to block with Vanguard or let Hero take the hit. Defender may Counterstrike (spend Charge to hit back).[cite: 12]</li>
+                            <li><strong>Strike Pool:</strong> You have a global limit of 3 Strikes to share among your Characters.</li>
+                            <li><strong>Declare Strikes:</strong> Attacks are declared sequentially. The attacker must meet the Charge threshold <em>(Charge is not depleted when attacking)</em>.</li>
+                            <li><strong>Targeting:</strong> Melee MUST target the Vanguard. Ranged may target any enemy Ally. Direct Assault targets the Hero if the board is empty.</li>
+                            <li><strong>Exhaustion:</strong> After attacking, the Character becomes Exhausted and cannot attack again unless they have Multi-Strike.</li>
                           </ul>
                         </div>
 
                         <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-xl">
-                          <h3 className="text-lg font-bold text-amber-500 mb-2">Phase 4: End Phase</h3>
+                          <h3 className="text-lg font-bold text-amber-500 mb-2">Phase 4: End Phase (The Recovery Phase)</h3>
                           <ul className="list-disc pl-5 space-y-1">
-                            <li>Your Ally Health fully resets and recovers from Exhaustion.[cite: 12]</li>
-                            <li>Allies on Bench gain +1 Charge up to the threshold amount stated on the card.[cite: 12]</li>
-                            <li><strong>Trade for Gold:</strong> Once per turn, discard a card with a Gold icon and receive Gold equal to the trade cost.[cite: 12]</li>
+                            <li><strong>Regeneration:</strong> All surviving Allies regenerate to full Health and Character Exhaustion resets.</li>
+                            <li><strong>The Garrison Bonus:</strong> Any Ally currently on your Bench gains +1 Charge (up to its attack threshold).</li>
+                            <li><strong>Skill Bonus:</strong> All Learned Skills currently in play gain +1 Charge (up to their threshold).</li>
+                            <li><strong>Trade for Gold:</strong> Once per turn, discard a card with a Gold icon to gain Gold tokens equal to its value.</li>
                           </ul>
                         </div>
                       </div>
                     )}
 
                     {learnTab === 'Combat Rules' && (
-                      <div className="space-y-6 animate-fade-in text-sm text-slate-300">
+                      <div className="space-y-4 animate-fade-in text-sm text-slate-300">
                         <div className="bg-slate-800/60 border border-slate-700 p-5 rounded-xl">
-                          <h3 className="text-xl font-bold text-rose-500 mb-3 border-b border-slate-700 pb-2">The Vanguard & Targeting</h3>
-                          <p className="mb-2">Slot 1 is the Vanguard. If occupied, it must be the target of all enemy Melee attacks.[cite: 12]</p>
-                          <p className="mb-2">Allies in Slots 2 and 3 are safe from Melee unless the Vanguard is defeated forcing the Ally in slot 2 to become the Vanguard.[cite: 12]</p>
-                          <p className="mb-2">Ranged attacks ignore this rule and can hit any Ally (or Hero if Battle Zone empty).[cite: 12]</p>
-                          <div className="mt-4 p-3 bg-slate-950 rounded border border-slate-800">
-                            <strong className="text-amber-500">Breakthrough Damage:</strong> Damage carries over to Hero if Vanguard dies. If striking with a Ranged attack, damage does not Breakthrough, unless the target is a Vanguard.[cite: 12]
-                          </div>
+                          <h3 className="text-xl font-bold text-rose-500 mb-3 border-b border-slate-700 pb-2">1. Attacking (Strike Declaration)</h3>
+                          <p className="mb-2"><strong>The Strike Limit:</strong> The active player has a maximum limit of 3 Strikes to execute per turn, shared between all Allies and the Hero.</p>
+                          <p className="mb-2"><strong>Charge Threshold:</strong> To attack, the Character must meet the Charge cost required. Declaring an attack checks this threshold but <em>does not deplete</em> the Charge.</p>
+                          <p className="mb-2"><strong>Calculating Attack Power:</strong> Roll the base Attack Die + the Character's Power stat + any modifiers from Equipment/Synergies.</p>
+                          <p><strong>Hero Attacks:</strong> A Hero cannot strike using only a weapon; they must activate a learned Skill. Weapon bonuses are automatically added to the Skill's damage.</p>
                         </div>
 
                         <div className="bg-slate-800/60 border border-slate-700 p-5 rounded-xl">
-                          <h3 className="text-xl font-bold text-purple-400 mb-3 border-b border-slate-700 pb-2">Rolling Damage</h3>
+                          <h3 className="text-xl font-bold text-amber-500 mb-3 border-b border-slate-700 pb-2">2. Targeting & The Vanguard</h3>
                           <ul className="list-disc pl-5 space-y-2">
-                            <li><strong>Melee:</strong> Roll die + Power + modifiers.[cite: 12]</li>
-                            <li><strong>Ranged:</strong> First roll Accuracy (D20 + Dex, need 11+). If hit, deal fixed damage.[cite: 12]</li>
-                            <li><strong>Critical Hit:</strong> Roll Chance (D20 + Dex, 11+). If success, roll attack die twice (Melee) or double damage (Ranged).[cite: 12]</li>
+                            <li><strong>Melee Strikes:</strong> Automatically target the defender's first occupied slot (The Vanguard). The slot system flows left to right. You cannot skip the Vanguard to hit a rear unit.</li>
+                            <li><strong>Ranged Strikes:</strong> Ignore defensive priority. You may target ANY enemy Ally in the Battle Zone or Bench.</li>
+                            <li><strong>Direct Assault:</strong> If the defender's Battle Zone is completely empty, Melee Strikes target the opposing Hero directly.</li>
                           </ul>
                         </div>
-                      </div>
-                    )}
 
-                    {learnTab === 'Glossary' && (
-                      <div className="bg-slate-800/50 border border-slate-700 p-5 rounded-xl text-sm text-slate-300 animate-fade-in">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                          <div><strong className="text-amber-400">Accuracy:</strong> Chance roll for Ranged attacks.[cite: 12]</div>
-                          <div><strong className="text-amber-400">Evasion:</strong> Chance roll to avoid an attack entirely and take no damage.[cite: 12]</div>
-                          <div><strong className="text-amber-400">Defense:</strong> Reduces incoming damage (from Equipment or Ability).[cite: 12]</div>
-                          <div><strong className="text-amber-400">Piercing:</strong> Ignores Defense.[cite: 12]</div>
-                          <div><strong className="text-amber-400">Exhaustion:</strong> After attacking (unless Multi-Strike), a unit is "tapped" and can't attack again until next turn.[cite: 12]</div>
-                          <div><strong className="text-amber-400">Charge Inheritance:</strong> When a Battle Zone Ally is defeated, its leftover Charge is immediately transferred to any benched allies of your choice.[cite: 12]</div>
-                          <div><strong className="text-amber-400">Multi-Strike:</strong> Some units can attack more than once per turn with each attack counting towards your Strike limit of 3.[cite: 12]</div>
+                        <div className="bg-slate-800/60 border border-slate-700 p-5 rounded-xl">
+                          <h3 className="text-xl font-bold text-sky-400 mb-3 border-b border-slate-700 pb-2">3. Defending (The Declaration Lock)</h3>
+                          <p className="mb-2 text-slate-400 italic">The Defender must declare their response BEFORE any attack dice are rolled.</p>
+                          <ul className="list-disc pl-5 space-y-2">
+                            <li><strong>The Intervention Decision:</strong> If the Vanguard is targeted by Melee, the Defender can choose to block normally, OR have the Hero Intervene to take the full damage directly (leaving the Vanguard at 0 damage).</li>
+                            <li><strong>Hold the Line:</strong> Cost: 0 Charge. The Character braces for impact, rolling no dice and retaining their Charge for future turns.</li>
+                            <li><strong>Counterstrike:</strong> Depletes the required Charge amount. The Character strikes back simultaneously. Roll attack die + Power to deal damage back to the attacker.</li>
+                          </ul>
+                        </div>
+
+                        <div className="bg-slate-800/60 border border-slate-700 p-5 rounded-xl">
+                          <h3 className="text-xl font-bold text-purple-400 mb-3 border-b border-slate-700 pb-2">4. Resolution & Global Breakthrough</h3>
+                          <ul className="list-disc pl-5 space-y-2">
+                            <li><strong>Mitigation:</strong> Subtract the Defender's Defense stat from the incoming Attack Value.</li>
+                            <li><strong>Breakthrough (Spillover):</strong> Damage is momentum-based. If damage exceeds the Vanguard's Health, they are defeated and the <em>excess damage strikes the opposing Hero directly</em>.</li>
+                            <li><strong>Ranged Exceptions:</strong> Ranged Breakthrough damage is negated UNLESS the target was the Vanguard.</li>
+                            <li><strong>Persistence:</strong> Damage persists between strikes in the same phase. If Strike 1 reduces a Vanguard to 1 Health, Strike 2 can finish them off and push massive Breakthrough damage directly to the Hero.</li>
+                          </ul>
                         </div>
                       </div>
                     )}
