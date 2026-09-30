@@ -1535,8 +1535,8 @@
                             </div>
                             
                             <div className="w-full md:w-1/2 space-y-2">
-                              <p><strong>Name:</strong> The character's title.[cite: 12]</p>
-                              <p><strong>Mana/Cost:</strong> Upper left. Required resource to play.[cite: 12]</p>
+                              <p><strong>Name:</strong> The character's title.</p>
+                              <p><strong>Mana/Cost:</strong> Upper left. Required resource to play.</p>
                               <p><strong>Dexterity/Gold Trade:</strong> Upper right. Used for Chance rolls or Gold value if traded.</p>
                               <p><strong>Race/Class & Card Type:</strong> Identifies synergies and equipment compatibility.</p>
                               <p><strong>Attack & Attack Type:</strong> Dictates the die to roll (Melee) or fixed damage (Ranged).</p>
@@ -1597,7 +1597,8 @@
                           <h3 className="text-xl font-bold text-rose-500 mb-3 border-b border-slate-700 pb-2">1. Attacking (Strike Declaration)</h3>
                           <p className="mb-2"><strong>The Strike Limit:</strong> The active player has a maximum limit of 3 Strikes to execute per turn, shared between all Allies and the Hero.</p>
                           <p className="mb-2"><strong>Charge Threshold:</strong> To attack, the Character must meet the Charge cost required. Declaring an attack checks this threshold but <em>does not deplete</em> the Charge.</p>
-                          <p className="mb-2"><strong>Calculating Attack Power:</strong> Roll the base Attack Die + the Character's Power stat + any modifiers from Equipment/Synergies.</p>
+                          <p className="mb-2"><strong>Calculating Melee Attack:</strong> Roll the base Attack Die + the Character's Power stat + any modifiers from Equipment/Synergies.</p>
+						  <p className="mb-2"><strong>Calculating Ranged Attack:</strong> Roll a D20 and add the character's Dexterity stat for chance to deal the fixed attack damage value. A result of 11+ is a success and a result of 10 or below is a miss.</p>
                           <p><strong>Hero Attacks:</strong> A Hero cannot strike using only a weapon; they must activate a learned Skill. Weapon bonuses are automatically added to the Skill's damage.</p>
                         </div>
 
