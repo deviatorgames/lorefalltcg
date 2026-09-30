@@ -119,6 +119,7 @@
       const sessionBuster = useMemo(() => Date.now(), []);
 
       const [view, setView] = useState('deck-builder');
+	  const [learnTab, setLearnTab] = useState('Quickstart');
       const [activeTab, setActiveTab] = useState('Hero');
       const [modalCard, setModalCard] = useState(null);
       const [showStatsModal, setShowStatsModal] = useState(false);
@@ -870,6 +871,7 @@
                 <button onClick={() => setView('deck-builder')} className={`px-2.5 py-1 md:px-3 md:py-1.5 rounded-md text-xs font-semibold transition ${view === 'deck-builder' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}>Deck Builder</button>
                 <button onClick={() => setView('saved-decks')} className={`px-2.5 py-1 md:px-3 md:py-1.5 rounded-md text-xs font-semibold transition ${view === 'saved-decks' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}>Saved Decks</button>
                 <button onClick={() => setView('card-forge')} className={`px-2.5 py-1 md:px-3 md:py-1.5 rounded-md text-xs font-semibold transition ${view === 'card-forge' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}>Card Forge</button>
+				<button onClick={() => setView('learn')} className={`px-2.5 py-1 md:px-3 md:py-1.5 rounded-md text-xs font-semibold transition ${view === 'learn' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}>Learn to Play</button>
                 {currentUser === 'Gavin' && (
                   <button onClick={() => setView('database')} className={`px-2.5 py-1 md:px-3 md:py-1.5 rounded-md text-xs font-semibold transition ${view === 'database' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}>Database</button>
                 )}
@@ -1441,7 +1443,202 @@
                   </table>
                 </div>
               </div>
+            </table>
+                </div>
+              </div>
+            ) : view === 'learn' ? (
+              
+              /* VIEW: LEARN TO PLAY */
+              <div className="flex-1 flex flex-col min-h-0 bg-slate-950 overflow-hidden w-full max-w-full">
+                {/* Section Tabs */}
+                <div className="h-12 md:h-14 border-b border-slate-800 px-3 md:px-6 flex items-center gap-2 bg-slate-900 shrink-0 overflow-x-auto scrollbar-hide w-full">
+                  {['Quickstart', 'Card Anatomy', 'Turn Structure', 'Combat Rules', 'Glossary'].map(tab => (
+                    <button key={tab} onClick={() => setLearnTab(tab)} className={`shrink-0 px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-xs md:text-sm font-bold uppercase tracking-wider transition ${learnTab === tab ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>{tab}</button>
+                  ))}
+                </div>
+
+                {/* Content Area */}
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 w-full bg-slate-900/40 relative min-w-0">
+                  <div className="max-w-4xl mx-auto space-y-6">
+                    
+                    {learnTab === 'Quickstart' && (
+                      <div className="space-y-6 animate-fade-in">
+                        <div className="bg-slate-800/80 border border-slate-700 p-5 rounded-xl shadow-lg">
+                          <h2 className="text-2xl font-black text-amber-500 mb-2">The Core Idea</h2>
+                          <ul className="space-y-2 text-sm text-slate-200 list-disc pl-5">
+                            <li>You are a commander (your Hero) leading a team of Allies.[cite: 12]</li>
+                            <li>You fight on a 3-slot Battle Zone (left to right).[cite: 12]</li>
+                            <li>Positioning is critical: the leftmost occupied slot is the Vanguard, which blocks all melee attacks for your team.[cite: 12]</li>
+                            <li>You win by reducing your opponent’s Hero Health to 0.[cite: 12]</li>
+                          </ul>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-slate-800/50 border border-slate-700 p-4 rounded-xl">
+                            <h3 className="text-lg font-bold text-slate-100 mb-3 border-b border-slate-700 pb-2">Core Stats</h3>
+                            <ul className="space-y-3 text-sm text-slate-300">
+                              <li className="flex gap-3"><span className="text-rose-500 text-xl" title="Red Shield">🛡️</span> <div><strong className="text-rose-400">Health:</strong> If this hits 0, you lose.[cite: 12]</div></li>
+                              <li className="flex gap-3"><span className="text-slate-400 text-xl" title="Crossed Swords">⚔️</span> <div><strong className="text-slate-300">Power:</strong> Added to Melee attack rolls.[cite: 12]</div></li>
+                              <li className="flex gap-3"><span className="text-purple-400 text-xl" title="Purple/Blue Orb">🔮</span> <div><strong className="text-purple-300">Mana:</strong> Generated each turn, used to play cards and allocate Charge.[cite: 12]</div></li>
+                              <li className="flex gap-3"><span className="text-amber-500 text-xl" title="Red D20">🎲</span> <div><strong className="text-amber-400">Dexterity:</strong> Added to all Chance rolls (D20 rolls for Accuracy, Evasion, Criticals, etc.).[cite: 12]</div></li>
+                            </ul>
+                          </div>
+                          <div className="bg-slate-800/50 border border-slate-700 p-4 rounded-xl">
+                            <h3 className="text-lg font-bold text-slate-100 mb-3 border-b border-slate-700 pb-2">Card Types</h3>
+                            <ul className="space-y-2 text-sm text-slate-300">
+                              <li><strong className="text-amber-500">Ally:</strong> Fights in the Battle Zone. Can attack/defend. Played in Command Phase with Mana.[cite: 12]</li>
+                              <li><strong className="text-purple-400">Skill:</strong> Hero-only attacks. Must be Learned. Played in Command Phase with Mana.[cite: 12]</li>
+                              <li><strong className="text-emerald-400">Synergy:</strong> Permanent bonus for your Hero or team. Played in Command Phase with Mana.[cite: 12]</li>
+                              <li><strong className="text-sky-400">Item (Flash):</strong> One-time effect (heal, boost, disrupt). Played in any phase including on opponent’s turn with Gold.[cite: 12]</li>
+                              <li><strong className="text-slate-400">Equipment:</strong> Attaches to Hero/Ally for bonuses. Played in Command Phase with Gold.[cite: 12]</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {learnTab === 'Card Anatomy' && (
+                      <div className="space-y-6 animate-fade-in">
+                        <div className="bg-slate-800/50 border border-slate-700 p-5 rounded-xl text-sm text-slate-300">
+                          <h2 className="text-xl font-bold text-slate-100 mb-4 border-b border-slate-700 pb-2">Visual Glossary[cite: 12]</h2>
+                          <div className="flex flex-col md:flex-row gap-6">
+                            
+                            {/* Interactive Anatomy Mockup */}
+                            <div className="w-full md:w-1/2 max-w-sm mx-auto bg-slate-900 border-2 border-slate-600 rounded-xl p-3 relative shadow-2xl">
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex gap-2 items-center">
+                                  <span className="bg-purple-900/80 text-purple-200 font-black px-2 py-1 rounded-full border border-purple-500 text-xs shadow-md">2</span>
+                                  <span className="font-bold text-slate-200">Astute Cleric</span>
+                                </div>
+                                <span className="bg-rose-900/80 text-rose-200 font-black px-2 py-1 rounded-full border border-rose-500 text-xs shadow-md">0</span>
+                              </div>
+                              <div className="h-40 bg-slate-800 rounded-lg border border-slate-700 mb-2 flex items-center justify-center text-slate-600 text-xs italic">[ Artwork ]</div>
+                              <div className="flex justify-between items-center text-[10px] uppercase font-bold text-slate-400 mb-2 px-1">
+                                <span>Ally • Human Cleric</span>
+                                <span className="bg-slate-700 px-1.5 py-0.5 rounded text-white">Common</span>
+                              </div>
+                              <div className="bg-slate-800 border border-slate-700 rounded p-2 flex justify-between items-center mb-2">
+                                <span className="text-lg font-black text-slate-300">D4</span>
+                                <div className="text-center text-[9px] uppercase font-bold text-slate-400">Attack<br/>Melee • Single</div>
+                                <span className="bg-indigo-900/80 text-indigo-200 font-black w-6 h-6 flex items-center justify-center rounded-full border border-indigo-500 text-xs shadow-md">1</span>
+                              </div>
+                              <div className="text-xs text-slate-300 p-1 min-h-[40px]">Pay 2 mana: Target character gains 2 health.</div>
+                              <div className="flex justify-between items-end mt-2">
+                                <span className="bg-rose-900/80 text-rose-200 font-black px-3 py-1 rounded-md border border-rose-500 shadow-md">6</span>
+                                <span className="text-[10px] text-amber-500 font-bold uppercase tracking-widest">Covenant</span>
+                                <span className="bg-slate-800 text-slate-300 font-black px-3 py-1 rounded-md border border-slate-600 shadow-md">2</span>
+                              </div>
+
+                              {/* Overlaid Anatomy Labels */}
+                              <div className="absolute -left-4 top-2 text-[10px] font-bold text-amber-400 bg-slate-950 px-1 rounded border border-amber-900">Mana</div>
+                              <div className="absolute -right-6 top-2 text-[10px] font-bold text-amber-400 bg-slate-950 px-1 rounded border border-amber-900">Dexterity</div>
+                              <div className="absolute -left-6 bottom-4 text-[10px] font-bold text-amber-400 bg-slate-950 px-1 rounded border border-amber-900">Health</div>
+                              <div className="absolute -right-4 bottom-4 text-[10px] font-bold text-amber-400 bg-slate-950 px-1 rounded border border-amber-900">Power</div>
+                              <div className="absolute -right-8 top-1/2 text-[10px] font-bold text-amber-400 bg-slate-950 px-1 rounded border border-amber-900">Charge Req.</div>
+                            </div>
+                            
+                            <div className="w-full md:w-1/2 space-y-2">
+                              <p><strong>Name:</strong> The character's title.[cite: 12]</p>
+                              <p><strong>Mana/Cost:</strong> Upper left. Required resource to play.[cite: 12]</p>
+                              <p><strong>Dexterity/Gold Trade:</strong> Upper right. Used for Chance rolls or Gold value if traded.[cite: 12]</p>
+                              <p><strong>Race/Class & Card Type:</strong> Identifies synergies and equipment compatibility.[cite: 12]</p>
+                              <p><strong>Attack & Attack Type:</strong> Dictates the die to roll (Melee) or fixed damage (Ranged).[cite: 12]</p>
+                              <p><strong>Charge Requirement:</strong> Middle right. Mana needed to activate a Strike or Counterstrike.[cite: 12]</p>
+                              <p><strong>Health & Power:</strong> Bottom left (survivability) and bottom right (added to Melee).[cite: 12]</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {learnTab === 'Turn Structure' && (
+                      <div className="space-y-4 animate-fade-in text-sm text-slate-300">
+                        <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-xl">
+                          <h3 className="text-lg font-bold text-sky-400 mb-2">Phase 1: Mana Phase</h3>
+                          <ul className="list-disc pl-5 space-y-1">
+                            <li>Draw 1 card.[cite: 11, 12]</li>
+                            <li>Hero generates Mana = their Mana stat.[cite: 11, 12]</li>
+                            <li>Check hand limit (max 10).[cite: 11, 12]</li>
+                          </ul>
+                        </div>
+                        
+                        <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-xl">
+                          <h3 className="text-lg font-bold text-emerald-400 mb-2">Phase 2: Command Phase</h3>
+                          <ul className="list-disc pl-5 space-y-1">
+                            <li><strong>Play Cards:</strong> Summon Allies, learn Skills, place Synergy cards, or attach Equipment by paying their Mana/Gold costs.[cite: 11]</li>
+                            <li><strong>Charge Up:</strong> Allocate Mana from pool to Allies/Skills/Equipment as Charge.[cite: 12]</li>
+                            <li><strong>Form Up:</strong> Deploy, swap, or retreat Allies between your 3-slot Battle Zone and your 3-slot Bench.[cite: 12]</li>
+                            <li><strong>Bench Lock:</strong> Allies played to the Bench cannot be moved to the Battle Zone until their next Command Phase.[cite: 12]</li>
+                          </ul>
+                        </div>
+
+                        <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-xl">
+                          <h3 className="text-lg font-bold text-rose-400 mb-2">Phase 3: Combat Phase</h3>
+                          <ul className="list-disc pl-5 space-y-1">
+                            <li>You have 3 Strikes total on your turn.[cite: 12]</li>
+                            <li>Declare Strike attacks one at a time.[cite: 12]</li>
+                            <li>Melee attacks must target enemy Vanguard. Ranged attacks can target any enemy Ally in the Battle Zone and Bench (or Hero if Battle Zone empty).[cite: 12]</li>
+                            <li>Defender chooses to block with Vanguard or let Hero take the hit. Defender may Counterstrike (spend Charge to hit back).[cite: 12]</li>
+                          </ul>
+                        </div>
+
+                        <div className="bg-slate-800/40 border border-slate-700 p-4 rounded-xl">
+                          <h3 className="text-lg font-bold text-amber-500 mb-2">Phase 4: End Phase</h3>
+                          <ul className="list-disc pl-5 space-y-1">
+                            <li>Your Ally Health fully resets and recovers from Exhaustion.[cite: 12]</li>
+                            <li>Allies on Bench gain +1 Charge up to the threshold amount stated on the card.[cite: 12]</li>
+                            <li><strong>Trade for Gold:</strong> Once per turn, discard a card with a Gold icon and receive Gold equal to the trade cost.[cite: 12]</li>
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+
+                    {learnTab === 'Combat Rules' && (
+                      <div className="space-y-6 animate-fade-in text-sm text-slate-300">
+                        <div className="bg-slate-800/60 border border-slate-700 p-5 rounded-xl">
+                          <h3 className="text-xl font-bold text-rose-500 mb-3 border-b border-slate-700 pb-2">The Vanguard & Targeting</h3>
+                          <p className="mb-2">Slot 1 is the Vanguard. If occupied, it must be the target of all enemy Melee attacks.[cite: 12]</p>
+                          <p className="mb-2">Allies in Slots 2 and 3 are safe from Melee unless the Vanguard is defeated forcing the Ally in slot 2 to become the Vanguard.[cite: 12]</p>
+                          <p className="mb-2">Ranged attacks ignore this rule and can hit any Ally (or Hero if Battle Zone empty).[cite: 12]</p>
+                          <div className="mt-4 p-3 bg-slate-950 rounded border border-slate-800">
+                            <strong className="text-amber-500">Breakthrough Damage:</strong> Damage carries over to Hero if Vanguard dies. If striking with a Ranged attack, damage does not Breakthrough, unless the target is a Vanguard.[cite: 12]
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-800/60 border border-slate-700 p-5 rounded-xl">
+                          <h3 className="text-xl font-bold text-purple-400 mb-3 border-b border-slate-700 pb-2">Rolling Damage</h3>
+                          <ul className="list-disc pl-5 space-y-2">
+                            <li><strong>Melee:</strong> Roll die + Power + modifiers.[cite: 12]</li>
+                            <li><strong>Ranged:</strong> First roll Accuracy (D20 + Dex, need 11+). If hit, deal fixed damage.[cite: 12]</li>
+                            <li><strong>Critical Hit:</strong> Roll Chance (D20 + Dex, 11+). If success, roll attack die twice (Melee) or double damage (Ranged).[cite: 12]</li>
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+
+                    {learnTab === 'Glossary' && (
+                      <div className="bg-slate-800/50 border border-slate-700 p-5 rounded-xl text-sm text-slate-300 animate-fade-in">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                          <div><strong className="text-amber-400">Accuracy:</strong> Chance roll for Ranged attacks.[cite: 12]</div>
+                          <div><strong className="text-amber-400">Evasion:</strong> Chance roll to avoid an attack entirely and take no damage.[cite: 12]</div>
+                          <div><strong className="text-amber-400">Defense:</strong> Reduces incoming damage (from Equipment or Ability).[cite: 12]</div>
+                          <div><strong className="text-amber-400">Piercing:</strong> Ignores Defense.[cite: 12]</div>
+                          <div><strong className="text-amber-400">Exhaustion:</strong> After attacking (unless Multi-Strike), a unit is "tapped" and can't attack again until next turn.[cite: 12]</div>
+                          <div><strong className="text-amber-400">Charge Inheritance:</strong> When a Battle Zone Ally is defeated, its leftover Charge is immediately transferred to any benched allies of your choice.[cite: 12]</div>
+                          <div><strong className="text-amber-400">Multi-Strike:</strong> Some units can attack more than once per turn with each attack counting towards your Strike limit of 3.[cite: 12]</div>
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+              </div>
+
             ) : (
+              <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
+                Access restricted.
+              </div>
+            )}
               <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
                 Access restricted.
               </div>
