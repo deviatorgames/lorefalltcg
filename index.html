@@ -526,6 +526,24 @@
               }
               return 0;
           };
+		  
+		const getDiceMax = (diceStr) => {
+              if (!diceStr || diceStr === "None") return 0;
+              const match = String(diceStr).match(/D(\d+)/i);
+              return match ? parseInt(match[1], 10) : 0;
+          };
+
+          const getCardMaxStrike = (c, heroPwr, wpnMeleeMax, wpnRangedMax) => {
+              let strike = 0;
+              if (c["Attack Type"] === 'Melee') {
+                  strike = getDiceMax(c.Attack) + (parseFloat(c.Power) || 0);
+                  if (c._type === 'Skill') strike += heroPwr + wpnMeleeMax; 
+              } else if (c["Attack Type"] === 'Ranged') {
+                  strike = parseFloat(c["Ranged Attack"]) || 0;
+                  if (c._type === 'Skill') strike += wpnRangedMax;
+              }
+              return strike;
+          };
 
           const getCardStrike = (c, heroPower) => {
               let strike = 0;
@@ -586,6 +604,34 @@
           const heroHealth = parseFloat(activeHero?.Health) || 0;
           const heroPower = parseFloat(activeHero?.Power) || 0;
           
+          // --- EQUIPMENT PROBABILITY MATH ---
+          const allies = allDeckCards.filter(c => c._type === 'Ally');
+          const bodyCount = 1 + allies.length; // 1 Hero + Total Allies
+          
+          let totalWeaponEV = 0;
+          let totalArmorEV = 0;
+          let maxWeaponMelee = 0;
+          let maxWeaponRanged = 0;
+          
+          allDeckCards.forEach(c => {
+              if (c._type === 'Equipment') {
+                  const wMeleeEV = getDiceAvg(c.Attack) + (parseFloat(c["Power Modifier"]) || 0);
+                  const wRangedEV = parseFloat(c["Ranged Attack"]) || 0;
+                  totalWeaponEV += (wMeleeEV + wRangedEV);
+                  
+                  const wMeleeMax = getDiceMax(c.Attack) + (parseFloat(c["Power Modifier"]) || 0);
+                  if (wMeleeMax > maxWeaponMelee) maxWeaponMelee = wMeleeMax;
+                  if (wRangedEV > maxWeaponRanged) maxWeaponRanged = wRangedEV;
+                  
+                  const aDefEV = (parseFloat(c["Defense Modifier"]) || 0) + getDiceAvg(c["Defense Die Roll Modifier"]);
+                  totalArmorEV += aDefEV;
+              }
+          });
+          
+          const avgWeaponBonus = bodyCount > 0 ? (totalWeaponEV / bodyCount) : 0;
+          const avgArmorBonus = bodyCount > 0 ? (totalArmorEV / bodyCount) : 0;
+          // ----------------------------------
+          
           const cardsWithCost = allDeckCards.filter(c => parseFloat(c["Mana Cost"]) > 0 || parseFloat(c["Charge Requirement"]) > 0);
           const totalCost = cardsWithCost.reduce((sum, c) => sum + (parseFloat(c["Mana Cost"]) || 0) + (parseFloat(c["Charge Requirement"]) || 0), 0);
           const avgManaCost = cardsWithCost.length > 0 ? (totalCost / cardsWithCost.length) : 0;
@@ -630,7 +676,12 @@
           let turnCycleHeroBleed = 0;
           let hasDeployedSupport = false;
 
-          const incomingStrikes = [metaPeakStrike, metaBoardStrike, metaBoardStrike];
+          // Apply expected Armor Bonus per body to reduce incoming damage
+          const incomingStrikes = [
+              Math.max(0, metaPeakStrike - avgArmorBonus), 
+              Math.max(0, metaBoardStrike - avgArmorBonus), 
+              Math.max(0, metaBoardStrike - avgArmorBonus)
+          ];
 
           incomingStrikes.forEach((strikeDmg) => {
               let damageRemaining = strikeDmg;
@@ -669,18 +720,23 @@
           const survivingTurnsNum = turnCycleHeroBleed > 0 ? Math.floor(heroHealth / turnCycleHeroBleed) + 1 : 99;
           const survivingTurns = survivingTurnsNum === 99 ? "99+" : survivingTurnsNum;
 
-          // Offensive Strike Math (With Toggleable 25% Crit Surge)
-          let activeStrikes = [];
+          // Offensive Strike Math (With Equipment Density & Crit Surge)
+          let activeStrikesEV = [];
+          let activeStrikesMax = [];
+          
           allDeckCards.forEach(c => {
               if (c._type === 'Ally' || c._type === 'Skill') {
-                  const dmg = getCardStrike(c, heroPower);
-                  if (dmg > 0) activeStrikes.push(dmg);
+                  const evDmg = getCardStrike(c, heroPower);
+                  if (evDmg > 0) activeStrikesEV.push(evDmg + avgWeaponBonus);
+                  
+                  const maxDmg = getCardMaxStrike(c, heroPower, maxWeaponMelee, maxWeaponRanged);
+                  if (maxDmg > 0) activeStrikesMax.push(maxDmg);
               }
           });
           
-          const rawOverall = activeStrikes.length > 0 ? (activeStrikes.reduce((sum, val) => sum + val, 0) / activeStrikes.length) : 0;
-          activeStrikes.sort((a, b) => b - a);
-          const top3Active = activeStrikes.slice(0, 3);
+          const rawOverall = activeStrikesEV.length > 0 ? (activeStrikesEV.reduce((sum, val) => sum + val, 0) / activeStrikesEV.length) : 0;
+          activeStrikesMax.sort((a, b) => b - a);
+          const top3Active = activeStrikesMax.slice(0, 3);
           const rawPeak = top3Active.length > 0 ? (top3Active.reduce((sum, val) => sum + val, 0) / top3Active.length) : 0;
 
           const critMod = statsCritEnabled ? 1.25 : 1.0;
