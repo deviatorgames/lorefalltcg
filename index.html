@@ -527,7 +527,7 @@
               return 0;
           };
 		  
-		const getDiceMax = (diceStr) => {
+		  const getDiceMax = (diceStr) => {
               if (!diceStr || diceStr === "None") return 0;
               const match = String(diceStr).match(/D(\d+)/i);
               return match ? parseInt(match[1], 10) : 0;
