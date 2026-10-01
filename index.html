@@ -656,7 +656,6 @@
               sustainColor = "text-rose-400";
           }
 
-          const allies = allDeckCards.filter(c => c._type === 'Ally');
           const totalAllyHealth = allies.reduce((sum, c) => sum + (parseFloat(c.Health) || 0), 0);
           const avgPower = allies.length ? (allies.reduce((sum, c) => sum + (parseFloat(c.Power) || 0), 0) / allies.length).toFixed(1) : 0;
           const avgRangedAttack = allies.length ? (allies.reduce((sum, c) => sum + (parseFloat(c["Ranged Attack"]) || 0), 0) / allies.length).toFixed(1) : 0;
