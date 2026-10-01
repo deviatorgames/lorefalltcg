@@ -836,7 +836,8 @@
               metaPeakStrike: metaPeakStrike.toFixed(1), metaBoardStrike: metaBoardStrike.toFixed(1),
               heroHealth, survivingTurns, longevityText, longevityColor,
               competencyRating, archetypeValue, archetypeLabel, archetypeColor,
-              curve, maxCurve, types, maxType, cardCount: allDeckCards.length 
+              curve, maxCurve, types, maxType, cardCount: allDeckCards.length,
+              avgArmorBonus: avgArmorBonus.toFixed(1)
           };
       }, [deck, selectedHero, savedDecks, cards, statsTargetDeck, statsCritEnabled]);
 
@@ -1780,7 +1781,17 @@
 
                     <div className="col-span-1 md:col-span-2 lg:col-span-3 bg-slate-800/50 p-4 md:p-5 rounded-xl border border-slate-700/50 shadow-inner">
                         <h4 className="text-xs uppercase font-bold text-slate-400 tracking-widest mb-1 border-b border-slate-700 pb-1.5">Deck Longevity (Breakthrough Defense)</h4>
-                        <p className="text-[10px] text-slate-500 font-semibold mb-3 leading-tight">Est. Surviving Turns vs. <strong className="text-amber-500">{deckAnalytics.metaPeakStrike} Meta Strike</strong> (Average Peak Threat of all saved decks)</p>
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
+                            <p className="text-[10px] text-slate-500 font-semibold leading-tight pr-2">
+                                Est. Surviving Turns vs. <strong className="text-amber-500">{deckAnalytics.metaPeakStrike} Meta Strike</strong> (Average Peak Threat of all saved decks).
+                            </p>
+                            {parseFloat(deckAnalytics.avgArmorBonus) > 0 && (
+                                <div className="text-[10px] font-bold bg-sky-900/30 border border-sky-700/50 text-sky-300 px-2 py-1.5 rounded shrink-0 flex items-center gap-1.5 shadow-inner">
+                                    <span className="text-sm leading-none">🛡️</span>
+                                    <span>Armor mitigates <strong className="text-sky-100">{deckAnalytics.avgArmorBonus} DMG</strong> per incoming strike</span>
+                                </div>
+                            )}
+                        </div>
                         <div className="flex flex-col sm:flex-row gap-4 md:gap-6 items-center justify-around mb-3">
                             <div className="text-center">
                                 <div className="text-2xl md:text-3xl font-black text-rose-400">{deckAnalytics.heroHealth}</div>
