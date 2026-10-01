@@ -758,13 +758,12 @@
           }
 
           // Deck Competency Rating (0-10) - Continuous Proportional Model
-          // 1. Mana Efficiency (0 to 3.0 pts): 
-          // Evaluates intake vs cost smoothly without penalizing surplus
+          
+          // 1. Mana Efficiency (0 to 3.0 pts)
           const manaRatio = avgManaCost > 0 ? (manaIntake / avgManaCost) : 1.0;
           const manaScore = Math.max(0, Math.min(3.0, (manaRatio / 1.5) * 3.0));
 
-          // 2. Longevity (0 to 3.0 pts): 
-          // Scales proportionally from 1 turn (0 pts) to 6+ turns (3.0 pts)
+          // 2. Longevity (0 to 3.0 pts)
           const surviveScore = Math.max(0, Math.min(3.0, ((survivingTurnsNum - 1) / 5) * 3.0));
 
           // 3. Peak Finisher vs Meta (0 to 2.0 pts)
@@ -775,7 +774,27 @@
           const boardRatio = metaBoardStrike > 0 ? (overallDeckStrike / metaBoardStrike) : 1.0;
           const boardScore = Math.max(0, Math.min(2.0, boardRatio * 1.5));
 
-          const compScore = manaScore + surviveScore + peakScore + boardScore;
+          // 5. Ranged Targeting Advantage (0 to 2.0 pts)
+          const heroDex = parseFloat(activeHero?.Dexterity) || 0;
+          const skills = allDeckCards.filter(c => c._type === 'Skill');
+          
+          const rangedAllies = allies.filter(c => c["Attack Type"] === 'Ranged').length;
+          const rangedSkills = skills.filter(c => c["Attack Type"] === 'Ranged').length;
+          
+          const allyRangedRatio = allies.length > 0 ? (rangedAllies / allies.length) : 0;
+          const skillRangedRatio = skills.length > 0 ? (rangedSkills / skills.length) : 0;
+          
+          // Chance roll is D20 (base 50% hit on 11+). Each Dexterity point adds +5%.
+          const allyHitChance = 0.5 + (parseFloat(avgDex) * 0.05);
+          const heroHitChance = 0.5 + (heroDex * 0.05);
+          
+          // Reward decks where ranged hit chance is reliably high (above 55% / Dex 2+)
+          const allyRangedScore = allyRangedRatio * Math.max(0, (allyHitChance - 0.55) * 3.0); 
+          const heroRangedScore = skillRangedRatio * Math.max(0, (heroHitChance - 0.55) * 3.0);
+          const rangedAdvantageScore = Math.max(0, Math.min(2.0, allyRangedScore + heroRangedScore));
+
+          const compScore = manaScore + surviveScore + peakScore + boardScore + rangedAdvantageScore;
+          // The Math.min(10) cap ensures highly synergized decks don't break the 10/10 visual scale
           const competencyRating = Math.max(0, Math.min(10, compScore)).toFixed(1);
 
 
