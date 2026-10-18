@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lorefall: Realms of Viridian - Tactical Engine</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --bg-main: #0c0f14; --bg-board: #121820; --bg-card: #182230; --card-border: #2e3e52;
@@ -37,6 +38,50 @@
   .btn-secondary { background: #243042; color: #cbd5e1; border: 1px solid #334155; }
   .btn-secondary:hover { background: #334155; }
   .btn-secondary.active { background: #334155; border-color: var(--mana); color: #fff; }
+
+  /* Online Session Panel */
+  .online-panel {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    max-width: 640px;
+    width: 95%;
+    background: #141c28;
+    border: 2px solid var(--mana);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.7);
+    margin-top: 6px;
+  }
+  .online-subtab-btn {
+    flex: 1;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    border-radius: 6px;
+    cursor: pointer;
+    background: #1e293b;
+    color: var(--text-dim);
+    border: 1px solid #334155;
+    transition: all 0.2s;
+  }
+  .online-subtab-btn.active {
+    background: var(--mana);
+    color: #0c0f14;
+    border-color: #38bdf8;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+  }
+  .online-deck-card {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+  }
 
   /* Game Board Layout */
   #game-screen { flex-direction: column; height: 100vh; background: #090d13; overflow: hidden; }
@@ -336,14 +381,14 @@
   <div class="deck-selection-box" id="deck-selection-box">
     <!-- Dynamically populated from Saved Decks -->
   </div>
-  <div style="display:flex; align-items:center; gap:10px; background:#141c28; border:1px solid #2e3e52; padding:8px 16px; border-radius:8px;">
+  <div id="opponent-deck-row" style="display:flex; align-items:center; gap:10px; background:#141c28; border:1px solid #2e3e52; padding:8px 16px; border-radius:8px;">
     <span style="font-size:0.8rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px;">Opponent Deck:</span>
     <select id="opponent-deck-select" onchange="selectOpponentDeck(this.value)" style="background:#0c0f14; color:#fff; border:1px solid #334155; border-radius:6px; padding:6px 12px; font-size:0.85rem; font-weight:600; cursor:pointer; outline:none;">
     </select>
   </div>
   <div class="mode-select">
     <button class="btn btn-secondary active" id="btn-mode-ai" onclick="setGameMode('AI')">VS AI Opponent</button>
-    <button class="btn btn-secondary" id="btn-mode-pvp" onclick="setGameMode('PVP')">Pass & Play (2P)</button>
+    <button class="btn btn-secondary" id="btn-mode-pvp" onclick="setGameMode('ONLINE')">🌐 2P Online Session</button>
     <button class="btn btn-secondary" id="btn-mode-test" onclick="setGameMode('TEST')">Test Mode (AI + Deck Search)</button>
   </div>
   <div class="mode-select" id="ai-difficulty-row" style="margin-top: 0; align-items: center;">
@@ -352,7 +397,114 @@
     <button class="btn btn-secondary active" id="btn-diff-medium" style="padding: 8px 18px; font-size: 0.85rem;" onclick="setAIDifficulty('MEDIUM')">Medium</button>
     <button class="btn btn-secondary" id="btn-diff-hard" style="padding: 8px 18px; font-size: 0.85rem;" onclick="setAIDifficulty('HARD')">Hard</button>
   </div>
-  <button class="btn btn-primary" style="padding: 14px 48px; font-size: 1.1rem;" onclick="startGame()">Start Battle</button>
+  <button class="btn btn-primary" id="btn-start-battle" style="padding: 14px 48px; font-size: 1.1rem;" onclick="startGame()">Start Battle</button>
+
+  <!-- 2P Online Session Panel (Tabletop Simulator Style) -->
+  <div id="online-multiplayer-panel" class="online-panel">
+    <!-- Login Required Notice -->
+    <div id="online-login-required-msg" style="display:none; flex-direction:column; align-items:center; gap:10px; text-align:center; padding:12px;">
+      <div style="font-size:2.4rem;">🔒</div>
+      <h3 style="color:#f43f5e; font-size:1.15rem; font-weight:700;">Profile Login Required</h3>
+      <p style="font-size:0.85rem; color:#cbd5e1; max-width:440px; line-height:1.4;">You must be logged into your player profile before hosting or connecting to a 2-Player Online Session.</p>
+      <button class="btn btn-primary" onclick="requestParentAuthModal()" style="margin-top:6px; padding:10px 28px; font-size:0.9rem;">Sign In / Register Profile</button>
+    </div>
+
+    <!-- Active User Online Lobby -->
+    <div id="online-logged-in-container" style="display:none; flex-direction:column; width:100%; gap:14px;">
+      <!-- Top info bar -->
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #2e3e52; padding-bottom:8px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:1.1rem;">🌐</span>
+          <span style="font-size:0.85rem; font-weight:700; color:var(--text-main); letter-spacing:1px; text-transform:uppercase;">Tabletop Online Session</span>
+        </div>
+        <span id="online-user-badge" style="font-size:0.8rem; font-weight:700; color:var(--gold); background:#0c0f14; border:1px solid #334155; padding:3px 12px; border-radius:999px;">
+          Logged In
+        </span>
+      </div>
+
+      <!-- Mode Switch Tabs: Host | Join -->
+      <div id="online-subtabs-row" style="display:flex; gap:8px; width:100%;">
+        <button class="online-subtab-btn active" id="btn-subtab-host" onclick="switchOnlineTab('HOST')">🏠 Host Session</button>
+        <button class="online-subtab-btn" id="btn-subtab-join" onclick="switchOnlineTab('JOIN')">🔗 Join Session</button>
+      </div>
+
+      <!-- HOST SESSION FORM -->
+      <div id="online-host-form" style="display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:180px;">
+            <label style="display:block; font-size:0.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px; letter-spacing:0.5px;">Room Code / Session Name</label>
+            <input type="text" id="online-host-room-code" placeholder="e.g. VIRIDIAN-1" style="width:100%; background:#0c0f14; border:1.5px solid #334155; border-radius:6px; padding:9px 12px; color:#fff; font-size:0.95rem; font-weight:bold; outline:none;">
+          </div>
+          <div style="flex:1; min-width:180px;">
+            <label style="display:block; font-size:0.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px; letter-spacing:0.5px;">Session Password <span style="color:#f43f5e;">* (Mandatory)</span></label>
+            <input type="password" id="online-host-password" placeholder="Mandatory Room Password" style="width:100%; background:#0c0f14; border:1.5px solid #334155; border-radius:6px; padding:9px 12px; color:#fff; font-size:0.95rem; outline:none;">
+          </div>
+        </div>
+
+        <div>
+          <label style="display:block; font-size:0.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px; letter-spacing:0.5px;">Your Saved Deck (Required)</label>
+          <select id="online-host-deck-select" style="width:100%; background:#0c0f14; border:1.5px solid #334155; border-radius:6px; padding:9px 12px; color:#fff; font-size:0.9rem; font-weight:bold; outline:none; cursor:pointer;">
+          </select>
+        </div>
+
+        <button class="btn btn-primary" style="margin-top:4px; padding:12px; width:100%; font-size:0.95rem;" onclick="startHostingOnlineRoom()">Create & Host Session</button>
+      </div>
+
+      <!-- JOIN SESSION FORM -->
+      <div id="online-join-form" style="display:none; flex-direction:column; gap:12px;">
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:180px;">
+            <label style="display:block; font-size:0.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px; letter-spacing:0.5px;">Host Room Code <span style="color:#f43f5e;">*</span></label>
+            <input type="text" id="online-join-room-code" placeholder="Enter Host's Room Code" style="width:100%; background:#0c0f14; border:1.5px solid #334155; border-radius:6px; padding:9px 12px; color:#fff; font-size:0.95rem; font-weight:bold; outline:none;">
+          </div>
+          <div style="flex:1; min-width:180px;">
+            <label style="display:block; font-size:0.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px; letter-spacing:0.5px;">Session Password <span style="color:#f43f5e;">* (Mandatory)</span></label>
+            <input type="password" id="online-join-password" placeholder="Enter Room Password" style="width:100%; background:#0c0f14; border:1.5px solid #334155; border-radius:6px; padding:9px 12px; color:#fff; font-size:0.95rem; outline:none;">
+          </div>
+        </div>
+
+        <div>
+          <label style="display:block; font-size:0.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px; letter-spacing:0.5px;">Your Saved Deck (Required)</label>
+          <select id="online-join-deck-select" style="width:100%; background:#0c0f14; border:1.5px solid #334155; border-radius:6px; padding:9px 12px; color:#fff; font-size:0.9rem; font-weight:bold; outline:none; cursor:pointer;">
+          </select>
+        </div>
+
+        <button class="btn btn-primary" style="margin-top:4px; padding:12px; width:100%; font-size:0.95rem;" onclick="joinOnlineRoom()">Connect & Join Session</button>
+      </div>
+
+      <!-- STAGING / CONNECTED STATUS AREA -->
+      <div id="online-staging-box" style="display:none; flex-direction:column; gap:14px; background:#0c0f14; border:1.5px solid #334155; border-radius:10px; padding:16px;">
+        <div id="online-staging-header" style="text-align:center; font-size:0.95rem; font-weight:700; color:var(--gold);">
+          Waiting for Opponent...
+        </div>
+
+        <!-- Two player matchup display -->
+        <div style="display:flex; gap:12px; justify-content:center; align-items:stretch; flex-wrap:wrap;">
+          <div id="staging-card-p1" class="online-deck-card" style="flex:1; min-width:160px; border-color:#0284c7;">
+            <div style="font-size:0.65rem; color:#38bdf8; font-weight:800; text-transform:uppercase;">Player 1 (Host)</div>
+            <div id="staging-p1-name" style="font-size:1.05rem; font-weight:700; color:#fff;">-</div>
+            <div id="staging-p1-deck" style="font-size:0.75rem; color:var(--gold); font-weight:600;">-</div>
+            <div id="staging-p1-hero" style="font-size:0.7rem; color:var(--text-dim);">-</div>
+          </div>
+
+          <div style="display:flex; align-items:center; justify-content:center; font-weight:800; color:#94a3b8; font-size:1.1rem;">VS</div>
+
+          <div id="staging-card-p2" class="online-deck-card" style="flex:1; min-width:160px; border-color:#a855f7;">
+            <div style="font-size:0.65rem; color:#c084fc; font-weight:800; text-transform:uppercase;">Player 2 (Challenger)</div>
+            <div id="staging-p2-name" style="font-size:1.05rem; font-weight:700; color:#fff;">Waiting...</div>
+            <div id="staging-p2-deck" style="font-size:0.75rem; color:var(--gold); font-weight:600;">-</div>
+            <div id="staging-p2-hero" style="font-size:0.7rem; color:var(--text-dim);">-</div>
+          </div>
+        </div>
+
+        <!-- Action buttons inside staging -->
+        <div id="online-staging-actions" style="display:flex; gap:10px; justify-content:center; margin-top:6px;">
+          <button id="btn-online-launch" class="btn btn-primary" style="display:none; padding:12px 36px; font-size:1rem;" onclick="launchOnlineMatchAsHost()">⚔️ Launch Match</button>
+          <button class="btn btn-secondary" style="padding:10px 20px; font-size:0.85rem;" onclick="cancelOnlineSession()">Cancel / Disconnect</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div id="targeting-banner">
@@ -366,7 +518,10 @@
 
 <div id="game-screen" class="screen">
   <div class="top-bar">
-    <div style="font-weight: 700; color: var(--gold); letter-spacing: 1px;">LOREFALL TCG</div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <div style="font-weight: 700; color: var(--gold); letter-spacing: 1px;">LOREFALL TCG</div>
+      <div id="online-match-badge" style="display:none; font-size:0.72rem; color:var(--mana); background:rgba(15,23,42,0.8); border:1px solid #334155; padding:2px 8px; border-radius:999px; font-weight:bold;">Online Session</div>
+    </div>
     <div class="phase-tracker">
       <div class="phase-step" id="phase-step-mana">1: MANA</div>
       <div class="phase-step" id="phase-step-cmd">2: COMMAND</div>
@@ -379,7 +534,10 @@
       <div class="strike-pip filled" id="strike-pip-2"></div>
       <div class="strike-pip filled" id="strike-pip-3"></div>
     </div>
-    <div id="turn-indicator" style="font-size: 0.85rem; font-weight: 600; color: var(--mana);">Turn 1 &bull; Player 1</div>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <div id="turn-indicator" style="font-size: 0.85rem; font-weight: 600; color: var(--mana);">Turn 1 &bull; Player 1</div>
+      <button id="btn-session-exit" class="btn btn-secondary" style="display:none; padding:4px 10px; font-size:0.72rem; background:#1e293b; color:#f43f5e; border-color:#f43f5e55;" onclick="exitOnlineSession()">Surrender</button>
+    </div>
   </div>
 
   <div class="board-container">
@@ -3021,11 +3179,19 @@ async function runScoutPhase(player) {
 }
 
 async function startGame() {
+  onlineSession.active = false;
+  onlineSession.myPlayerIndex = 0;
+  const badge = document.getElementById('online-match-badge');
+  const exitBtn = document.getElementById('btn-session-exit');
+  if (badge) badge.style.display = 'none';
+  if (exitBtn) exitBtn.style.display = 'none';
+
   document.getElementById('menu-screen').classList.remove('active'); document.getElementById('game-screen').classList.add('active');
   const p1IsAI = false; const p2IsAI = (gameState.gameMode === "AI" || gameState.gameMode === "TEST");
   const diffLabel = gameState.aiDifficulty === "EASY" ? "Easy" : (gameState.aiDifficulty === "HARD" ? "Hard" : "Medium");
+  const p1Name = currentLoggedInUser ? currentLoggedInUser : "Player 1";
   gameState.players = [
-    createPlayer(0, "Player 1 (" + gameState.player1DeckKey + ")", gameState.player1DeckKey, p1IsAI),
+    createPlayer(0, p1Name + " (" + gameState.player1DeckKey + ")", gameState.player1DeckKey, p1IsAI),
     createPlayer(1, (p2IsAI ? `AI [${diffLabel}] (` : "Player 2 (") + gameState.player2DeckKey + ")", gameState.player2DeckKey, p2IsAI)
   ];
   gameState.turnNumber = 1;
@@ -3242,10 +3408,49 @@ async function loadSavedDecksFromLocalAndCloud() {
   }
 }
 
+// Logged-in profile state & Arena Supabase client
+let currentLoggedInUser = localStorage.getItem('lorefall_user') || '';
+let arenaRealtimeClient = null;
+
+function getArenaRealtimeClient() {
+  if (!arenaRealtimeClient && window.supabase && SUPABASE_URL_ARENA && SUPABASE_KEY_ARENA) {
+    try {
+      arenaRealtimeClient = window.supabase.createClient(SUPABASE_URL_ARENA, SUPABASE_KEY_ARENA);
+    } catch (e) {
+      console.warn("Failed to init Supabase client in Arena:", e);
+    }
+  }
+  return arenaRealtimeClient;
+}
+
+let onlineSession = {
+  active: false,
+  role: null, // 'HOST' or 'CHALLENGER'
+  roomCode: '',
+  password: '',
+  channel: null,
+  myPlayerIndex: 0,
+  hostInfo: null,
+  challengerInfo: null,
+  stagingState: null
+};
+
+function getPlayerDomPrefix(pIdx) {
+  if (onlineSession.active && onlineSession.myPlayerIndex === 1) {
+    return (pIdx === 1) ? 'p1' : 'p2';
+  }
+  return 'p' + (pIdx + 1);
+}
+
 // Listen for instant postMessage sync from parent index.html and storage events
 window.addEventListener('message', (e) => {
   if (e.data && e.data.type === 'LOREFALL_SYNC') {
+    if (e.data.currentUser !== undefined) {
+      currentLoggedInUser = e.data.currentUser || '';
+      checkOnlineAuthAndRender();
+    }
     syncDecksAndCards(e.data.cards, e.data.savedDecks);
+    renderOnlineDeckOptions();
   }
 });
 
@@ -3255,17 +3460,39 @@ window.addEventListener('storage', (e) => {
       const localCards = JSON.parse(localStorage.getItem('lorefall_cards_v29') || 'null');
       const localDecks = JSON.parse(localStorage.getItem('lorefall_saved_decks_v29') || 'null');
       syncDecksAndCards(localCards, localDecks);
+      renderOnlineDeckOptions();
     } catch (err) {}
+  }
+  if (e.key === 'lorefall_user') {
+    currentLoggedInUser = localStorage.getItem('lorefall_user') || '';
+    checkOnlineAuthAndRender();
   }
 });
 
 function setGameMode(mode) {
   gameState.gameMode = mode;
   document.getElementById('btn-mode-ai').classList.toggle('active', mode === 'AI'); 
-  document.getElementById('btn-mode-pvp').classList.toggle('active', mode === 'PVP');
+  document.getElementById('btn-mode-pvp').classList.toggle('active', mode === 'ONLINE');
   document.getElementById('btn-mode-test').classList.toggle('active', mode === 'TEST');
+
   const diffRow = document.getElementById('ai-difficulty-row');
-  if (diffRow) diffRow.style.display = (mode === 'PVP') ? 'none' : 'flex';
+  const oppRow = document.getElementById('opponent-deck-row');
+  const startBtn = document.getElementById('btn-start-battle');
+  const onlinePanel = document.getElementById('online-multiplayer-panel');
+
+  if (mode === 'ONLINE') {
+    if (diffRow) diffRow.style.display = 'none';
+    if (oppRow) oppRow.style.display = 'none';
+    if (startBtn) startBtn.style.display = 'none';
+    if (onlinePanel) onlinePanel.style.display = 'flex';
+    checkOnlineAuthAndRender();
+  } else {
+    if (diffRow) diffRow.style.display = 'flex';
+    if (oppRow) oppRow.style.display = 'flex';
+    if (startBtn) startBtn.style.display = 'block';
+    if (onlinePanel) onlinePanel.style.display = 'none';
+    if (onlineSession.active) cancelOnlineSession(true);
+  }
 }
 
 function setAIDifficulty(diff) {
@@ -3273,6 +3500,631 @@ function setAIDifficulty(diff) {
   document.getElementById('btn-diff-easy').classList.toggle('active', diff === 'EASY');
   document.getElementById('btn-diff-medium').classList.toggle('active', diff === 'MEDIUM');
   document.getElementById('btn-diff-hard').classList.toggle('active', diff === 'HARD');
+}
+
+function switchOnlineTab(tab) {
+  const hostForm = document.getElementById('online-host-form');
+  const joinForm = document.getElementById('online-join-form');
+  const btnHost = document.getElementById('btn-subtab-host');
+  const btnJoin = document.getElementById('btn-subtab-join');
+  const stagingBox = document.getElementById('online-staging-box');
+
+  if (stagingBox) stagingBox.style.display = 'none';
+
+  if (tab === 'HOST') {
+    if (hostForm) hostForm.style.display = 'flex';
+    if (joinForm) joinForm.style.display = 'none';
+    if (btnHost) btnHost.classList.add('active');
+    if (btnJoin) btnJoin.classList.remove('active');
+  } else {
+    if (hostForm) hostForm.style.display = 'none';
+    if (joinForm) joinForm.style.display = 'flex';
+    if (btnHost) btnHost.classList.remove('active');
+    if (btnJoin) btnJoin.classList.add('active');
+  }
+}
+
+function renderOnlineDeckOptions() {
+  const hostSelect = document.getElementById('online-host-deck-select');
+  const joinSelect = document.getElementById('online-join-deck-select');
+  const keys = Object.keys(DECK_RECIPES);
+  if (!keys.length) return;
+
+  const optionsHTML = keys.map(k => {
+    const r = DECK_RECIPES[k];
+    const heroCard = CARDS_DATA[r.hero] || CARDS_BY_NAME[(r.hero || "").replace(/^Hero_/, '')];
+    const heroName = heroCard ? heroCard.name : (r.hero || "").replace(/^Hero_/, '');
+    const cardCount = (r.cards || []).reduce((s, c) => s + (c.count || 0), 0);
+    return `<option value="${k.replace(/"/g, '&quot;')}">${k} — Hero: ${heroName} (${cardCount} Cards)</option>`;
+  }).join('');
+
+  if (hostSelect) {
+    const prev = hostSelect.value;
+    hostSelect.innerHTML = optionsHTML;
+    if (keys.includes(gameState.player1DeckKey)) hostSelect.value = gameState.player1DeckKey;
+    else if (keys.includes(prev)) hostSelect.value = prev;
+  }
+  if (joinSelect) {
+    const prev = joinSelect.value;
+    joinSelect.innerHTML = optionsHTML;
+    if (keys.includes(prev)) joinSelect.value = prev;
+  }
+}
+
+function checkOnlineAuthAndRender() {
+  const user = currentLoggedInUser || localStorage.getItem('lorefall_user') || '';
+  const loginReq = document.getElementById('online-login-required-msg');
+  const loggedInCont = document.getElementById('online-logged-in-container');
+  const userBadge = document.getElementById('online-user-badge');
+
+  if (!user) {
+    if (loginReq) loginReq.style.display = 'flex';
+    if (loggedInCont) loggedInCont.style.display = 'none';
+  } else {
+    if (loginReq) loginReq.style.display = 'none';
+    if (loggedInCont) loggedInCont.style.display = 'flex';
+    if (userBadge) userBadge.innerText = 'Profile: ' + user;
+    renderOnlineDeckOptions();
+    const codeInput = document.getElementById('online-host-room-code');
+    if (codeInput && !codeInput.value) {
+      codeInput.value = user.toUpperCase() + '-' + Math.floor(100 + Math.random() * 900);
+    }
+  }
+}
+
+function requestParentAuthModal() {
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ type: 'OPEN_AUTH_MODAL', message: 'Please log in to host or join an online session.' }, '*');
+  } else {
+    showToast("Please log in with your profile.", true);
+  }
+}
+
+function sanitizeRoomCode(code) {
+  return (code || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+}
+
+function getCardDataForDeck(deckKey) {
+  const r = DECK_RECIPES[deckKey];
+  if (!r) return null;
+  return CARDS_DATA[r.hero] || CARDS_BY_NAME[(r.hero || "").replace(/^Hero_/, '')] || null;
+}
+
+function sendOnlineBroadcast(payload) {
+  if (!onlineSession.channel) return;
+  try {
+    onlineSession.channel.send({
+      type: 'broadcast',
+      event: 'online_event',
+      payload: payload
+    });
+  } catch (err) {
+    console.warn("Online broadcast error:", err);
+  }
+}
+
+function showOnlineStaging(state) {
+  onlineSession.stagingState = state;
+  const hostForm = document.getElementById('online-host-form');
+  const joinForm = document.getElementById('online-join-form');
+  const subtabsRow = document.getElementById('online-subtabs-row');
+  const stagingBox = document.getElementById('online-staging-box');
+  const header = document.getElementById('online-staging-header');
+  const launchBtn = document.getElementById('btn-online-launch');
+
+  if (!stagingBox) return;
+
+  if (state === 'HOST_WAITING') {
+    if (hostForm) hostForm.style.display = 'none';
+    if (joinForm) joinForm.style.display = 'none';
+    if (subtabsRow) subtabsRow.style.display = 'none';
+    stagingBox.style.display = 'flex';
+
+    header.innerHTML = `Session <strong>${onlineSession.roomCode}</strong> Created!<br><span style="font-size:0.8rem; color:#cbd5e1; font-weight:normal;">Waiting for opponent to connect with password...</span>`;
+    
+    document.getElementById('staging-p1-name').innerText = onlineSession.hostInfo.username;
+    document.getElementById('staging-p1-deck').innerText = onlineSession.hostInfo.deckKey;
+    const heroCard = getCardDataForDeck(onlineSession.hostInfo.deckKey);
+    document.getElementById('staging-p1-hero').innerText = "Hero: " + (heroCard ? heroCard.name : "Custom");
+
+    document.getElementById('staging-p2-name').innerText = "Waiting for Challenger...";
+    document.getElementById('staging-p2-deck').innerText = "-";
+    document.getElementById('staging-p2-hero').innerText = "-";
+    if (launchBtn) launchBtn.style.display = 'none';
+  } else if (state === 'JOIN_CONNECTING') {
+    if (hostForm) hostForm.style.display = 'none';
+    if (joinForm) joinForm.style.display = 'none';
+    if (subtabsRow) subtabsRow.style.display = 'none';
+    stagingBox.style.display = 'flex';
+
+    header.innerHTML = `Connecting to <strong>${onlineSession.roomCode}</strong>...<br><span style="font-size:0.8rem; color:#cbd5e1; font-weight:normal;">Verifying password with Host...</span>`;
+    
+    document.getElementById('staging-p1-name').innerText = "Connecting...";
+    document.getElementById('staging-p1-deck').innerText = "-";
+    document.getElementById('staging-p1-hero').innerText = "-";
+
+    document.getElementById('staging-p2-name').innerText = onlineSession.challengerInfo.username;
+    document.getElementById('staging-p2-deck').innerText = onlineSession.challengerInfo.deckKey;
+    const heroCard = getCardDataForDeck(onlineSession.challengerInfo.deckKey);
+    document.getElementById('staging-p2-hero').innerText = "Hero: " + (heroCard ? heroCard.name : "Custom");
+    if (launchBtn) launchBtn.style.display = 'none';
+  } else if (state === 'PAIRED') {
+    if (hostForm) hostForm.style.display = 'none';
+    if (joinForm) joinForm.style.display = 'none';
+    if (subtabsRow) subtabsRow.style.display = 'none';
+    stagingBox.style.display = 'flex';
+
+    header.innerHTML = `Room <strong>${onlineSession.roomCode}</strong> &bull; Opponents Connected!`;
+    
+    // Host Info
+    document.getElementById('staging-p1-name').innerText = onlineSession.hostInfo.username;
+    document.getElementById('staging-p1-deck').innerText = onlineSession.hostInfo.deckKey;
+    const hHero = getCardDataForDeck(onlineSession.hostInfo.deckKey);
+    document.getElementById('staging-p1-hero').innerText = "Hero: " + (hHero ? hHero.name : "Custom");
+
+    // Challenger Info
+    document.getElementById('staging-p2-name').innerText = onlineSession.challengerInfo.username;
+    document.getElementById('staging-p2-deck').innerText = onlineSession.challengerInfo.deckKey;
+    const cHero = getCardDataForDeck(onlineSession.challengerInfo.deckKey);
+    document.getElementById('staging-p2-hero').innerText = "Hero: " + (cHero ? cHero.name : "Custom");
+
+    if (launchBtn) {
+      if (onlineSession.role === 'HOST') {
+        launchBtn.style.display = 'inline-block';
+        launchBtn.innerText = "⚔️ Launch Match";
+      } else {
+        launchBtn.style.display = 'none';
+        header.innerHTML += `<br><span style="font-size:0.8rem; color:#38bdf8; font-weight:normal;">Password Accepted! Waiting for Host to launch match...</span>`;
+      }
+    }
+  }
+}
+
+function startHostingOnlineRoom() {
+  const user = currentLoggedInUser || localStorage.getItem('lorefall_user') || '';
+  if (!user) {
+    requestParentAuthModal();
+    return;
+  }
+
+  const roomCodeInput = document.getElementById('online-host-room-code').value.trim();
+  const passwordInput = document.getElementById('online-host-password').value.trim();
+  const deckKey = document.getElementById('online-host-deck-select').value;
+
+  if (!roomCodeInput) {
+    showToast("Please enter a Room Code.", true);
+    return;
+  }
+  if (!passwordInput) {
+    showToast("Session Password is mandatory!", true);
+    return;
+  }
+  if (!deckKey || !DECK_RECIPES[deckKey]) {
+    showToast("Please select a valid Saved Deck.", true);
+    return;
+  }
+
+  const client = getArenaRealtimeClient();
+  if (!client) {
+    showToast("Online multiplayer connection unavailable.", true);
+    return;
+  }
+
+  if (onlineSession.channel) {
+    onlineSession.channel.unsubscribe();
+  }
+
+  onlineSession.active = true;
+  onlineSession.role = 'HOST';
+  onlineSession.roomCode = roomCodeInput;
+  onlineSession.password = passwordInput;
+  onlineSession.myPlayerIndex = 0;
+  onlineSession.hostInfo = {
+    username: user,
+    deckKey: deckKey,
+    deckData: DECK_RECIPES[deckKey]
+  };
+  onlineSession.challengerInfo = null;
+
+  const chanName = 'lorefall_room_' + sanitizeRoomCode(roomCodeInput);
+  const chan = client.channel(chanName, {
+    config: { broadcast: { self: false } }
+  });
+  onlineSession.channel = chan;
+
+  chan.on('broadcast', { event: 'online_event' }, ({ payload }) => {
+    handleHostNetworkEvent(payload);
+  });
+
+  chan.subscribe((status) => {
+    if (status === 'SUBSCRIBED') {
+      showOnlineStaging('HOST_WAITING');
+    } else if (status === 'CHANNEL_ERROR') {
+      showToast("Could not host room. Please try again.", true);
+    }
+  });
+}
+
+function joinOnlineRoom() {
+  const user = currentLoggedInUser || localStorage.getItem('lorefall_user') || '';
+  if (!user) {
+    requestParentAuthModal();
+    return;
+  }
+
+  const roomCodeInput = document.getElementById('online-join-room-code').value.trim();
+  const passwordInput = document.getElementById('online-join-password').value.trim();
+  const deckKey = document.getElementById('online-join-deck-select').value;
+
+  if (!roomCodeInput) {
+    showToast("Please enter the Host's Room Code.", true);
+    return;
+  }
+  if (!passwordInput) {
+    showToast("Session Password is mandatory!", true);
+    return;
+  }
+  if (!deckKey || !DECK_RECIPES[deckKey]) {
+    showToast("Please select a valid Saved Deck.", true);
+    return;
+  }
+
+  const client = getArenaRealtimeClient();
+  if (!client) {
+    showToast("Online multiplayer connection unavailable.", true);
+    return;
+  }
+
+  if (onlineSession.channel) {
+    onlineSession.channel.unsubscribe();
+  }
+
+  onlineSession.active = true;
+  onlineSession.role = 'CHALLENGER';
+  onlineSession.roomCode = roomCodeInput;
+  onlineSession.password = passwordInput;
+  onlineSession.myPlayerIndex = 1;
+  onlineSession.challengerInfo = {
+    username: user,
+    deckKey: deckKey,
+    deckData: DECK_RECIPES[deckKey]
+  };
+  onlineSession.hostInfo = null;
+
+  const chanName = 'lorefall_room_' + sanitizeRoomCode(roomCodeInput);
+  const chan = client.channel(chanName, {
+    config: { broadcast: { self: false } }
+  });
+  onlineSession.channel = chan;
+
+  chan.on('broadcast', { event: 'online_event' }, ({ payload }) => {
+    handleChallengerNetworkEvent(payload);
+  });
+
+  chan.subscribe((status) => {
+    if (status === 'SUBSCRIBED') {
+      showOnlineStaging('JOIN_CONNECTING');
+      // Send handshake join request to Host
+      sendOnlineBroadcast({
+        type: 'JOIN_REQUEST',
+        username: user,
+        password: passwordInput,
+        deckKey: deckKey,
+        deckData: DECK_RECIPES[deckKey]
+      });
+    } else if (status === 'CHANNEL_ERROR') {
+      showToast("Could not connect to room. Please try again.", true);
+    }
+  });
+}
+
+function handleHostNetworkEvent(payload) {
+  if (!payload) return;
+  if (payload.type === 'JOIN_REQUEST') {
+    if (payload.password !== onlineSession.password) {
+      sendOnlineBroadcast({ type: 'JOIN_REJECT', reason: 'Incorrect room password.' });
+      return;
+    }
+    onlineSession.challengerInfo = {
+      username: payload.username,
+      deckKey: payload.deckKey,
+      deckData: payload.deckData
+    };
+    if (payload.deckKey && payload.deckData && !DECK_RECIPES[payload.deckKey]) {
+      DECK_RECIPES[payload.deckKey] = payload.deckData;
+    }
+    sendOnlineBroadcast({
+      type: 'JOIN_ACCEPT',
+      hostUsername: onlineSession.hostInfo.username,
+      hostDeckKey: onlineSession.hostInfo.deckKey,
+      hostDeckData: onlineSession.hostInfo.deckData
+    });
+    showOnlineStaging('PAIRED');
+  } else if (payload.type === 'CLIENT_ACTION') {
+    handleChallengerAction(payload);
+  } else if (payload.type === 'SURRENDER') {
+    showModal("Victory!", `<div style="text-align:center; font-size:1.1rem; color:#10b981; font-weight:bold;">${onlineSession.challengerInfo?.username || 'Opponent'} surrendered!<br>Victory is yours!</div>`, [
+      { text: "Return to Menu", action: () => exitOnlineSession(true) }
+    ]);
+  } else if (payload.type === 'LEAVE_LOBBY') {
+    showToast("Challenger disconnected from the room.", true);
+    onlineSession.challengerInfo = null;
+    showOnlineStaging('HOST_WAITING');
+  }
+}
+
+function handleChallengerNetworkEvent(payload) {
+  if (!payload) return;
+  if (payload.type === 'JOIN_ACCEPT') {
+    onlineSession.hostInfo = {
+      username: payload.hostUsername,
+      deckKey: payload.hostDeckKey,
+      deckData: payload.hostDeckData
+    };
+    if (payload.hostDeckKey && payload.hostDeckData && !DECK_RECIPES[payload.hostDeckKey]) {
+      DECK_RECIPES[payload.hostDeckKey] = payload.hostDeckData;
+    }
+    showOnlineStaging('PAIRED');
+  } else if (payload.type === 'JOIN_REJECT') {
+    showToast("Join Failed: " + (payload.reason || "Unable to join session."), true);
+    cancelOnlineSession();
+  } else if (payload.type === 'MATCH_LAUNCHED') {
+    onlineSession.active = true;
+    onlineSession.myPlayerIndex = 1;
+    gameState = payload.gameState;
+
+    document.getElementById('menu-screen').classList.remove('active');
+    document.getElementById('game-screen').classList.add('active');
+
+    const badge = document.getElementById('online-match-badge');
+    const exitBtn = document.getElementById('btn-session-exit');
+    if (badge) { badge.style.display = 'block'; badge.innerText = "Online: " + onlineSession.roomCode; }
+    if (exitBtn) exitBtn.style.display = 'block';
+
+    addLogEntry(`Online Match Started vs <strong>${onlineSession.hostInfo.username}</strong>!`);
+    addLogEntry(`First Turn: <strong>${gameState.players[payload.firstIdx].name}</strong>`);
+    renderAll();
+  } else if (payload.type === 'STATE_SYNC') {
+    gameState = payload.gameState;
+    if (payload.lastLog) addLogEntry(payload.lastLog);
+    renderAll();
+  } else if (payload.type === 'UI_LOG') {
+    if (payload.text) {
+      const p = document.getElementById('log-entries');
+      const d = document.createElement('div');
+      d.className = 'log-entry';
+      d.innerHTML = payload.text;
+      p.appendChild(d);
+      document.getElementById('combat-log-box').scrollTop = p.scrollHeight;
+    }
+  } else if (payload.type === 'UI_ROLL_ANIMATION') {
+    performAnimatedRoll(payload.title, payload.text, payload.finalRoll, payload.modifier, payload.targetVal, payload.forceWin);
+  } else if (payload.type === 'SURRENDER') {
+    showModal("Victory!", `<div style="text-align:center; font-size:1.1rem; color:#10b981; font-weight:bold;">${onlineSession.hostInfo?.username || 'Host'} surrendered!<br>Victory is yours!</div>`, [
+      { text: "Return to Menu", action: () => exitOnlineSession(true) }
+    ]);
+  } else if (payload.type === 'HOST_CLOSED') {
+    showModal("Session Disconnected", "Host closed the session.", [
+      { text: "Return to Menu", action: () => exitOnlineSession(true) }
+    ]);
+  }
+}
+
+function cancelOnlineSession(silent = false) {
+  if (onlineSession.channel) {
+    if (onlineSession.role === 'HOST') {
+      sendOnlineBroadcast({ type: 'HOST_CLOSED' });
+    } else {
+      sendOnlineBroadcast({ type: 'LEAVE_LOBBY' });
+    }
+    onlineSession.channel.unsubscribe();
+    onlineSession.channel = null;
+  }
+  onlineSession.active = false;
+  onlineSession.role = null;
+  onlineSession.hostInfo = null;
+  onlineSession.challengerInfo = null;
+  onlineSession.stagingState = null;
+
+  const stagingBox = document.getElementById('online-staging-box');
+  const subtabsRow = document.getElementById('online-subtabs-row');
+  const hostForm = document.getElementById('online-host-form');
+  const joinForm = document.getElementById('online-join-form');
+
+  if (stagingBox) stagingBox.style.display = 'none';
+  if (subtabsRow) subtabsRow.style.display = 'flex';
+  if (hostForm) hostForm.style.display = 'flex';
+  if (joinForm) joinForm.style.display = 'none';
+
+  if (!silent) showToast("Online session closed.");
+}
+
+function exitOnlineSession(force = false) {
+  if (!force && !confirm("Are you sure you want to surrender and exit the online session?")) {
+    return;
+  }
+  sendOnlineBroadcast({ type: 'SURRENDER' });
+  if (onlineSession.channel) {
+    onlineSession.channel.unsubscribe();
+    onlineSession.channel = null;
+  }
+  onlineSession.active = false;
+  document.getElementById('game-screen').classList.remove('active');
+  document.getElementById('menu-screen').classList.add('active');
+
+  const badge = document.getElementById('online-match-badge');
+  const exitBtn = document.getElementById('btn-session-exit');
+  if (badge) badge.style.display = 'none';
+  if (exitBtn) exitBtn.style.display = 'none';
+
+  setGameMode('AI');
+}
+
+async function launchOnlineMatchAsHost() {
+  if (onlineSession.role !== 'HOST' || !onlineSession.challengerInfo) return;
+
+  gameState.gameMode = "ONLINE";
+  gameState.player1DeckKey = onlineSession.hostInfo.deckKey;
+  gameState.player2DeckKey = onlineSession.challengerInfo.deckKey;
+
+  gameState.players = [
+    createPlayer(0, onlineSession.hostInfo.username + " (" + onlineSession.hostInfo.deckKey + ")", onlineSession.hostInfo.deckKey, false),
+    createPlayer(1, onlineSession.challengerInfo.username + " (" + onlineSession.challengerInfo.deckKey + ")", onlineSession.challengerInfo.deckKey, false)
+  ];
+  gameState.turnNumber = 1;
+  for (let p = 0; p < 2; p++) {
+    drawCardsRaw(gameState.players[p], 8);
+  }
+
+  // Turn Order Roll-off
+  const roll1 = Math.floor(Math.random() * 20) + 1;
+  const roll2 = Math.floor(Math.random() * 20) + 1;
+  const firstIdx = (roll1 >= roll2) ? 0 : 1;
+
+  gameState.firstPlayerIndex = firstIdx;
+  gameState.activePlayerIndex = firstIdx;
+
+  document.getElementById('menu-screen').classList.remove('active');
+  document.getElementById('game-screen').classList.add('active');
+
+  const badge = document.getElementById('online-match-badge');
+  const exitBtn = document.getElementById('btn-session-exit');
+  if (badge) { badge.style.display = 'block'; badge.innerText = "Online: " + onlineSession.roomCode; }
+  if (exitBtn) exitBtn.style.display = 'block';
+
+  // Send Match Launched event with complete initial state
+  sendOnlineBroadcast({
+    type: 'MATCH_LAUNCHED',
+    firstIdx,
+    roll1,
+    roll2,
+    gameState: JSON.parse(JSON.stringify(gameState))
+  });
+
+  addLogEntry(`Online Match Started vs <strong>${onlineSession.challengerInfo.username}</strong>!`);
+  addLogEntry(`Turn Order Roll: ${gameState.players[0].name} rolled ${roll1}, ${gameState.players[1].name} rolled ${roll2}.`);
+  addLogEntry(`<strong>${gameState.players[firstIdx].name}</strong> takes the First Turn!`);
+
+  // Run Turn 1 Mana Phase
+  runManaPhase();
+  renderAll();
+  broadcastOnlineState();
+}
+
+async function handleChallengerAction(payload) {
+  if (!onlineSession.active || onlineSession.role !== 'HOST') return;
+  const p1 = gameState.players[1];
+  if (!p1) return;
+
+  const action = payload.action;
+  if (action === 'advancePhase') {
+    if (gameState.activePlayerIndex === 1) {
+      advancePhase();
+      broadcastOnlineState();
+    }
+  } else if (action === 'playAlly') {
+    const card = p1.hand[payload.cardIndex];
+    if (card && p1.manaPool >= card.manaCost) {
+      let targetArr = payload.choice === "bz" ? p1.battleZone : p1.bench;
+      const openSlot = targetArr.findIndex(s => s === null);
+      if (openSlot !== -1) {
+        p1.manaPool -= card.manaCost;
+        p1.hand.splice(payload.cardIndex, 1);
+        targetArr[openSlot] = card;
+        card.isExhausted = false;
+        card.hasAttackedThisTurn = false;
+        card.currentHealth = card.health;
+        addLogEntry(`${p1.name} deployed <strong>${card.name}</strong> to ${payload.choice === "bz" ? "Battle Zone" : "Bench"}.`);
+        await dispatchGlobalHook('onAllyEnterPlay', { triggerPlayer: p1, targetAlly: card });
+        renderAll();
+        broadcastOnlineState();
+      }
+    }
+  } else if (action === 'playSkill') {
+    const card = p1.hand[payload.cardIndex];
+    if (card && p1.manaPool >= card.manaCost && !gameState.skillLearnedThisTurn) {
+      learnSkill(p1, payload.cardIndex);
+      broadcastOnlineState();
+    }
+  } else if (action === 'playSynergy') {
+    const card = p1.hand[payload.cardIndex];
+    if (card && p1.manaPool >= card.manaCost) {
+      playSynergy(p1, payload.cardIndex);
+      broadcastOnlineState();
+    }
+  } else if (action === 'playFlash') {
+    playFlashCard(p1, payload.cardIndex);
+    broadcastOnlineState();
+  } else if (action === 'playEquip') {
+    const card = p1.hand[payload.cardIndex];
+    if (card && p1.gold >= card.goldCost) {
+      let targetUnit = (payload.targetType === 'hero') ? p1.hero : p1.battleZone[payload.targetSlot];
+      if (targetUnit) {
+        p1.gold -= card.goldCost;
+        p1.hand.splice(payload.cardIndex, 1);
+        if (!targetUnit.equipment) targetUnit.equipment = [];
+        targetUnit.equipment.push(card);
+        addLogEntry(`${p1.name} equipped <strong>${card.name}</strong> to ${targetUnit.name}.`);
+        renderAll();
+        broadcastOnlineState();
+      }
+    }
+  } else if (action === 'declareAttack') {
+    const opp = gameState.players[0];
+    let targetUnit = (payload.tType === 'hero') ? opp.hero : (payload.tType === 'bz' ? opp.battleZone[payload.tSlot] : opp.bench[payload.tSlot]);
+    if (targetUnit) {
+      await promptDefenderDeclarationAsync(payload.aInfo, opp, payload.tType, payload.tSlot, targetUnit);
+      broadcastOnlineState();
+    }
+  } else if (action === 'rollClashDefender') {
+    await rollClashDefender();
+    broadcastOnlineState();
+  } else if (action === 'tradeCard') {
+    const card = p1.hand[payload.cardIndex];
+    if (card && !gameState.tradedThisTurn) {
+      const val = card.tradeValue || card.goldCost || 1;
+      p1.gold += val;
+      p1.hand.splice(payload.cardIndex, 1);
+      p1.discard.push(card);
+      gameState.tradedThisTurn = true;
+      addLogEntry(`${p1.name} traded <strong>${card.name}</strong> for ${val} Gold.`);
+      renderAll();
+      broadcastOnlineState();
+    }
+  }
+}
+
+function promptOnlineEquip(pIdx, cardIndex) {
+  const p = gameState.players[pIdx];
+  const card = p.hand[cardIndex];
+  if (!card) return;
+
+  const options = [{ text: `${p.hero.name} (Hero)`, value: { targetType: 'hero', targetSlot: 0 } }];
+  p.battleZone.forEach((u, i) => {
+    if (u) options.push({ text: `${u.name} (BZ Slot ${i + 1})`, value: { targetType: 'bz', targetSlot: i } });
+  });
+
+  options.push({ text: "Cancel", value: null });
+
+  showModalAsync("Equip " + card.name, "Select unit to equip:", options).then(res => {
+    if (!res) return;
+    sendOnlineBroadcast({
+      type: 'CLIENT_ACTION',
+      action: 'playEquip',
+      cardIndex: cardIndex,
+      targetType: res.targetType,
+      targetSlot: res.targetSlot
+    });
+  });
+}
+
+function broadcastOnlineState(lastLogMsg) {
+  if (!onlineSession.active || onlineSession.role !== 'HOST') return;
+  sendOnlineBroadcast({
+    type: 'STATE_SYNC',
+    gameState: JSON.parse(JSON.stringify(gameState)),
+    lastLog: lastLogMsg || null
+  });
 }
 
 /* =========================================================================
@@ -3441,10 +4293,44 @@ function hideArenaPreview() {
   if (previewEl) previewEl.classList.remove('active');
 }
 
-function renderAll() { renderPlayer(0); renderPlayer(1); renderHand(); updatePhaseTracker(); updateStrikePips(); updateClashHPBars(); }
+function updateTurnIndicator() {
+  const ind = document.getElementById('turn-indicator');
+  if (!ind || !gameState.players || !gameState.players[gameState.activePlayerIndex]) return;
+  const activeP = gameState.players[gameState.activePlayerIndex];
+  let text = "Turn " + gameState.turnNumber + " • " + activeP.name;
+  if (onlineSession.active) {
+    if (gameState.activePlayerIndex === onlineSession.myPlayerIndex) {
+      text += " (YOUR TURN)";
+      ind.style.color = "#10b981";
+    } else {
+      text += " (OPPONENT'S TURN)";
+      ind.style.color = "#f43f5e";
+    }
+  } else {
+    ind.style.color = "var(--mana)";
+  }
+  ind.innerText = text;
+}
+
+function renderAll() { 
+  if (onlineSession.active && onlineSession.myPlayerIndex === 1) {
+    renderPlayer(1); 
+    renderPlayer(0); 
+  } else {
+    renderPlayer(0); 
+    renderPlayer(1); 
+  }
+  renderHand(); 
+  updatePhaseTracker(); 
+  updateStrikePips(); 
+  updateClashHPBars(); 
+  updateTurnIndicator();
+}
 
 function renderPlayer(pIdx) {
-  const p = gameState.players[pIdx]; const prx = "p" + (pIdx + 1);
+  const p = gameState.players[pIdx]; 
+  if (!p) return;
+  const prx = getPlayerDomPrefix(pIdx);
   document.getElementById(prx + "-hp-val").innerText = p.hero.currentHealth + " / " + p.hero.maxHealth;
   document.getElementById(prx + "-mana-val").innerText = p.manaPool; document.getElementById(prx + "-gold-val").innerText = p.gold;
   document.getElementById(prx + "-def-val").innerText = getStat(p.hero, "defense", p);
@@ -3489,7 +4375,10 @@ function renderPlayer(pIdx) {
 }
 
 function renderHand() {
-  const p = gameState.players[0]; const handBox = document.getElementById('player-hand-container');
+  const myIdx = (onlineSession.active) ? onlineSession.myPlayerIndex : 0;
+  const p = gameState.players[myIdx]; 
+  const handBox = document.getElementById('player-hand-container');
+  if (!p || !handBox) return;
   handBox.innerHTML = '';
   p.hand.forEach((card, idx) => {
     const el = document.createElement('div');
@@ -3519,9 +4408,9 @@ function renderHand() {
         <div class="card-stats"><div class="card-stats-row">${statsHTML}</div></div>
       `;
     }
-    el.onmouseenter = (e) => showArenaPreview(e, 0, 'hand', idx);
+    el.onmouseenter = (e) => showArenaPreview(e, myIdx, 'hand', idx);
     el.onmouseleave = () => hideArenaPreview();
-    el.onclick = () => { hideArenaPreview(); openCardDetail(0, 'hand', idx); };
+    el.onclick = () => { hideArenaPreview(); openCardDetail(myIdx, 'hand', idx); };
     handBox.appendChild(el);
   });
 }
@@ -3922,11 +4811,24 @@ function handleCardInteraction(pIdx, zone, slot) {
 
   // 2. Handle Combat Strike Targeting
   if (gameState.selectedAttacker) {
-    // Reconstruct the slot's HTML ID to check if it has the red glowing .targetable class
-    const slotId = `p${pIdx + 1}-${zone === 'hero' ? 'hero-slot' : zone + '-' + slot}`;
+    const domPrx = getPlayerDomPrefix(pIdx);
+    const slotId = `${domPrx}-${zone === 'hero' ? 'hero-slot' : zone + '-' + slot}`;
     const el = document.getElementById(slotId);
     
     if (el && el.classList.contains('targetable')) {
+        if (onlineSession.active && onlineSession.myPlayerIndex === 1) {
+          sendOnlineBroadcast({
+            type: 'CLIENT_ACTION',
+            action: 'declareAttack',
+            aInfo: gameState.selectedAttacker,
+            tType: zone,
+            tSlot: slot
+          });
+          gameState.selectedAttacker = null;
+          document.querySelectorAll('.card-slot').forEach(s => s.classList.remove('targetable'));
+          document.querySelectorAll('.card-mini').forEach(s => s.classList.remove('selected-attacker'));
+          return;
+        }
         // Valid enemy clicked! Launch the Clash Arena.
         promptDefenderDeclarationAsync(gameState.selectedAttacker, p, zone, slot, card);
         return; 
@@ -4019,7 +4921,9 @@ function openCardDetail(pIdx, zone, slot, event = null) {
   else if (zone === 'skill') card = p.skills[slot]; else if (zone === 'synergy') card = p.synergies[slot];
   if (!card) return;
 
-  const isMyTurn = (pIdx === gameState.activePlayerIndex && !p.isAI);
+  const isMyTurn = onlineSession.active 
+    ? (pIdx === gameState.activePlayerIndex && pIdx === onlineSession.myPlayerIndex) 
+    : (pIdx === gameState.activePlayerIndex && !p.isAI);
   const phase = PHASES[gameState.currentPhaseIndex];
 
   const modal = document.getElementById('card-detail-modal');
@@ -4318,6 +5222,17 @@ async function setPhase(phaseName) {
 }
 
 function advancePhase() {
+  if (onlineSession.active) {
+    if (gameState.activePlayerIndex !== onlineSession.myPlayerIndex) {
+      showToast("It is not your turn!");
+      return;
+    }
+    if (onlineSession.myPlayerIndex === 1) {
+      sendOnlineBroadcast({ type: 'CLIENT_ACTION', action: 'advancePhase' });
+      return;
+    }
+  }
+
   const current = PHASES[gameState.currentPhaseIndex];
   if (current === "MANA") setPhase("COMMAND");
   else if (current === "COMMAND") {
@@ -4333,6 +5248,10 @@ function advancePhase() {
     setPhase("END");
   }
   else if (current === "END") resolveEndPhase();
+
+  if (onlineSession.active && onlineSession.role === 'HOST') {
+    broadcastOnlineState();
+  }
 }
 
 async function runManaPhase() {
@@ -4404,6 +5323,50 @@ function resolveEndPhase() {
 }
 
 async function playCardFromHand(cardIndex) {
+  if (onlineSession.active) {
+    if (gameState.activePlayerIndex !== onlineSession.myPlayerIndex) {
+      showToast("It is not your turn!");
+      return;
+    }
+    if (onlineSession.myPlayerIndex === 1) {
+      const p = gameState.players[1];
+      const card = p.hand[cardIndex];
+      if (!card) return;
+      const currentPhase = PHASES[gameState.currentPhaseIndex];
+      if (card.type !== "Flash" && currentPhase !== "COMMAND") {
+        showToast("You can only play cards during Command Phase!");
+        return;
+      }
+      if (card.type === "Ally") {
+        if (p.manaPool < card.manaCost) { showToast("Not enough Mana!"); return; }
+        showModalAsync("Deploy " + card.name, "Choose where to deploy:", [
+          { text: "Battle Zone", value: "bz" }, { text: "Bench", value: "bench" }, { text: "Cancel", value: null }
+        ]).then(choice => {
+          if (!choice) return;
+          sendOnlineBroadcast({ type: 'CLIENT_ACTION', action: 'playAlly', cardIndex, choice });
+        });
+        return;
+      } else if (card.type === "Skill") {
+        if (p.manaPool < card.manaCost) { showToast("Not enough Mana!"); return; }
+        if (gameState.skillLearnedThisTurn) { showToast("Limit 1 Skill learned per turn!"); return; }
+        sendOnlineBroadcast({ type: 'CLIENT_ACTION', action: 'playSkill', cardIndex });
+        return;
+      } else if (card.type === "Equipment") {
+        if (p.gold < card.goldCost) { showToast("Not enough Gold!"); return; }
+        promptOnlineEquip(1, cardIndex);
+        return;
+      } else if (card.type === "Synergy") {
+        if (p.manaPool < card.manaCost) { showToast("Not enough Mana!"); return; }
+        sendOnlineBroadcast({ type: 'CLIENT_ACTION', action: 'playSynergy', cardIndex });
+        return;
+      } else if (card.type === "Flash") {
+        sendOnlineBroadcast({ type: 'CLIENT_ACTION', action: 'playFlash', cardIndex });
+        return;
+      }
+      return;
+    }
+  }
+
   const p = gameState.players[gameState.activePlayerIndex]; if (p.isAI) return;
   const currentPhase = PHASES[gameState.currentPhaseIndex]; const card = p.hand[cardIndex]; if (!card) return;
   
@@ -4426,6 +5389,9 @@ async function playFlashCard(player, cardIndex) {
   
   await executeHook(card, 'onPlay', { triggerPlayer: player });
   renderAll();
+  if (onlineSession.active && onlineSession.role === 'HOST') {
+    broadcastOnlineState();
+  }
 }
 
 function promptDeployAlly(player, cardIndex) {
@@ -4446,6 +5412,7 @@ function promptDeployAlly(player, cardIndex) {
       }
       targetArr[openSlot] = card; addLogEntry(player.name + " deployed " + card.name + ".");
       await executeHook(card, 'onPlay', { triggerPlayer: player }); renderAll();
+      if (onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
   });
 }
 
@@ -4483,6 +5450,7 @@ async function learnSkill(player, cardIndex) {
   gameState.skillLearnedThisTurn = true;
   addLogEntry(player.name + " learned Skill: <strong>" + card.name + "</strong>!"); 
   renderAll();
+  if (onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
 }
 
 function canUnitEquipCard(unit, equipCard) {
@@ -4522,6 +5490,7 @@ function promptEquip(player, cardIndex) {
       else { const ally = player.battleZone[t.slot]; if (!ally.equipment) ally.equipment = []; ally.equipment.push(card); }
       addLogEntry(`${player.name} equipped <strong>${card.name}</strong> to <strong>${t.isHero ? player.hero.name : player.battleZone[t.slot].name}</strong>.`);
       renderAll();
+      if (onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
     }
   }));
   actions.push({ text: "Cancel", action: closeModal }); 
@@ -4537,6 +5506,7 @@ async function playSynergy(player, cardIndex) {
   if (openSlot === -1) { showToast("Synergy slots full!"); return; }
   player.manaPool -= card.manaCost; player.hand.splice(cardIndex, 1); player.synergies[openSlot] = card;
   await executeHook(card, 'onPlay', { triggerPlayer: player }); renderAll();
+  if (onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
 }
 
 function modifyCharge(playerIndex, zone, slotIndex, delta) {
@@ -4636,21 +5606,35 @@ function highlightCombatTargets() {
   const isRanged = (aInfo.card.attackType === "Ranged"); 
   const bzEmpty = opp.battleZone.every(s => s === null);
   let hasOverreach = checkKeyword(aInfo.card, atkP, "overreach") || (aInfo.type === 'skill' && checkKeyword(atkP.hero, atkP, "overreach"));
+  const oppPrx = getPlayerDomPrefix(opp.index);
 
   if (!isRanged) {
     if (!bzEmpty) { 
         const vIdx = opp.battleZone.findIndex(s => s !== null); 
-        document.getElementById("p" + (opp.index + 1) + "-bz-" + vIdx).classList.add('targetable'); 
+        const bzEl = document.getElementById(oppPrx + "-bz-" + vIdx);
+        if (bzEl) bzEl.classList.add('targetable'); 
     }
     // Allow melee attackers with Overreach to target the Hero directly even if allies are present
     if (bzEmpty || hasOverreach) {
-        document.getElementById("p" + (opp.index + 1) + "-hero-slot").classList.add('targetable');
+        const heroEl = document.getElementById(oppPrx + "-hero-slot");
+        if (heroEl) heroEl.classList.add('targetable');
     }
   } else {
-    opp.battleZone.forEach((u, i) => { if (u) document.getElementById("p" + (opp.index + 1) + "-bz-" + i).classList.add('targetable'); });
-    opp.bench.forEach((u, i) => { if (u) document.getElementById("p" + (opp.index + 1) + "-bench-" + i).classList.add('targetable'); });
+    opp.battleZone.forEach((u, i) => { 
+      if (u) {
+        const el = document.getElementById(oppPrx + "-bz-" + i);
+        if (el) el.classList.add('targetable');
+      }
+    });
+    opp.bench.forEach((u, i) => { 
+      if (u) {
+        const el = document.getElementById(oppPrx + "-bench-" + i);
+        if (el) el.classList.add('targetable');
+      }
+    });
     if (bzEmpty || hasOverreach) {
-        document.getElementById("p" + (opp.index + 1) + "-hero-slot").classList.add('targetable');
+        const heroEl = document.getElementById(oppPrx + "-hero-slot");
+        if (heroEl) heroEl.classList.add('targetable');
     }
   }
 }
@@ -5836,6 +6820,7 @@ async function closeClashAndApply() {
   });
 
   checkGameOver(); renderAll();
+  if (onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
   currentClash = null;
 
   const pendingIrith = gameState.pendingIrithFollowUp;
@@ -6536,19 +7521,35 @@ function checkAIAction() {
 }
 
 function triggerTradeAction() {
-  const p = gameState.players[gameState.activePlayerIndex]; if (p.isAI) return;
+  if (onlineSession.active && gameState.activePlayerIndex !== onlineSession.myPlayerIndex) {
+    showToast("It is not your turn!");
+    return;
+  }
+  const myIdx = onlineSession.active ? onlineSession.myPlayerIndex : gameState.activePlayerIndex;
+  const p = gameState.players[myIdx]; 
+  if (!p || p.isAI) return;
   if (PHASES[gameState.currentPhaseIndex] !== "END") { showToast("Trading is restricted to the End Phase!"); return; }
   if (gameState.tradedThisTurn) { showToast("Trade limit reached!"); return; }
   const tradeable = p.hand.map((c, idx) => ({ c, idx })).filter(item => item.c.type !== "Ally" && (item.c.tradeValue || item.c.goldCost));
-  if (tradeable.length === 0) return;
+  if (tradeable.length === 0) {
+    showToast("No tradeable cards in hand.");
+    return;
+  }
   const actions = tradeable.map(item => {
     const val = item.c.tradeValue || item.c.goldCost || 2;
     return { text: item.c.name + " (Gain " + val + " Gold)", action: () => {
-        closeModal(); p.hand.splice(item.idx, 1); p.discard.push(item.c); p.gold += val; gameState.tradedThisTurn = true; renderAll();
+        closeModal(); 
+        if (onlineSession.active && onlineSession.myPlayerIndex === 1) {
+          sendOnlineBroadcast({ type: 'CLIENT_ACTION', action: 'tradeCard', cardIndex: item.idx });
+          return;
+        }
+        p.hand.splice(item.idx, 1); p.discard.push(item.c); p.gold += val; gameState.tradedThisTurn = true; renderAll();
+        if (onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
       }
     };
   });
-  actions.push({ text: "Cancel", action: closeModal }); showModal("Trade", "Discard 1 card to receive Gold Tokens:", actions);
+  actions.push({ text: "Cancel", action: closeModal }); 
+  showModal("Trade", "Discard 1 card to receive Gold Tokens:", actions);
 }
 
 /* =========================================================================
@@ -6573,6 +7574,12 @@ function showModalAsync(title, bHTML, acts) {
 }
 
 async function performAnimatedRoll(title, text, finalRoll, modifier, targetVal, forceWin) {
+    if (onlineSession.active && onlineSession.role === 'HOST') {
+        sendOnlineBroadcast({
+            type: 'UI_ROLL_ANIMATION',
+            title, text, finalRoll, modifier, targetVal, forceWin
+        });
+    }
     return new Promise(resolve => {
         const modal = document.getElementById('game-modal');
         document.getElementById('modal-title').innerText = title;
@@ -6677,7 +7684,18 @@ function showDeckInspect(pIdx) {
     showModal("Loot Deck", html, [{ text: "Close", action: closeModal }]); 
 }
 
-function addLogEntry(text) { const p = document.getElementById('log-entries'); const d = document.createElement('div'); d.className = 'log-entry'; d.innerHTML = text; p.appendChild(d); document.getElementById('combat-log-box').scrollTop = p.scrollHeight; }
+function addLogEntry(text) { 
+  const p = document.getElementById('log-entries'); 
+  const d = document.createElement('div'); 
+  d.className = 'log-entry'; 
+  d.innerHTML = text; 
+  p.appendChild(d); 
+  document.getElementById('combat-log-box').scrollTop = p.scrollHeight; 
+
+  if (onlineSession.active && onlineSession.role === 'HOST') {
+    sendOnlineBroadcast({ type: 'UI_LOG', text });
+  }
+}
 
 function updatePhaseTracker() {
   const current = PHASES[gameState.currentPhaseIndex];
