@@ -3842,6 +3842,12 @@ function handleHostNetworkEvent(payload) {
     showOnlineStaging('PAIRED');
   } else if (payload.type === 'CLIENT_ACTION') {
     handleChallengerAction(payload);
+  } else if (payload.type === 'ONLINE_ROLLOFF_ROLL') {
+    handleOnlineRollOffOpponentRoll(payload.playerIndex, payload.roll);
+  } else if (payload.type === 'ONLINE_ROLLOFF_CHOICE') {
+    applyOnlineTurnOrderChoice(payload.firstPlayerIndex);
+  } else if (payload.type === 'ONLINE_CHALLENGER_SCOUT_DONE') {
+    handleOnlineChallengerScoutDone(payload);
   } else if (payload.type === 'SURRENDER') {
     showModal("Victory!", `<div style="text-align:center; font-size:1.1rem; color:#10b981; font-weight:bold;">${onlineSession.challengerInfo?.username || 'Opponent'} surrendered!<br>Victory is yours!</div>`, [
       { text: "Return to Menu", action: () => exitOnlineSession(true) }
@@ -3882,8 +3888,16 @@ function handleChallengerNetworkEvent(payload) {
     if (exitBtn) exitBtn.style.display = 'block';
 
     addLogEntry(`Online Match Started vs <strong>${onlineSession.hostInfo.username}</strong>!`);
-    addLogEntry(`First Turn: <strong>${gameState.players[payload.firstIdx].name}</strong>`);
     renderAll();
+    startOnlineTurnOrderRollOff();
+  } else if (payload.type === 'ONLINE_ROLLOFF_ROLL') {
+    handleOnlineRollOffOpponentRoll(payload.playerIndex, payload.roll);
+  } else if (payload.type === 'ONLINE_ROLLOFF_CHOICE') {
+    applyOnlineTurnOrderChoice(payload.firstPlayerIndex);
+  } else if (payload.type === 'ONLINE_HOST_SCOUT_DONE') {
+    handleOnlineHostScoutDone();
+  } else if (payload.type === 'ONLINE_SCOUT_ALL_COMPLETE') {
+    handleOnlineScoutAllComplete(payload);
   } else if (payload.type === 'STATE_SYNC') {
     gameState = payload.gameState;
     if (payload.lastLog) addLogEntry(payload.lastLog);
@@ -3926,6 +3940,11 @@ function cancelOnlineSession(silent = false) {
   onlineSession.challengerInfo = null;
   onlineSession.stagingState = null;
 
+  const modal = document.getElementById('game-modal');
+  const modalContent = document.getElementById('modal-content');
+  if (modal) modal.classList.remove('active');
+  if (modalContent) modalContent.classList.remove('wide-modal');
+
   const stagingBox = document.getElementById('online-staging-box');
   const subtabsRow = document.getElementById('online-subtabs-row');
   const hostForm = document.getElementById('online-host-form');
@@ -3949,6 +3968,12 @@ function exitOnlineSession(force = false) {
     onlineSession.channel = null;
   }
   onlineSession.active = false;
+
+  const modal = document.getElementById('game-modal');
+  const modalContent = document.getElementById('modal-content');
+  if (modal) modal.classList.remove('active');
+  if (modalContent) modalContent.classList.remove('wide-modal');
+
   document.getElementById('game-screen').classList.remove('active');
   document.getElementById('menu-screen').classList.add('active');
 
@@ -3972,17 +3997,12 @@ async function launchOnlineMatchAsHost() {
     createPlayer(1, onlineSession.challengerInfo.username + " (" + onlineSession.challengerInfo.deckKey + ")", onlineSession.challengerInfo.deckKey, false)
   ];
   gameState.turnNumber = 1;
+  gameState.firstPlayerIndex = null;
+  gameState.activePlayerIndex = null;
+
   for (let p = 0; p < 2; p++) {
     drawCardsRaw(gameState.players[p], 8);
   }
-
-  // Turn Order Roll-off
-  const roll1 = Math.floor(Math.random() * 20) + 1;
-  const roll2 = Math.floor(Math.random() * 20) + 1;
-  const firstIdx = (roll1 >= roll2) ? 0 : 1;
-
-  gameState.firstPlayerIndex = firstIdx;
-  gameState.activePlayerIndex = firstIdx;
 
   document.getElementById('menu-screen').classList.remove('active');
   document.getElementById('game-screen').classList.add('active');
@@ -3992,23 +4012,520 @@ async function launchOnlineMatchAsHost() {
   if (badge) { badge.style.display = 'block'; badge.innerText = "Online: " + onlineSession.roomCode; }
   if (exitBtn) exitBtn.style.display = 'block';
 
-  // Send Match Launched event with complete initial state
+  // Send Match Launched event with initial state
   sendOnlineBroadcast({
     type: 'MATCH_LAUNCHED',
-    firstIdx,
-    roll1,
-    roll2,
     gameState: JSON.parse(JSON.stringify(gameState))
   });
 
   addLogEntry(`Online Match Started vs <strong>${onlineSession.challengerInfo.username}</strong>!`);
-  addLogEntry(`Turn Order Roll: ${gameState.players[0].name} rolled ${roll1}, ${gameState.players[1].name} rolled ${roll2}.`);
-  addLogEntry(`<strong>${gameState.players[firstIdx].name}</strong> takes the First Turn!`);
+  renderAll();
 
-  // Run Turn 1 Mana Phase
+  // Start interactive Turn-Order Roll-Off on Host
+  startOnlineTurnOrderRollOff();
+}
+
+/* =========================================================================
+   ONLINE MULTIPLAYER: TURN-ORDER D20 ROLL-OFF & SIMULTANEOUS SCOUTING
+   ========================================================================= */
+
+let onlineRollOffState = {
+  p1Roll: null,
+  p2Roll: null,
+  p1AnimDone: false,
+  p2AnimDone: false,
+  isRolling: false,
+  tieCount: 0
+};
+
+let onlineScoutState = {
+  hostDone: false,
+  challengerDone: false,
+  currentMaxHand: 8,
+  keptSet: null
+};
+
+function animateOnlineDie(dieEl, finalRoll, onFinish) {
+  if (!dieEl) {
+    if (onFinish) onFinish();
+    return;
+  }
+  let startTime = Date.now();
+  let delay = 35;
+  function step() {
+    let elapsed = Date.now() - startTime;
+    if (elapsed > 900) {
+      dieEl.innerText = finalRoll;
+      dieEl.style.transform = "scale(1.22)";
+      setTimeout(() => {
+        dieEl.style.transform = "scale(1)";
+        if (onFinish) onFinish();
+      }, 160);
+    } else {
+      dieEl.innerText = Math.floor(Math.random() * 20) + 1;
+      delay += (elapsed > 450 ? 15 : 0);
+      setTimeout(step, delay);
+    }
+  }
+  step();
+}
+
+function startOnlineTurnOrderRollOff(isTie = false) {
+  onlineRollOffState.p1Roll = null;
+  onlineRollOffState.p2Roll = null;
+  onlineRollOffState.p1AnimDone = false;
+  onlineRollOffState.p2AnimDone = false;
+  onlineRollOffState.isRolling = false;
+  if (!isTie) onlineRollOffState.tieCount = 0;
+
+  const modal = document.getElementById('game-modal');
+  const modalContent = document.getElementById('modal-content');
+  if (modalContent) modalContent.classList.remove('wide-modal');
+
+  const p1 = gameState.players[0];
+  const p2 = gameState.players[1];
+  const myIdx = onlineSession.myPlayerIndex;
+
+  document.getElementById('modal-title').innerText = isTie 
+    ? `Turn Order Roll-Off (Tiebreaker #${onlineRollOffState.tieCount}!)` 
+    : "Turn Order Roll-Off";
+
+  document.getElementById('modal-body').innerHTML = `
+    <div style="text-align:center; font-size:0.95rem; color:#cbd5e1;">
+      Both players roll their own <strong>D20</strong> die. Highest roll chooses who takes the first turn.<br>
+      <span style="font-size:0.8rem; color:var(--text-dim);">(First Player skips their 1st Draw Step and 1st Combat Phase.)</span>
+    </div>
+    <div class="rolloff-arena">
+      <div class="rolloff-combatant">
+        <div style="font-weight:700; color:var(--mana); font-size:0.92rem;">
+          ${p1.name} ${myIdx === 0 ? '<span style="color:#10b981; font-weight:800;">(You)</span>' : ''}
+        </div>
+        <div class="rolloff-die" id="rolloff-die-p1">?</div>
+      </div>
+      <div style="font-weight:800; color:var(--gold); font-size:1.3rem;">VS</div>
+      <div class="rolloff-combatant">
+        <div style="font-weight:700; color:#f43f5e; font-size:0.92rem;">
+          ${p2.name} ${myIdx === 1 ? '<span style="color:#10b981; font-weight:800;">(You)</span>' : ''}
+        </div>
+        <div class="rolloff-die" id="rolloff-die-p2" style="border-color:#f43f5e;">?</div>
+      </div>
+    </div>
+    <div id="rolloff-status" style="text-align:center; font-size:1rem; min-height:36px; font-weight:600; color:#cbd5e1;">
+      ${isTie ? "Tie! Roll your D20 for the tiebreaker!" : "Roll your D20 to determine turn order!"}
+    </div>
+  `;
+
+  const actionsEl = document.getElementById('modal-actions');
+  actionsEl.innerHTML = "";
+
+  const rollBtn = document.createElement('button');
+  rollBtn.id = 'btn-rolloff-mine';
+  rollBtn.className = 'btn btn-primary';
+  rollBtn.style.width = '100%';
+  rollBtn.style.padding = '14px';
+  rollBtn.style.fontSize = '1.1rem';
+  rollBtn.innerText = isTie ? "🎲 Roll D20 Tiebreaker" : "🎲 Roll Your D20";
+  rollBtn.onclick = () => {
+    if (onlineRollOffState.isRolling) return;
+    onlineRollOffState.isRolling = true;
+    rollBtn.disabled = true;
+    rollBtn.innerText = "Rolling...";
+
+    const myRoll = Math.floor(Math.random() * 20) + 1;
+    if (myIdx === 0) {
+      onlineRollOffState.p1Roll = myRoll;
+    } else {
+      onlineRollOffState.p2Roll = myRoll;
+    }
+
+    sendOnlineBroadcast({
+      type: 'ONLINE_ROLLOFF_ROLL',
+      playerIndex: myIdx,
+      roll: myRoll
+    });
+
+    const myDie = document.getElementById(myIdx === 0 ? 'rolloff-die-p1' : 'rolloff-die-p2');
+    const statusEl = document.getElementById('rolloff-status');
+    if (statusEl) {
+      statusEl.innerHTML = `<span style="color:#38bdf8;">You rolled a <strong>${myRoll}</strong>!</span>`;
+    }
+
+    animateOnlineDie(myDie, myRoll, () => {
+      if (myIdx === 0) onlineRollOffState.p1AnimDone = true;
+      else onlineRollOffState.p2AnimDone = true;
+      rollBtn.style.display = 'none';
+      checkOnlineRollOffBothDone();
+    });
+  };
+
+  actionsEl.appendChild(rollBtn);
+  modal.classList.add('active');
+}
+
+function handleOnlineRollOffOpponentRoll(playerIndex, oppRoll) {
+  if (playerIndex === 0) {
+    onlineRollOffState.p1Roll = oppRoll;
+  } else {
+    onlineRollOffState.p2Roll = oppRoll;
+  }
+
+  const oppDie = document.getElementById(playerIndex === 0 ? 'rolloff-die-p1' : 'rolloff-die-p2');
+  const oppPlayer = gameState.players[playerIndex];
+  const oppName = oppPlayer ? oppPlayer.name : "Opponent";
+
+  const statusEl = document.getElementById('rolloff-status');
+  if (statusEl && !onlineRollOffState.isRolling) {
+    statusEl.innerHTML = `<span style="color:#f43f5e;">${oppName} rolled a <strong>${oppRoll}</strong>!</span> Click below to roll your D20!`;
+  }
+
+  animateOnlineDie(oppDie, oppRoll, () => {
+    if (playerIndex === 0) onlineRollOffState.p1AnimDone = true;
+    else onlineRollOffState.p2AnimDone = true;
+    checkOnlineRollOffBothDone();
+  });
+}
+
+function checkOnlineRollOffBothDone() {
+  if (onlineRollOffState.p1Roll === null || onlineRollOffState.p2Roll === null ||
+      !onlineRollOffState.p1AnimDone || !onlineRollOffState.p2AnimDone) {
+    const myIdx = onlineSession.myPlayerIndex;
+    const haveMyRoll = (myIdx === 0 ? onlineRollOffState.p1Roll : onlineRollOffState.p2Roll) !== null;
+    const statusEl = document.getElementById('rolloff-status');
+    if (statusEl && haveMyRoll && (onlineRollOffState.p1Roll === null || onlineRollOffState.p2Roll === null)) {
+      statusEl.innerHTML += `<br><span style="font-size:0.9rem; color:var(--gold);">Waiting for opponent to roll...</span>`;
+    }
+    return;
+  }
+
+  const r1 = onlineRollOffState.p1Roll;
+  const r2 = onlineRollOffState.p2Roll;
+  const p1 = gameState.players[0];
+  const p2 = gameState.players[1];
+  const myIdx = onlineSession.myPlayerIndex;
+  const statusEl = document.getElementById('rolloff-status');
+  const actionsEl = document.getElementById('modal-actions');
+
+  if (r1 === r2) {
+    onlineRollOffState.tieCount++;
+    addLogEntry(`Turn Order Roll tied at ${r1}! Re-rolling tiebreaker...`);
+    if (statusEl) {
+      statusEl.innerHTML = `<span style="color:var(--gold); font-size:1.1rem; font-weight:800;">Tie (${r1} vs ${r2})! Re-rolling tiebreaker...</span>`;
+    }
+    if (actionsEl) {
+      actionsEl.innerHTML = "";
+      const retryBtn = document.createElement('button');
+      retryBtn.className = 'btn btn-primary';
+      retryBtn.style.width = '100%';
+      retryBtn.style.padding = '12px';
+      retryBtn.innerText = "🎲 Roll Tiebreaker";
+      retryBtn.onclick = () => {
+        startOnlineTurnOrderRollOff(true);
+      };
+      actionsEl.appendChild(retryBtn);
+    }
+    return;
+  }
+
+  const winnerIdx = r1 > r2 ? 0 : 1;
+  const winner = gameState.players[winnerIdx];
+  const winningRoll = Math.max(r1, r2);
+  const losingRoll = Math.min(r1, r2);
+
+  addLogEntry(`Turn Order Roll: <strong>${p1.name}</strong> rolled ${r1}, <strong>${p2.name}</strong> rolled ${r2}. <strong>${winner.name}</strong> wins!`);
+
+  if (winnerIdx === myIdx) {
+    if (statusEl) {
+      statusEl.innerHTML = `
+        <span style="color:#10b981; font-weight:800; font-size:1.15rem;">You Won the Roll (${winningRoll} vs ${losingRoll})!</span><br>
+        <span style="font-size:0.9rem; color:#cbd5e1;">Choose who takes the First Turn:</span>
+      `;
+    }
+    if (actionsEl) {
+      actionsEl.innerHTML = "";
+      const btnFirst = document.createElement('button');
+      btnFirst.className = 'btn btn-primary';
+      btnFirst.style.flex = '1';
+      btnFirst.style.padding = '12px';
+      btnFirst.innerText = `You Go 1st`;
+      btnFirst.onclick = () => {
+        handleOnlineTurnOrderSelection(winnerIdx);
+      };
+
+      const btnSecond = document.createElement('button');
+      btnSecond.className = 'btn btn-secondary';
+      btnSecond.style.flex = '1';
+      btnSecond.style.padding = '12px';
+      btnSecond.innerText = `${gameState.players[1 - winnerIdx].name} Goes 1st`;
+      btnSecond.onclick = () => {
+        handleOnlineTurnOrderSelection(1 - winnerIdx);
+      };
+
+      actionsEl.appendChild(btnFirst);
+      actionsEl.appendChild(btnSecond);
+    }
+  } else {
+    if (statusEl) {
+      statusEl.innerHTML = `
+        <span style="color:#f43f5e; font-weight:800; font-size:1.15rem;">${winner.name} Won the Roll (${winningRoll} vs ${losingRoll})!</span><br>
+        <span style="font-size:0.9rem; color:var(--gold);">Waiting for ${winner.name} to choose who takes the First Turn...</span>
+      `;
+    }
+    if (actionsEl) {
+      actionsEl.innerHTML = "";
+    }
+  }
+}
+
+function handleOnlineTurnOrderSelection(firstPlayerIdx) {
+  sendOnlineBroadcast({
+    type: 'ONLINE_ROLLOFF_CHOICE',
+    firstPlayerIndex: firstPlayerIdx
+  });
+  applyOnlineTurnOrderChoice(firstPlayerIdx);
+}
+
+function applyOnlineTurnOrderChoice(firstPlayerIdx) {
+  gameState.firstPlayerIndex = firstPlayerIdx;
+  gameState.activePlayerIndex = firstPlayerIdx;
+
+  const chosenPlayer = gameState.players[firstPlayerIdx];
+  addLogEntry(`<strong>${chosenPlayer.name}</strong> was chosen to take the First Turn!`);
+
+  startOnlineScoutPhase();
+}
+
+function startOnlineScoutPhase() {
+  onlineScoutState.hostDone = false;
+  onlineScoutState.challengerDone = false;
+  onlineScoutState.currentMaxHand = 8;
+
+  const myIdx = onlineSession.myPlayerIndex;
+  const myPlayer = gameState.players[myIdx];
+
+  const modal = document.getElementById('game-modal');
+  const modalContent = document.getElementById('modal-content');
+  if (modalContent) modalContent.classList.add('wide-modal');
+
+  onlineScoutState.keptSet = new Set(myPlayer.hand.map((_, idx) => idx));
+
+  function renderOnlineScoutUI() {
+    const nextMax = onlineScoutState.currentMaxHand - 1;
+    const keptCount = onlineScoutState.keptSet.size;
+    const returnCount = myPlayer.hand.length - keptCount;
+
+    document.getElementById('modal-title').innerText = `Scout Hand — ${myPlayer.name} (${myPlayer.hand.length} Cards)`;
+
+    let cardsHTML = myPlayer.hand.map((card, idx) => {
+      const isKept = onlineScoutState.keptSet.has(idx);
+      const hasArt = hasCardArt(card);
+      if (hasArt) {
+        const artUrl = getCardArtUrl(card);
+        const safeName = (card.name || "").replace(/'/g, "\\'");
+        return `
+          <div class="scout-card ${isKept ? 'kept' : 'unwanted'}" onclick="window.toggleOnlineScoutCard(${idx})" onmouseenter="showArenaPreview(event, ${myPlayer.index}, 'scout', ${idx})" onmouseleave="hideArenaPreview()" style="padding:4px; align-items:center;">
+            <img src="${artUrl}" alt="${card.name}" style="width:100%; aspect-ratio:5/7; object-fit:contain; border-radius:6px; display:block;" onerror="handleCardArtError('${safeName}', this)">
+            <div class="scout-badge" style="width:100%; margin-top:4px;">${isKept ? '✓ Keep Card' : '↻ Shuffle Back'}</div>
+          </div>
+        `;
+      } else {
+        let costStr = card.manaCost !== undefined ? `${card.manaCost} M` : (card.goldCost !== undefined ? `${card.goldCost} G` : (card.skillLevel ? `Lv.${card.skillLevel}` : ''));
+        let costColor = card.goldCost !== undefined ? 'var(--gold)' : 'var(--mana)';
+        let statLine = [];
+        if (card.health) statLine.push(`❤️${card.health}`);
+        if (card.attack || card.rangedAttack) statLine.push(`⚔️${card.attack || card.rangedAttack}`);
+        if (card.power) statLine.push(`💥${card.power}`);
+        if (card.dexterity) statLine.push(`⚡${card.dexterity}`);
+        if (card.defenseModifier) statLine.push(`🛡️+${card.defenseModifier}`);
+        return `
+          <div class="scout-card ${isKept ? 'kept' : 'unwanted'}" onclick="window.toggleOnlineScoutCard(${idx})" onmouseenter="showArenaPreview(event, ${myPlayer.index}, 'scout', ${idx})" onmouseleave="hideArenaPreview()">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
+              <div style="font-weight:800; font-size:0.78rem; color:#fff; line-height:1.15;">${card.name}</div>
+              ${costStr ? `<span style="background:${costColor}; color:#000; font-weight:900; font-size:0.65rem; padding:1px 5px; border-radius:4px; white-space:nowrap;">${costStr}</span>` : ''}
+            </div>
+            <div style="font-size:0.65rem; color:var(--text-dim); text-transform:uppercase;">${card.type}${card.unitClass ? ' • ' + card.unitClass : (card.subtype ? ' • ' + card.subtype : '')}</div>
+            ${statLine.length ? `<div style="font-size:0.7rem; color:#e2e8f0; display:flex; gap:6px; flex-wrap:wrap;">${statLine.join(' ')}</div>` : ''}
+            <div style="font-size:0.65rem; color:#94a3b8; line-height:1.25; flex-grow:1; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;">${(card.abilities || 'No abilities.').replace(/\n+/g, ' ')}</div>
+            <div class="scout-badge">${isKept ? '✓ Keep Card' : '↻ Shuffle Back'}</div>
+          </div>
+        `;
+      }
+    }).join('');
+
+    document.getElementById('modal-body').innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div style="font-size:0.88rem; color:#cbd5e1;">
+          Click cards to toggle between <strong style="color:#6ee7b7;">✓ Keep</strong> and <strong style="color:#fda4af;">↻ Shuffle Back</strong> (hover to preview).<br>
+          ${nextMax >= 1 ? `Scouting shuffles unwanted cards into your Loot and draws your hand up to <strong>${nextMax} cards</strong>.` : `Minimum Scout hand size (1) reached.`}
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-secondary" style="padding:5px 10px; font-size:0.72rem;" onclick="window.setAllOnlineScoutCards(true)">Keep All</button>
+          <button class="btn btn-secondary" style="padding:5px 10px; font-size:0.72rem;" onclick="window.setAllOnlineScoutCards(false)">Shuffle All</button>
+        </div>
+      </div>
+      <div class="scout-grid">${cardsHTML}</div>
+    `;
+
+    const actionsEl = document.getElementById('modal-actions');
+    actionsEl.innerHTML = "";
+
+    if (nextMax >= 1) {
+      const scoutBtn = document.createElement('button');
+      scoutBtn.className = 'btn btn-secondary';
+      scoutBtn.style.borderColor = '#a855f7';
+      scoutBtn.style.color = '#e9d5ff';
+      scoutBtn.innerText = returnCount > 0
+        ? `↻ Scout (Keep ${keptCount}, Draw to ${nextMax})`
+        : `↻ Scout (Mark unwanted cards first)`;
+      scoutBtn.onclick = () => {
+        if (returnCount === 0) {
+          showToast("Click at least 1 unwanted card to shuffle back, or click 'Keep Hand & Ready'!");
+          return;
+        }
+        hideArenaPreview();
+        const keptCards = [];
+        const returnedCards = [];
+        myPlayer.hand.forEach((c, i) => {
+          if (onlineScoutState.keptSet.has(i)) keptCards.push(c);
+          else returnedCards.push(c);
+        });
+        myPlayer.hand = keptCards;
+        myPlayer.deck.push(...returnedCards);
+        shuffleDeck(myPlayer.deck);
+        onlineScoutState.currentMaxHand = nextMax;
+        const drawNeed = Math.max(0, onlineScoutState.currentMaxHand - myPlayer.hand.length);
+        drawCardsRaw(myPlayer, drawNeed);
+        onlineScoutState.keptSet = new Set(myPlayer.hand.map((_, i) => i));
+        addLogEntry(`<strong>${myPlayer.name}</strong> Scouted: kept ${keptCards.length}, shuffled ${returnedCards.length} back, and drew ${drawNeed} (Hand: ${myPlayer.hand.length}).`);
+        renderAll();
+        renderOnlineScoutUI();
+      };
+      actionsEl.appendChild(scoutBtn);
+    }
+
+    const keepBtn = document.createElement('button');
+    keepBtn.className = 'btn btn-primary';
+    keepBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+    keepBtn.innerText = `✓ Keep Hand (${myPlayer.hand.length} Cards) & Ready`;
+    keepBtn.onclick = () => {
+      hideArenaPreview();
+      submitOnlineScoutHand();
+    };
+    actionsEl.appendChild(keepBtn);
+  }
+
+  window.toggleOnlineScoutCard = (idx) => {
+    if (onlineScoutState.keptSet.has(idx)) onlineScoutState.keptSet.delete(idx);
+    else onlineScoutState.keptSet.add(idx);
+    renderOnlineScoutUI();
+  };
+
+  window.setAllOnlineScoutCards = (keepAll) => {
+    if (keepAll) onlineScoutState.keptSet = new Set(myPlayer.hand.map((_, i) => i));
+    else onlineScoutState.keptSet.clear();
+    renderOnlineScoutUI();
+  };
+
+  modal.classList.add('active');
+  renderOnlineScoutUI();
+}
+
+function submitOnlineScoutHand() {
+  const myIdx = onlineSession.myPlayerIndex;
+  const myPlayer = gameState.players[myIdx];
+  const oppPlayer = gameState.players[1 - myIdx];
+
+  const modalContent = document.getElementById('modal-content');
+  if (modalContent) modalContent.classList.remove('wide-modal');
+
+  document.getElementById('modal-title').innerText = "Scout Phase — Hand Ready";
+  document.getElementById('modal-body').innerHTML = `
+    <div style="text-align:center; padding:28px 12px;">
+      <div style="font-size:2.5rem; margin-bottom:10px;">⏳</div>
+      <div style="font-size:1.2rem; font-weight:800; color:#10b981; margin-bottom:8px;">
+        Hand Locked In! (${myPlayer.hand.length} Cards)
+      </div>
+      <div id="online-scout-waiting-msg" style="font-size:0.95rem; color:#cbd5e1;">
+        Waiting for <strong>${oppPlayer ? oppPlayer.name : 'Opponent'}</strong> to finish scouting...
+      </div>
+      <div style="margin-top:14px; font-size:0.8rem; color:var(--text-dim);">
+        Turn 1 will begin automatically once both players are ready.
+      </div>
+    </div>
+  `;
+  document.getElementById('modal-actions').innerHTML = "";
+
+  if (myIdx === 1) {
+    sendOnlineBroadcast({
+      type: 'ONLINE_CHALLENGER_SCOUT_DONE',
+      hand: myPlayer.hand,
+      deck: myPlayer.deck,
+      keptCount: myPlayer.hand.length
+    });
+  } else {
+    onlineScoutState.hostDone = true;
+    sendOnlineBroadcast({
+      type: 'ONLINE_HOST_SCOUT_DONE',
+      keptCount: myPlayer.hand.length
+    });
+    if (onlineScoutState.challengerDone) {
+      finalizeOnlineScoutAndStart();
+    }
+  }
+}
+
+function handleOnlineHostScoutDone() {
+  const msgEl = document.getElementById('online-scout-waiting-msg');
+  if (msgEl) {
+    msgEl.innerHTML = `<span style="color:#10b981; font-weight:700;">Host is ready!</span> Finalizing starting hands...`;
+  } else {
+    showToast(`${gameState.players[0].name} has locked in their hand!`);
+  }
+}
+
+function handleOnlineChallengerScoutDone(payload) {
+  gameState.players[1].hand = payload.hand;
+  gameState.players[1].deck = payload.deck;
+  onlineScoutState.challengerDone = true;
+
+  if (onlineScoutState.hostDone) {
+    finalizeOnlineScoutAndStart();
+  } else {
+    showToast(`${gameState.players[1].name} has locked in their hand!`);
+  }
+}
+
+function finalizeOnlineScoutAndStart() {
+  const p1 = gameState.players[0];
+  const p2 = gameState.players[1];
+
+  addLogEntry(`<strong>${p1.name}</strong> locked in their hand (${p1.hand.length} cards).`);
+  addLogEntry(`<strong>${p2.name}</strong> locked in their hand (${p2.hand.length} cards).`);
+  addLogEntry(`Both players ready! <strong>Turn 1 Begins!</strong>`);
+
+  const modal = document.getElementById('game-modal');
+  const modalContent = document.getElementById('modal-content');
+  if (modal) modal.classList.remove('active');
+  if (modalContent) modalContent.classList.remove('wide-modal');
+
+  sendOnlineBroadcast({
+    type: 'ONLINE_SCOUT_ALL_COMPLETE',
+    gameState: JSON.parse(JSON.stringify(gameState))
+  });
+
   runManaPhase();
   renderAll();
   broadcastOnlineState();
+}
+
+function handleOnlineScoutAllComplete(payload) {
+  gameState = payload.gameState;
+  const modal = document.getElementById('game-modal');
+  const modalContent = document.getElementById('modal-content');
+  if (modal) modal.classList.remove('active');
+  if (modalContent) modalContent.classList.remove('wide-modal');
+
+  addLogEntry(`Both players ready! <strong>Turn 1 Begins!</strong>`);
+  renderAll();
 }
 
 async function handleChallengerAction(payload) {
