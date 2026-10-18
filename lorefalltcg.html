@@ -151,7 +151,8 @@
   
   .deck-piles { display: flex; gap: 5px; margin-top: 0; }
   .pile-box { flex: 1; height: 42px; background: #182230; border: 1px solid #2b3b50; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; cursor: pointer; position: relative; overflow: hidden; text-shadow: 0 1px 3px #000; }
-  .pile-box.loot-pile { background-image: linear-gradient(rgba(12,15,20,0.55), rgba(12,15,20,0.75)), url('https://raw.githubusercontent.com/deviatorgames/Lorefall-Card-Art/main/Lorefall%20Cardback.png'); background-size: cover; background-position: center; border-color: var(--gold); }
+  .pile-box.loot-pile { background-image: linear-gradient(rgba(12,15,20,0.55), rgba(12,15,20,0.75)), url('https://raw.githubusercontent.com/deviatorgames/Lorefall-Card-Art/main/Lorefall%20Cardback.png'); background-size: cover; background-position: center; border-color: var(--gold); cursor: default; }
+  body.test-mode .pile-box.loot-pile { cursor: pointer; }
 
   /* Hand (MTG Arena style - 5:7 aspect ratio cards) */
   .hand-container { height: 132px; flex-shrink: 0; background: linear-gradient(180deg, rgba(13,18,25,0.88) 0%, #080b10 100%); border-top: 1px solid #1e293b; display: flex; align-items: center; justify-content: center; padding: 6px 24px; gap: 10px; overflow-x: auto; overflow-y: visible; z-index: 25; }
@@ -287,14 +288,32 @@
   .fc-attack-val { font-size: 1.5rem; font-weight: 800; color: #fff; text-shadow: 0 1px 3px #000; }
   .fc-attack-meta { text-align: center; font-size: 0.68rem; font-weight: 800; color: #cbd5e1; line-height: 1.15; }
   .fc-charge-req { min-width: 32px; height: 32px; padding: 0 6px; border-radius: 16px; background: #3b0764; border: 2px solid #a855f7; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 0.82rem; box-shadow: 0 2px 6px rgba(0,0,0,0.65);}
-  .fc-abilities { font-size: 0.78rem; line-height: 1.32; color: #f1f5f9; white-space: pre-line; background: rgba(15, 23, 42, 0.88); border: 1px solid rgba(148, 163, 184, 0.3); padding: 8px; border-radius: 6px; min-height: 75px; max-height: 140px; overflow-y: auto; backdrop-filter: blur(2px); }
-  .fc-overlay-abilities { position: absolute; top: 71.8%; max-height: 16.2%; left: 9%; width: 82%; z-index: 5; font-size: 0.74rem; line-height: 1.28; color: #f1f5f9; background: rgba(15, 23, 42, 0.88); border: 1px solid rgba(148, 163, 184, 0.3); padding: 5px 7px; border-radius: 6px; overflow-y: auto; backdrop-filter: blur(2px); }
-  .fc-overlay-abilities.has-atk-bar { top: 71.8%; max-height: 16.2%; }
-  .fc-overlay-abilities.no-atk, .fc-overlay-abilities.no-atk-bar { top: 59.8%; max-height: 25.5%; }
+  .fc-abilities, .fc-abilities-box { font-size: 0.78rem; line-height: 1.32; color: #f1f5f9; white-space: pre-line; background: rgba(15, 23, 42, 0.88); border: 1px solid rgba(148, 163, 184, 0.3); padding: 8px; border-radius: 6px; min-height: 75px; max-height: 140px; overflow-y: auto; backdrop-filter: blur(2px); }
+  .fc-overlay-abilities { 
+    position: absolute; 
+    top: 71.8%; 
+    max-height: 16.5%; 
+    left: 8.5%; 
+    width: 83%; 
+    z-index: 5; 
+    font-size: 0.74rem; 
+    line-height: 1.28; 
+    background: transparent; 
+    border: none; 
+    padding: 0; 
+    overflow-y: visible; 
+    pointer-events: none; 
+    backdrop-filter: none;
+  }
+  .fc-overlay-abilities.has-atk-bar { top: 71.8%; max-height: 16.5%; }
+  .fc-overlay-abilities.no-atk, .fc-overlay-abilities.no-atk-bar { top: 59.8%; max-height: 26%; }
   
-  .activated-ability-box { background: rgba(16, 185, 129, 0.18); border: 1px solid #10b981; padding: 5px 7px; border-radius: 4px; cursor: pointer; transition: 0.2s; margin-bottom: 5px; font-weight: 600; }
-  .activated-ability-box:hover { background: rgba(16, 185, 129, 0.38); box-shadow: 0 0 8px rgba(16,185,129,0.6); }
+  .activated-ability-box { position: relative; pointer-events: auto; padding: 4px 6px; min-height: 28px; border-radius: 6px; margin-bottom: 4px; transition: all 0.2s ease; box-sizing: border-box; }
+  .activated-ability-box.can-activate { background: rgba(16, 185, 129, 0.12); border: 2px solid #10b981; box-shadow: 0 0 10px rgba(16, 185, 129, 0.45); cursor: pointer; }
+  .activated-ability-box.can-activate:hover { background: rgba(16, 185, 129, 0.28); border-color: #34d399; box-shadow: 0 0 16px rgba(16, 185, 129, 0.8); transform: scale(1.02); }
+  .activated-ability-box.cannot-activate { border: 1.5px dashed rgba(148, 163, 184, 0.4); background: rgba(15, 23, 42, 0.05); cursor: default; }
   .passive-ability-text { padding: 2px 0; margin-bottom: 4px; }
+  .passive-ability-spacer { pointer-events: none; }
 
   .fc-hp-val { background: #9f1239; color: #fff; border: 2px solid #e11d48; padding: 4px 11px; border-radius: 6px; font-weight: 800; font-size: 1.1rem; box-shadow: 0 4px 10px rgba(0,0,0,0.75); text-shadow: 0 1px 3px #000; }
   .fc-pow-val { background: #1e293b; color: #fff; border: 2px solid #64748b; padding: 4px 11px; border-radius: 6px; font-weight: 800; font-size: 1.1rem; box-shadow: 0 4px 10px rgba(0,0,0,0.75); text-shadow: 0 1px 3px #000; }
@@ -1797,36 +1816,64 @@ let currentClash = null;
    ADVANCED ROLLERS & UTILITIES
    ========================================================================= */
 
-function getAptitudeVal(card, player) {
-    if (checkKeyword(card, player, "aptitude")) {
-        let prof = 0;
-        player.skills.forEach(s => { if(s) prof++; });
-        return prof;
+function getPlayerProficiency(player) {
+    if (!player || !player.skills) return 0;
+    let highestSkillLevel = 0;
+    let activeSkillCount = 0;
+    for (let i = 0; i < player.skills.length; i++) {
+        const s = player.skills[i];
+        if (s) {
+            activeSkillCount++;
+            const lvl = parseInt(s.skillLevel) || (i + 1);
+            if (lvl > highestSkillLevel) highestSkillLevel = lvl;
+        }
+    }
+    return Math.max(highestSkillLevel, activeSkillCount);
+}
+
+function getAptitudeVal(card, player, secondaryCard = null) {
+    if (!player) return 0;
+    const hasApt = (card && checkKeyword(card, player, "aptitude")) || 
+                   (secondaryCard && checkKeyword(secondaryCard, player, "aptitude"));
+    if (hasApt) {
+        return getPlayerProficiency(player);
     }
     return 0;
 }
 
-function rollD20Adv(isAdv, isDisadv, isDoubleAdv, aptitudeVal = 0) {
+function rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal = 0) {
     let rolls = 1;
     if (isAdv || isDisadv) rolls = 2;
     if (isDoubleAdv) rolls = 3;
     if (aptitudeVal > 0) rolls = Math.max(rolls, 1 + aptitudeVal);
     let results = [];
-    for(let i=0; i<rolls; i++) results.push(Math.floor(Math.random() * 20) + 1);
-    if (isDisadv && !isAdv && !isDoubleAdv && aptitudeVal === 0) return Math.min(...results);
-    return Math.max(...results);
+    for(let i = 0; i < rolls; i++) results.push(Math.floor(Math.random() * 20) + 1);
+    const finalRoll = (isDisadv && !isAdv && !isDoubleAdv && aptitudeVal === 0) 
+        ? Math.min(...results) 
+        : Math.max(...results);
+    return { finalRoll, allRolls: results, rollsCount: rolls, isAdv, isDisadv, isDoubleAdv, aptitudeVal };
 }
 
-function rollDieAdv(t, isAdv, isDisadv, isDoubleAdv, aptitudeVal = 0) {
+function rollDieAdvDetailed(t, isAdv, isDisadv, isDoubleAdv, aptitudeVal = 0) {
     let sides = parseInt(t.replace("D", "")) || 4;
     let rolls = 1;
     if (isAdv || isDisadv) rolls = 2;
     if (isDoubleAdv) rolls = 3;
     if (aptitudeVal > 0) rolls = Math.max(rolls, 1 + aptitudeVal);
     let results = [];
-    for(let i=0; i<rolls; i++) results.push(Math.floor(Math.random() * sides) + 1);
-    if (isDisadv && !isAdv && !isDoubleAdv && aptitudeVal === 0) return Math.min(...results);
-    return Math.max(...results);
+    for(let i = 0; i < rolls; i++) results.push(Math.floor(Math.random() * sides) + 1);
+    const finalRoll = (isDisadv && !isAdv && !isDoubleAdv && aptitudeVal === 0) 
+        ? Math.min(...results) 
+        : Math.max(...results);
+    return { finalRoll, allRolls: results, rollsCount: rolls, isAdv, isDisadv, isDoubleAdv, aptitudeVal };
+}
+
+function rollD20Adv(isAdv, isDisadv, isDoubleAdv, aptitudeVal = 0) {
+    return rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal).finalRoll;
+}
+
+function rollDieAdv(t, isAdv, isDisadv, isDoubleAdv, aptitudeVal = 0) {
+    return rollDieAdvDetailed(t, isAdv, isDisadv, isDoubleAdv, aptitudeVal).finalRoll;
 }
 
 function rollD20() { return rollD20Adv(false, false, false); }
@@ -2198,13 +2245,13 @@ function evaluateCondition(condition, card, context) {
     return context.damageSource === card && context.damage > 0 && hasDaggerEquipped(p.hero);
   }
   if (condition.type === "proficiencyAndDamageSource") {
-    let prof = 0; p.skills.forEach(s => { if(s) prof++; });
+    let prof = getPlayerProficiency(p);
     return prof >= condition.value && context.damageSource === card && context.damage > 0;
   }
   if (condition.type === "isHealedTarget") return context.healedTarget === card;
   if (condition.type === "hasCharge") return (card.charge || 0) >= condition.value;
   if (condition.type === "proficiency") {
-    let prof = 0; p.skills.forEach(s => { if(s) prof++; });
+    let prof = getPlayerProficiency(p);
     if (prof < condition.value) return false;
     if (context.strikeCount !== undefined) {
         return gameState.selectedAttacker && gameState.selectedAttacker.card === card;
@@ -2667,27 +2714,31 @@ async function applyEffectAction(effect, targets, sourceCard, context) {
        let isAdv = checkKeyword(sourceCard, context.triggerPlayer, "advantage") || checkKeyword(context.triggerPlayer.hero, context.triggerPlayer, "advantage");
        let isDisadv = checkKeyword(sourceCard, context.triggerPlayer, "disadvantage") || checkKeyword(context.triggerPlayer.hero, context.triggerPlayer, "disadvantage");
        let isDoubleAdv = checkKeyword(sourceCard, context.triggerPlayer, "doubleAdvantage") || checkKeyword(context.triggerPlayer.hero, context.triggerPlayer, "doubleAdvantage");
-       let aptitudeVal = getAptitudeVal(sourceCard, context.triggerPlayer);
+       let aptitudeVal = getAptitudeVal(sourceCard, context.triggerPlayer, context.triggerPlayer.hero);
 
        let forceWin = false;
        if (sourceCard.temp_autoChanceWin) { forceWin = true; delete sourceCard.temp_autoChanceWin; }
        if (context.triggerPlayer.hero.temp_autoChanceWin) { forceWin = true; delete context.triggerPlayer.hero.temp_autoChanceWin; }
 
        let advText = "";
-       if (aptitudeVal > 0) advText = ` <em style='color:#38bdf8;'>(Aptitude Advantage: ${aptitudeVal + 1} Rolls)</em>`;
+       if (aptitudeVal > 0) advText = ` <em style='color:#38bdf8;'>(Aptitude ${aptitudeVal}x Advantage: ${aptitudeVal + 1} Rolls)</em>`;
        else if (isDoubleAdv) advText = " <em style='color:#38bdf8;'>(Double Advantage)</em>";
        else if (isAdv) advText = " <em style='color:#38bdf8;'>(Advantage)</em>";
        else if (isDisadv) advText = " <em style='color:#f43f5e;'>(Disadvantage)</em>";
 
        let dexVal = getStat(sourceCard.type === "Hero" || sourceCard.type === "Ally" ? sourceCard : context.triggerPlayer.hero, 'dexterity', context.triggerPlayer);
        let roll = 0;
-       if (!forceWin) roll = rollD20Adv(isAdv, isDisadv, isDoubleAdv, aptitudeVal); 
+       let rollObj = null;
+       if (!forceWin) {
+           rollObj = rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+           roll = rollObj.finalRoll;
+       }
        
        if (!context.triggerPlayer.isAI && !forceWin) {
            await performAnimatedRoll(
                `Chance Roll`,
                `<strong>${sourceCard.name}</strong> is rolling for chance!${advText}<br>Target: <strong>11 or higher</strong> (D20 + Dex).`,
-               roll, dexVal, 11, forceWin
+               roll, dexVal, 11, forceWin, rollObj
            );
        } else if (!context.triggerPlayer.isAI && forceWin) {
            await performAnimatedRoll(`Chance Roll`, `<strong>${sourceCard.name}</strong> is rolling for chance!`, roll, dexVal, 11, forceWin);
@@ -3471,6 +3522,7 @@ window.addEventListener('storage', (e) => {
 
 function setGameMode(mode) {
   gameState.gameMode = mode;
+  document.body.classList.toggle('test-mode', mode === 'TEST');
   document.getElementById('btn-mode-ai').classList.toggle('active', mode === 'AI'); 
   document.getElementById('btn-mode-pvp').classList.toggle('active', mode === 'ONLINE');
   document.getElementById('btn-mode-test').classList.toggle('active', mode === 'TEST');
@@ -3912,7 +3964,7 @@ function handleChallengerNetworkEvent(payload) {
       document.getElementById('combat-log-box').scrollTop = p.scrollHeight;
     }
   } else if (payload.type === 'UI_ROLL_ANIMATION') {
-    performAnimatedRoll(payload.title, payload.text, payload.finalRoll, payload.modifier, payload.targetVal, payload.forceWin);
+    performAnimatedRoll(payload.title, payload.text, payload.finalRoll, payload.modifier, payload.targetVal, payload.forceWin, payload.rollDetails);
   } else if (payload.type === 'SURRENDER') {
     showModal("Victory!", `<div style="text-align:center; font-size:1.1rem; color:#10b981; font-weight:bold;">${onlineSession.hostInfo?.username || 'Host'} surrendered!<br>Victory is yours!</div>`, [
       { text: "Return to Menu", action: () => exitOnlineSession(true) }
@@ -5051,12 +5103,25 @@ function buildAbilityLayout(card) {
   return layout;
 }
 
-function renderAbilityBoxesHTML(card, p, zone, slot, phase, omitActions, disabledOpacity) {
+function renderAbilityBoxesHTML(card, p, zone, slot, phase, omitActions, disabledOpacity, isImageOverlay = false) {
   const layout = buildAbilityLayout(card);
+  const hasActivated = layout.some(item => item.actIdx !== null);
+
+  // For cards that have images attached, if there are no activated abilities, take off the overlay completely!
+  if (isImageOverlay && !hasActivated) {
+    return "";
+  }
+
   return layout.map(item => {
     const html = item.text.replace(/\n/g, '<br>');
-    if (item.actIdx === null) return `<div class="passive-ability-text">${html}</div>`;
-    const ab = card.mechanics.activatedAbilities[item.actIdx];
+    if (item.actIdx === null) {
+      if (isImageOverlay) {
+        // Invisible spacer so any subsequent activated ability box aligns with its position on the card
+        return `<div class="passive-ability-spacer" style="visibility:hidden; user-select:none; font-size:0.74rem; line-height:1.28; padding:2px 0; margin-bottom:4px;">${html}</div>`;
+      }
+      return `<div class="passive-ability-text">${html}</div>`;
+    }
+    const ab = (card.mechanics && card.mechanics.activatedAbilities && card.mechanics.activatedAbilities[item.actIdx]) || {};
     const cost = ab.cost || {};
     let canActivate = !p.isAI && !omitActions && zone !== 'hand';
     if (cost.phase && phase.toLowerCase() !== cost.phase.toLowerCase()) canActivate = false;
@@ -5064,10 +5129,19 @@ function renderAbilityBoxesHTML(card, p, zone, slot, phase, omitActions, disable
     if (cost.exhaustHero && p.hero.isExhausted) canActivate = false;
     if (cost.requiresStrikesUsed && gameState.strikesUsed < cost.requiresStrikesUsed) canActivate = false;
     if (cost.oncePerTurn && card.usedThisTurn) canActivate = false;
-    if (canActivate) {
-      return `<div class="activated-ability-box" onclick="activateSpecificAbility(${p.index}, '${zone}', ${slot}, ${item.actIdx})">${html}</div>`;
+
+    if (isImageOverlay) {
+      const cleanTitle = (item.text || "Activated Ability").replace(/"/g, '&quot;');
+      if (canActivate) {
+        return `<div class="activated-ability-box can-activate" onclick="activateSpecificAbility(${p.index}, '${zone}', ${slot}, ${item.actIdx})" title="Click to Activate: ${cleanTitle}"><div style="visibility:hidden; user-select:none; font-size:0.74rem; line-height:1.28;">${html}</div></div>`;
+      }
+      return `<div class="activated-ability-box cannot-activate" style="opacity:${disabledOpacity};" title="Ability currently unavailable (${cleanTitle})"><div style="visibility:hidden; user-select:none; font-size:0.74rem; line-height:1.28;">${html}</div></div>`;
     }
-    return `<div class="activated-ability-box" style="cursor:default; opacity:${disabledOpacity};">${html}</div>`;
+
+    if (canActivate) {
+      return `<div class="activated-ability-box can-activate" onclick="activateSpecificAbility(${p.index}, '${zone}', ${slot}, ${item.actIdx})">${html}</div>`;
+    }
+    return `<div class="activated-ability-box cannot-activate" style="cursor:default; opacity:${disabledOpacity};">${html}</div>`;
   }).join('');
 }
 
@@ -5235,7 +5309,7 @@ function generateFullCardView(card, p, zone, slot, isMyTurn, phase, omitActions 
 
     let abilityHTML = "";
     if (card.abilities || card.mechanics?.activatedAbilities?.length) {
-        abilityHTML = renderAbilityBoxesHTML(card, p, zone, slot, phase, omitActions, 0.8);
+        abilityHTML = renderAbilityBoxesHTML(card, p, zone, slot, phase, omitActions, 0.8, true);
     }
 
     let equippedSectionHTML = "";
@@ -6642,10 +6716,10 @@ async function rollClashAttacker() {
   let isDisadv = checkKeyword(aUnit, currentClash.attackerPlayer, "disadvantage") || checkKeyword(currentClash.attacker, currentClash.attackerPlayer, "disadvantage");
   let hasCritChance = checkKeyword(aUnit, currentClash.attackerPlayer, "chanceForCritical") || checkKeyword(currentClash.attacker, currentClash.attackerPlayer, "chanceForCritical");
   let hasAutoCrit = checkKeyword(aUnit, currentClash.attackerPlayer, "autoCritical") || checkKeyword(currentClash.attacker, currentClash.attackerPlayer, "autoCritical");
-  let aptitudeVal = getAptitudeVal(aUnit, currentClash.attackerPlayer);
+  let aptitudeVal = getAptitudeVal(currentClash.attacker, currentClash.attackerPlayer, aUnit);
 
   let advText = "";
-  if (aptitudeVal > 0) advText = ` <em style='color:#38bdf8;'>(Aptitude Advantage: ${aptitudeVal + 1} Rolls)</em>`;
+  if (aptitudeVal > 0) advText = ` <em style='color:#38bdf8;'>(Aptitude ${aptitudeVal}x Advantage: ${aptitudeVal + 1} Rolls)</em>`;
   else if (isDoubleAdv) advText = " <em style='color:#38bdf8;'>(Double Advantage)</em>";
   else if (isAdv) advText = " <em style='color:#38bdf8;'>(Advantage)</em>";
   else if (isDisadv) advText = " <em style='color:#f43f5e;'>(Disadvantage)</em>";
@@ -6686,14 +6760,15 @@ async function rollClashAttacker() {
           gameState.strikesUsed = gameState.maxStrikes; updateStrikePips();
           logMsg += `Volley Total Hits: <strong>${hits}</strong> &rarr; Damage: <strong style="color:#10b981; font-size:1.1rem;">${currentClash.atkDamage}</strong>`;
       } else {
-          let accRoll = rollD20Adv(isAdv, isDisadv, isDoubleAdv, aptitudeVal); 
+          let accRollObj = rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal); 
+          let accRoll = accRollObj.finalRoll;
           let totalAcc = accRoll + dex + accMod; 
           let forceWin = currentClash.attackerPlayer.hero.temp_autoChanceWin || currentClash.attacker.temp_autoChanceWin;
           if (currentClash.attackerPlayer.hero.temp_autoChanceWin) delete currentClash.attackerPlayer.hero.temp_autoChanceWin;
           if (currentClash.attacker.temp_autoChanceWin) delete currentClash.attacker.temp_autoChanceWin;
           
           if (!currentClash.attackerPlayer.isAI) {
-               await performAnimatedRoll("Accuracy Roll", `<strong>${aUnit.name}</strong> is rolling Accuracy!${advText}`, accRoll, dex + accMod, 11, forceWin);
+               await performAnimatedRoll("Accuracy Roll", `<strong>${aUnit.name}</strong> is rolling Accuracy!${advText}`, accRoll, dex + accMod, 11, forceWin, accRollObj);
           }
           if (forceWin) totalAcc = 99;
 
@@ -6701,11 +6776,12 @@ async function rollClashAttacker() {
           else if (totalAcc < 11) currentClash.atkHit = false;
           
           if (currentClash.atkHit && !isCrit && hasCritChance) {
-              let confirmRoll = rollD20Adv(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+              let confirmRollObj = rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+              let confirmRoll = confirmRollObj.finalRoll;
               let confirmTotal = confirmRoll + dex;
               if (forceWin) confirmTotal = 99;
               if (!currentClash.attackerPlayer.isAI) {
-                   await performAnimatedRoll("Crit Confirm", `<strong>${aUnit.name}</strong> is confirming the Critical Hit!${advText}`, confirmRoll, dex, 11, forceWin);
+                   await performAnimatedRoll("Crit Confirm", `<strong>${aUnit.name}</strong> is confirming the Critical Hit!${advText}`, confirmRoll, dex, 11, forceWin, confirmRollObj);
               }
               if (confirmTotal >= 11) {
                   isCrit = true;
@@ -6763,20 +6839,22 @@ async function rollClashAttacker() {
       }
 
       if (hasCritChance && !isCrit) {
-          let critRoll = rollD20Adv(isAdv, isDisadv, isDoubleAdv, aptitudeVal); 
+          let critRollObj = rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal); 
+          let critRoll = critRollObj.finalRoll;
           let critTotal = critRoll + dex;
           let forceWin = currentClash.attackerPlayer.hero.temp_autoChanceWin || currentClash.attacker.temp_autoChanceWin;
           if (currentClash.attackerPlayer.hero.temp_autoChanceWin) delete currentClash.attackerPlayer.hero.temp_autoChanceWin;
           if (currentClash.attacker.temp_autoChanceWin) delete currentClash.attacker.temp_autoChanceWin;
           if (!currentClash.attackerPlayer.isAI) {
-               await performAnimatedRoll("Crit Chance", `<strong>${aUnit.name}</strong> is rolling for a Critical Hit!${advText}`, critRoll, dex, 11, forceWin);
+               await performAnimatedRoll("Crit Chance", `<strong>${aUnit.name}</strong> is rolling for a Critical Hit!${advText}`, critRoll, dex, 11, forceWin, critRollObj);
           }
           if (forceWin) critTotal = 99;
           if (critTotal >= 11) {
               isCrit = true;
               await dispatchGlobalHook('onChanceWin', { triggerPlayer: currentClash.attackerPlayer, rollerUnit: aUnit });
           }
-          logMsg += `<span style="color:#f59e0b; font-size:0.8rem;">Crit Chance Roll: ${critRoll} + Dex:${dex} = ${critTotal} ${isCrit?'(SUCCESS)':'(FAIL)'}</span><br>`;
+          let critDisp = (critRollObj && critRollObj.allRolls && critRollObj.allRolls.length > 1) ? `[${critRollObj.allRolls.join(', ')}] &rarr; ${critRoll}` : `${critRoll}`;
+          logMsg += `<span style="color:#f59e0b; font-size:0.8rem;">Crit Chance Roll: ${critDisp} + Dex:${dex} = ${critTotal} ${isCrit?'(SUCCESS)':'(FAIL)'}</span><br>`;
       }
 
       let dieType = currentClash.attacker.temp_overrideAttackDie || currentClash.attacker.attack || "D4";
@@ -6791,10 +6869,11 @@ async function rollClashAttacker() {
       // Lucky Strike Chance Roll to upgrade D4 -> D6 (or D8 at Proficiency 2)
       const hasLuckyStrike = currentClash.attacker.mechanics?.staticModifiers?.some(m => m.effect?.action === "luckyStrike");
       if (hasLuckyStrike) {
-          let lsRoll = rollD20Adv(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+          let lsRollObj = rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+          let lsRoll = lsRollObj.finalRoll;
           let lsTotal = lsRoll + dex;
           if (!currentClash.attackerPlayer.isAI) {
-              await performAnimatedRoll("Lucky Strike Chance", `<strong>${aUnit.name}</strong> rolls for Lucky Strike!`, lsRoll, dex, 11, false);
+              await performAnimatedRoll("Lucky Strike Chance", `<strong>${aUnit.name}</strong> rolls for Lucky Strike!`, lsRoll, dex, 11, false, lsRollObj);
           }
           if (lsTotal >= 11) {
               const hasProf2 = evaluateCondition({ type: "proficiency", value: 2 }, currentClash.attacker, { triggerPlayer: currentClash.attackerPlayer });
@@ -6814,31 +6893,42 @@ async function rollClashAttacker() {
           totalDieRoll = sliceMod.effect.value * (isCrit ? 2 : 1);
           logMsg += `Slice and Dice (Dagger Equipped): <strong>${totalDieRoll}</strong> flat damage ${isCrit ? "<span class='log-crit'>(CRIT!)</span>" : ""}<br>`;
       } else {
-          let dieRoll1 = rollDieAdv(dieType, isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+          let rollObj = rollDieAdvDetailed(dieType, isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+          let dieRoll1 = rollObj.finalRoll;
           if (!currentClash.attackerPlayer.isAI) {
-              await performAnimatedRoll("Melee Attack", `<strong>${aUnit.name}</strong> is rolling their attack! (${dieType})${advText}`, dieRoll1, 0, null, false);
+              await performAnimatedRoll("Melee Attack", `<strong>${aUnit.name}</strong> is rolling their attack! (${dieType})${advText}`, dieRoll1, 0, null, false, rollObj);
           }
 
           const rerollAbility = currentClash.attacker.mechanics?.passiveAbilities?.find(a => a.trigger === "onDieRoll" && a.condition?.value === 1 && a.effect?.action === "rerollDie");
           if (dieRoll1 === 1 && rerollAbility) {
-            let reroll = rollDieAdv(dieType, isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+            let rerollObj = rollDieAdvDetailed(dieType, isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+            let reroll = rerollObj.finalRoll;
             if (!currentClash.attackerPlayer.isAI) {
-                await performAnimatedRoll("Ability Re-roll", `<strong>${aUnit.name}</strong> re-rolls their 1! (${dieType})${advText}`, reroll, 0, null, false);
+                await performAnimatedRoll("Ability Re-roll", `<strong>${aUnit.name}</strong> re-rolls their 1! (${dieType})${advText}`, reroll, 0, null, false, rerollObj);
             }
             logMsg += `<span style="color:#f59e0b; font-size:0.85rem;">Rolled a 1! Ability Re-roll: ${reroll}</span><br>`;
             dieRoll1 = reroll;
+            rollObj = rerollObj;
           }
           totalDieRoll = dieRoll1;
 
+          let rollDisp = (rollObj && rollObj.allRolls && rollObj.allRolls.length > 1)
+              ? `[${rollObj.allRolls.join(', ')}] &rarr; Highest: ${dieRoll1}`
+              : `${dieRoll1}`;
+
           if (isCrit) {
-              let dieRoll2 = rollDieAdv(dieType, isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+              let critRollObj = rollDieAdvDetailed(dieType, isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+              let dieRoll2 = critRollObj.finalRoll;
               if (!currentClash.attackerPlayer.isAI) {
-                  await performAnimatedRoll("Critical Damage", `<strong>${aUnit.name}</strong> rolls CRITICAL extra damage! (${dieType})${advText}`, dieRoll2, 0, null, false);
+                  await performAnimatedRoll("Critical Damage", `<strong>${aUnit.name}</strong> rolls CRITICAL extra damage! (${dieType})${advText}`, dieRoll2, 0, null, false, critRollObj);
               }
               totalDieRoll += dieRoll2;
-              logMsg += `<span class='log-crit'>CRITICAL! Melee Dice: ${dieRoll1} + ${dieRoll2} = ${totalDieRoll}</span> ${advText}<br>`;
+              let critRollDisp = (critRollObj && critRollObj.allRolls && critRollObj.allRolls.length > 1)
+                  ? `[${critRollObj.allRolls.join(', ')}] &rarr; Highest: ${dieRoll2}`
+                  : `${dieRoll2}`;
+              logMsg += `<span class='log-crit'>CRITICAL! Melee Dice: ${rollDisp} + ${critRollDisp} = ${totalDieRoll}</span> ${advText}<br>`;
           } else {
-              logMsg += `Melee Dice: ${dieRoll1} ${advText}<br>`;
+              logMsg += `Melee Dice: ${rollDisp} ${advText}<br>`;
           }
       }
 
@@ -6853,17 +6943,19 @@ async function rollClashAttacker() {
               let eqApt = getAptitudeVal(eq, currentClash.attackerPlayer);
               
               let eqAdvText = "";
-              if (eqApt > 0) eqAdvText = ` <em style='color:#38bdf8;'>(Aptitude Advantage: ${eqApt + 1} Rolls)</em>`;
+              if (eqApt > 0) eqAdvText = ` <em style='color:#38bdf8;'>(Aptitude ${eqApt}x Advantage: ${eqApt + 1} Rolls)</em>`;
               else if (eqDouble) eqAdvText = " <em style='color:#38bdf8;'>(Double Advantage)</em>";
               else if (eqAdv) eqAdvText = " <em style='color:#38bdf8;'>(Advantage)</em>";
               else if (eqDisadv) eqAdvText = " <em style='color:#f43f5e;'>(Disadvantage)</em>";
 
-              let r = rollDieAdv(wDie, eqAdv, eqDisadv, eqDouble, eqApt);
+              let rObj = rollDieAdvDetailed(wDie, eqAdv, eqDisadv, eqDouble, eqApt);
+              let r = rObj.finalRoll;
               if (!currentClash.attackerPlayer.isAI) {
-                  await performAnimatedRoll("Equipment Attack", `<strong>${aUnit.name}</strong> rolls for ${eq.name}! (${wDie})${eqAdvText}`, r, 0, null, false);
+                  await performAnimatedRoll("Equipment Attack", `<strong>${aUnit.name}</strong> rolls for ${eq.name}! (${wDie})${eqAdvText}`, r, 0, null, false, rObj);
               }
               extraDiceTotal += r;
-              logMsg += `Equipment Die (${eq.name} - ${wDie}): ${r} ${eqAdvText}<br>`;
+              let eqRollDisp = (rObj && rObj.allRolls && rObj.allRolls.length > 1) ? `[${rObj.allRolls.join(', ')}] &rarr; Highest: ${r}` : `${r}`;
+              logMsg += `Equipment Die (${eq.name} - ${wDie}): ${eqRollDisp} ${eqAdvText}<br>`;
           } else if (eq.powerModifier || eq.power) {
               const pMod = eq.powerModifier !== undefined ? eq.powerModifier : eq.power;
               logMsg += `<span style="color:var(--gold);">Weapon Power (${eq.name}): +${pMod}</span><br>`;
@@ -6877,12 +6969,14 @@ async function rollClashAttacker() {
                       let mult = 1;
                       if (mod.effect.multiplier === "LeviathanCounter") mult = aUnit.LeviathanCounters || 0;
                       for (let i = 0; i < mult; i++) {
-                          let r = rollDieAdv(mod.effect.value, isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+                          let rObj = rollDieAdvDetailed(mod.effect.value, isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+                          let r = rObj.finalRoll;
                           if (!currentClash.attackerPlayer.isAI) {
-                              await performAnimatedRoll("Bonus Die", `<strong>${aUnit.name}</strong> rolls a bonus die! (${mod.effect.value})${advText}`, r, 0, null, false);
+                              await performAnimatedRoll("Bonus Die", `<strong>${aUnit.name}</strong> rolls a bonus die! (${mod.effect.value})${advText}`, r, 0, null, false, rObj);
                           }
                           extraDiceTotal += r;
-                          logMsg += `Bonus Die (${mod.effect.value}): ${r} ${advText}<br>`;
+                          let bRollDisp = (rObj && rObj.allRolls && rObj.allRolls.length > 1) ? `[${rObj.allRolls.join(', ')}] &rarr; Highest: ${r}` : `${r}`;
+                          logMsg += `Bonus Die (${mod.effect.value}): ${bRollDisp} ${advText}<br>`;
                       }
                   }
               }
@@ -6921,10 +7015,10 @@ async function rollClashDefender() {
   let isDisadv = checkKeyword(charWithStats, currentClash.defenderPlayer, "disadvantage") || checkKeyword(counterActor, currentClash.defenderPlayer, "disadvantage");
   let hasCritChance = checkKeyword(charWithStats, currentClash.defenderPlayer, "chanceForCritical") || checkKeyword(counterActor, currentClash.defenderPlayer, "chanceForCritical");
   let hasAutoCrit = checkKeyword(charWithStats, currentClash.defenderPlayer, "autoCritical") || checkKeyword(counterActor, currentClash.defenderPlayer, "autoCritical");
-  let aptitudeVal = getAptitudeVal(counterActor, currentClash.defenderPlayer);
+  let aptitudeVal = getAptitudeVal(counterActor, currentClash.defenderPlayer, charWithStats);
 
   let advText = "";
-  if (aptitudeVal > 0) advText = ` <em style='color:#38bdf8;'>(Aptitude Advantage: ${aptitudeVal + 1} Rolls)</em>`;
+  if (aptitudeVal > 0) advText = ` <em style='color:#38bdf8;'>(Aptitude ${aptitudeVal}x Advantage: ${aptitudeVal + 1} Rolls)</em>`;
   else if (isDoubleAdv) advText = " <em style='color:#38bdf8;'>(Double Advantage)</em>";
   else if (isAdv) advText = " <em style='color:#38bdf8;'>(Advantage)</em>";
   else if (isDisadv) advText = " <em style='color:#f43f5e;'>(Disadvantage)</em>";
@@ -6944,14 +7038,15 @@ async function rollClashDefender() {
   const isRanged = (counterActor.attackType === "Ranged");
 
   if (isRanged) {
-      let accRoll = rollD20Adv(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+      let accRollObj = rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+      let accRoll = accRollObj.finalRoll;
       let totalAcc = accRoll + dex + accMod;
       let forceWin = charWithStats.temp_autoChanceWin || counterActor.temp_autoChanceWin;
       if (charWithStats.temp_autoChanceWin) delete charWithStats.temp_autoChanceWin;
       if (counterActor.temp_autoChanceWin) delete counterActor.temp_autoChanceWin;
       
       if (!currentClash.defenderPlayer.isAI) {
-          await performAnimatedRoll("Counter Accuracy", `<strong>${charName}</strong> is rolling Accuracy!${advText}`, accRoll, dex + accMod, 11, forceWin);
+          await performAnimatedRoll("Counter Accuracy", `<strong>${charName}</strong> is rolling Accuracy!${advText}`, accRoll, dex + accMod, 11, forceWin, accRollObj);
       }
       if (forceWin) totalAcc = 99;
 
@@ -6959,11 +7054,12 @@ async function rollClashDefender() {
       let counterHit = (accRoll === 20 || totalAcc >= 11);
 
       if (counterHit && !isCrit && hasCritChance) {
-          let confirmRoll = rollD20Adv(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+          let confirmRollObj = rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+          let confirmRoll = confirmRollObj.finalRoll;
           let confirmTotal = confirmRoll + dex;
           if (forceWin) confirmTotal = 99;
           if (!currentClash.defenderPlayer.isAI) {
-              await performAnimatedRoll("Counter Crit Confirm", `<strong>${charName}</strong> is confirming the Critical Hit!${advText}`, confirmRoll, dex, 11, forceWin);
+              await performAnimatedRoll("Counter Crit Confirm", `<strong>${charName}</strong> is confirming the Critical Hit!${advText}`, confirmRoll, dex, 11, forceWin, confirmRollObj);
           }
           if (confirmTotal >= 11) {
               isCrit = true;
@@ -6995,40 +7091,51 @@ async function rollClashDefender() {
   } else {
       // Melee Counterstrike
       if (hasCritChance && !isCrit) {
-          let critRoll = rollD20Adv(isAdv, isDisadv, isDoubleAdv, aptitudeVal); 
+          let critRollObj = rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal); 
+          let critRoll = critRollObj.finalRoll;
           let critTotal = critRoll + dex;
           let forceWin = charWithStats.temp_autoChanceWin || counterActor.temp_autoChanceWin;
           if (charWithStats.temp_autoChanceWin) delete charWithStats.temp_autoChanceWin;
           if (counterActor.temp_autoChanceWin) delete counterActor.temp_autoChanceWin;
           if (!currentClash.defenderPlayer.isAI) {
-               await performAnimatedRoll("Counter Crit Chance", `<strong>${charName}</strong> is rolling for a Critical Hit!${advText}`, critRoll, dex, 11, forceWin);
+               await performAnimatedRoll("Counter Crit Chance", `<strong>${charName}</strong> is rolling for a Critical Hit!${advText}`, critRoll, dex, 11, forceWin, critRollObj);
           }
           if (forceWin) critTotal = 99;
           if (critTotal >= 11) {
               isCrit = true;
               await dispatchGlobalHook('onChanceWin', { triggerPlayer: currentClash.defenderPlayer, rollerUnit: charWithStats });
           }
-          logMsg += `<span style="color:#f59e0b; font-size:0.8rem;">Counter Crit Chance Roll: ${critRoll} + Dex:${dex} = ${critTotal} ${isCrit?'(SUCCESS)':'(FAIL)'}</span><br>`;
+          let critDisp = (critRollObj && critRollObj.allRolls && critRollObj.allRolls.length > 1) ? `[${critRollObj.allRolls.join(', ')}] &rarr; ${critRoll}` : `${critRoll}`;
+          logMsg += `<span style="color:#f59e0b; font-size:0.8rem;">Counter Crit Chance Roll: ${critDisp} + Dex:${dex} = ${critTotal} ${isCrit?'(SUCCESS)':'(FAIL)'}</span><br>`;
       }
 
       let totalDieRoll = 0;
       if (counterActor.attack) {
           const cDie = counterActor.temp_overrideAttackDie || counterActor.attack || "D4"; 
-          let dieRoll1 = rollDieAdv(cDie, isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+          let rollObj = rollDieAdvDetailed(cDie, isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+          let dieRoll1 = rollObj.finalRoll;
           if (!currentClash.defenderPlayer.isAI) {
-              await performAnimatedRoll("Counterstrike Roll", `<strong>${charName}</strong> rolls Counterstrike! (${cDie})${advText}`, dieRoll1, 0, null, false);
+              await performAnimatedRoll("Counterstrike Roll", `<strong>${charName}</strong> rolls Counterstrike! (${cDie})${advText}`, dieRoll1, 0, null, false, rollObj);
           }
           totalDieRoll = dieRoll1;
           
+          let rollDisp = (rollObj && rollObj.allRolls && rollObj.allRolls.length > 1) 
+              ? `[${rollObj.allRolls.join(', ')}] &rarr; Highest: ${dieRoll1}` 
+              : `${dieRoll1}`;
+
           if (isCrit) {
-              let dieRoll2 = rollDieAdv(cDie, isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+              let critRollObj = rollDieAdvDetailed(cDie, isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+              let dieRoll2 = critRollObj.finalRoll;
               if (!currentClash.defenderPlayer.isAI) {
-                  await performAnimatedRoll("Critical Counter Damage", `<strong>${charName}</strong> rolls CRITICAL extra damage! (${cDie})${advText}`, dieRoll2, 0, null, false);
+                  await performAnimatedRoll("Critical Counter Damage", `<strong>${charName}</strong> rolls CRITICAL extra damage! (${cDie})${advText}`, dieRoll2, 0, null, false, critRollObj);
               }
               totalDieRoll += dieRoll2;
-              logMsg += `<span class='log-crit'>CRITICAL! Counter Dice: ${dieRoll1} + ${dieRoll2} = ${totalDieRoll}</span> ${advText}<br>`;
+              let critRollDisp = (critRollObj && critRollObj.allRolls && critRollObj.allRolls.length > 1)
+                  ? `[${critRollObj.allRolls.join(', ')}] &rarr; Highest: ${dieRoll2}`
+                  : `${dieRoll2}`;
+              logMsg += `<span class='log-crit'>CRITICAL! Counter Dice: ${rollDisp} + ${critRollDisp} = ${totalDieRoll}</span> ${advText}<br>`;
           } else {
-              logMsg += `Counter Dice: ${dieRoll1} ${advText}<br>`;
+              logMsg += `Counter Dice: ${rollDisp} ${advText}<br>`;
           }
       }
 
@@ -7043,17 +7150,19 @@ async function rollClashDefender() {
                   let eqApt = getAptitudeVal(eq, currentClash.defenderPlayer);
                           
                   let eqAdvText = "";
-                  if (eqApt > 0) eqAdvText = ` <em style='color:#38bdf8;'>(Aptitude Advantage: ${eqApt + 1} Rolls)</em>`;
+                  if (eqApt > 0) eqAdvText = ` <em style='color:#38bdf8;'>(Aptitude ${eqApt}x Advantage: ${eqApt + 1} Rolls)</em>`;
                   else if (eqDouble) eqAdvText = " <em style='color:#38bdf8;'>(Double Advantage)</em>";
                   else if (eqAdv) eqAdvText = " <em style='color:#38bdf8;'>(Advantage)</em>";
                   else if (eqDisadv) eqAdvText = " <em style='color:#f43f5e;'>(Disadvantage)</em>";
 
-                  let r = rollDieAdv(wDie, eqAdv, eqDisadv, eqDouble, eqApt);
+                  let rObj = rollDieAdvDetailed(wDie, eqAdv, eqDisadv, eqDouble, eqApt);
+                  let r = rObj.finalRoll;
                   if (!currentClash.defenderPlayer.isAI) {
-                      await performAnimatedRoll("Equipment Counter Roll", `<strong>${charName}</strong> rolls for ${eq.name}! (${wDie})${eqAdvText}`, r, 0, null, false);
+                      await performAnimatedRoll("Equipment Counter Roll", `<strong>${charName}</strong> rolls for ${eq.name}! (${wDie})${eqAdvText}`, r, 0, null, false, rObj);
                   }
                   extraDiceTotal += r;
-                  logMsg += `Equipment Die (${wDie}): ${r} ${eqAdvText}<br>`;
+                  let eqRollDisp = (rObj && rObj.allRolls && rObj.allRolls.length > 1) ? `[${rObj.allRolls.join(', ')}] &rarr; Highest: ${r}` : `${r}`;
+                  logMsg += `Equipment Die (${wDie}): ${eqRollDisp} ${eqAdvText}<br>`;
                   if (eq.chargeReq !== undefined && !isFreeCounter) eq.charge -= eq.chargeReq;
               }
           }
@@ -7066,12 +7175,14 @@ async function rollClashDefender() {
                       let mult = 1;
                       if (mod.effect.multiplier === "LeviathanCounter") mult = charWithStats.LeviathanCounters || 0;
                       for (let i = 0; i < mult; i++) {
-                          let r = rollDieAdv(mod.effect.value, isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+                          let rObj = rollDieAdvDetailed(mod.effect.value, isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+                          let r = rObj.finalRoll;
                           if (!currentClash.defenderPlayer.isAI) {
-                              await performAnimatedRoll("Bonus Die Counter", `<strong>${charName}</strong> rolls a bonus die! (${mod.effect.value})${advText}`, r, 0, null, false);
+                              await performAnimatedRoll("Bonus Die Counter", `<strong>${charName}</strong> rolls a bonus die! (${mod.effect.value})${advText}`, r, 0, null, false, rObj);
                           }
                           extraDiceTotal += r;
-                          logMsg += `Bonus Die (${mod.effect.value}): ${r} ${advText}<br>`;
+                          let bRollDisp = (rObj && rObj.allRolls && rObj.allRolls.length > 1) ? `[${rObj.allRolls.join(', ')}] &rarr; Highest: ${r}` : `${r}`;
+                          logMsg += `Bonus Die (${mod.effect.value}): ${bRollDisp} ${advText}<br>`;
                       }
                   }
               }
@@ -7099,7 +7210,7 @@ async function resolveClashDamage() {
   
   let hasEvasion = dUnit.temp_Evasion || dPlayer.hero.temp_Evasion || false;
   let chanceForEvasion = dUnit.temp_chanceForEvasion || dPlayer.hero.temp_chanceForEvasion || false;
-  let aptitudeVal = getAptitudeVal(dUnit, dPlayer);
+  let aptitudeVal = getAptitudeVal(dUnit, dPlayer, dPlayer.hero);
 
   let evaded = hasEvasion;
   let logHTML = `<div style="margin-top:12px; background:rgba(0,0,0,0.5); padding:8px; border-radius:6px;">`;
@@ -7110,7 +7221,8 @@ async function resolveClashDamage() {
       let isDisadv = dPlayer.hero.temp_disadvantage || dUnit.temp_disadvantage || false;
       let isDoubleAdv = dPlayer.hero.temp_doubleAdvantage || dUnit.temp_doubleAdvantage || false;
 
-      let evadeRoll = rollD20Adv(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+      let evadeRollObj = rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+      let evadeRoll = evadeRollObj.finalRoll;
       let total = evadeRoll + dex;
       let forceWin = dUnit.temp_autoChanceWin || dPlayer.hero.temp_autoChanceWin;
       if (dUnit.temp_autoChanceWin) delete dUnit.temp_autoChanceWin;
@@ -7118,12 +7230,12 @@ async function resolveClashDamage() {
       
       if (!dPlayer.isAI) {
           let advText = "";
-          if (aptitudeVal > 0) advText = ` <em style='color:#38bdf8;'>(Aptitude Advantage: ${aptitudeVal + 1} Rolls)</em>`;
+          if (aptitudeVal > 0) advText = ` <em style='color:#38bdf8;'>(Aptitude ${aptitudeVal}x Advantage: ${aptitudeVal + 1} Rolls)</em>`;
           else if (isDoubleAdv) advText = " <em style='color:#38bdf8;'>(Double Advantage)</em>";
           else if (isAdv) advText = " <em style='color:#38bdf8;'>(Advantage)</em>";
           else if (isDisadv) advText = " <em style='color:#f43f5e;'>(Disadvantage)</em>";
           
-          await performAnimatedRoll("Evasion Roll", `<strong>${dUnit.name}</strong> is rolling to Evade!${advText}`, evadeRoll, dex, 11, forceWin);
+          await performAnimatedRoll("Evasion Roll", `<strong>${dUnit.name}</strong> is rolling to Evade!${advText}`, evadeRoll, dex, 11, forceWin, evadeRollObj);
       }
       if (forceWin) total = 99;
 
@@ -7258,22 +7370,23 @@ async function closeClashAndApply() {
           let isAdv = checkKeyword(aUnit, attackerPlayer, "advantage") || checkKeyword(attacker, attackerPlayer, "advantage");
           let isDoubleAdv = checkKeyword(aUnit, attackerPlayer, "doubleAdvantage") || checkKeyword(attacker, attackerPlayer, "doubleAdvantage");
           let isDisadv = checkKeyword(aUnit, attackerPlayer, "disadvantage") || checkKeyword(attacker, attackerPlayer, "disadvantage");
-          let aptitudeVal = getAptitudeVal(aUnit, attackerPlayer);
+          let aptitudeVal = getAptitudeVal(attacker, attackerPlayer, aUnit);
           
-          let freezeRoll = rollD20Adv(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+          let freezeRollObj = rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+          let freezeRoll = freezeRollObj.finalRoll;
           let total = freezeRoll + dex;
           let forceWin = aUnit.temp_autoChanceWin || attacker.temp_autoChanceWin;
           if (aUnit.temp_autoChanceWin) delete aUnit.temp_autoChanceWin;
           if (attacker.temp_autoChanceWin) delete attacker.temp_autoChanceWin;
                   
           let advText = "";
-          if (aptitudeVal > 0) advText = ` <em style='color:#38bdf8;'>(Aptitude Advantage: ${aptitudeVal + 1} Rolls)</em>`;
+          if (aptitudeVal > 0) advText = ` <em style='color:#38bdf8;'>(Aptitude ${aptitudeVal}x Advantage: ${aptitudeVal + 1} Rolls)</em>`;
           else if (isDoubleAdv) advText = " <em style='color:#38bdf8;'>(Double Advantage)</em>";
           else if (isAdv) advText = " <em style='color:#38bdf8;'>(Advantage)</em>";
           else if (isDisadv) advText = " <em style='color:#f43f5e;'>(Disadvantage)</em>";
           
           if (!attackerPlayer.isAI) {
-              await performAnimatedRoll("Freeze Chance", `<strong>${aUnit.name}</strong> is rolling to Freeze!${advText}`, freezeRoll, dex, 11, forceWin);
+              await performAnimatedRoll("Freeze Chance", `<strong>${aUnit.name}</strong> is rolling to Freeze!${advText}`, freezeRoll, dex, 11, forceWin, freezeRollObj);
           }
           if (forceWin) total = 99;
           
@@ -8090,11 +8203,11 @@ function showModalAsync(title, bHTML, acts) {
     });
 }
 
-async function performAnimatedRoll(title, text, finalRoll, modifier, targetVal, forceWin) {
+async function performAnimatedRoll(title, text, finalRoll, modifier, targetVal, forceWin, rollDetails = null) {
     if (onlineSession.active && onlineSession.role === 'HOST') {
         sendOnlineBroadcast({
             type: 'UI_ROLL_ANIMATION',
-            title, text, finalRoll, modifier, targetVal, forceWin
+            title, text, finalRoll, modifier, targetVal, forceWin, rollDetails
         });
     }
     return new Promise(resolve => {
@@ -8133,8 +8246,17 @@ async function performAnimatedRoll(title, text, finalRoll, modifier, targetVal, 
                         let isSuccess = targetVal ? (total >= targetVal) : null;
                         let resultMsg = isSuccess === true ? "<div style='color:#10b981; font-weight:bold; font-size:1.4rem; margin-top:10px;'>SUCCESS!</div>" : (isSuccess === false ? "<div style='color:#f43f5e; font-weight:bold; font-size:1.4rem; margin-top:10px;'>FAILED!</div>" : "");
                         
+                        let rollsBreakdown = "";
+                        if (rollDetails && rollDetails.allRolls && rollDetails.allRolls.length > 1) {
+                            const rollsLabel = rollDetails.aptitudeVal > 0 
+                                ? `Aptitude (${rollDetails.aptitudeVal}x Adv, ${rollDetails.allRolls.length} rolls)`
+                                : (rollDetails.isDoubleAdv ? `Double Advantage (3 rolls)` : (rollDetails.isDisadv && !rollDetails.isAdv ? `Disadvantage (2 rolls)` : `Advantage (2 rolls)`));
+                            const keptWord = (rollDetails.isDisadv && !rollDetails.isAdv && !rollDetails.isDoubleAdv && rollDetails.aptitudeVal === 0) ? "Lowest" : "Highest";
+                            rollsBreakdown = `<div style="color:#38bdf8; font-size:1.05rem; font-weight:600; margin-bottom:8px;">🎲 ${rollsLabel}: [${rollDetails.allRolls.join(', ')}] &rarr; <strong>${keptWord}: ${finalRoll}</strong></div>`;
+                        }
+
                         const calcText = document.getElementById('roll-calc-text');
-                        calcText.innerHTML = `Base Roll: ${finalRoll}<br>Modifier: +${modifier}<br>Total: <strong>${total}</strong>${resultMsg}`;
+                        calcText.innerHTML = `${rollsBreakdown}Base Roll: ${finalRoll}<br>Modifier: +${modifier}<br>Total: <strong>${total}</strong>${resultMsg}`;
                         calcText.style.opacity = 1;
                         
                         const contBtn = document.createElement('button'); contBtn.className = 'btn btn-primary'; contBtn.innerText = "Continue"; contBtn.style.width = "100%";
@@ -8190,15 +8312,13 @@ window.drawSpecificCard = function(pIdx, cardIdx) {
 };
 
 function showDeckInspect(pIdx) { 
+    if (gameState.gameMode !== "TEST") return;
     const p = gameState.players[pIdx]; 
+    if (!p) return;
     let html = `<ul style="max-height:240px; overflow-y:auto; padding-left:16px;">`;
-    if (gameState.gameMode === "TEST" && pIdx === 0) {
-        html += p.deck.map((c, i) => `<li style="cursor:pointer; color:var(--mana); margin-bottom:6px; font-weight:bold; border-bottom:1px solid #1e293b; padding-bottom:4px;" onclick="drawSpecificCard(${pIdx}, ${i})">+ Pull: ${c.name}</li>`).join("");
-    } else {
-        html += p.deck.map(c => `<li style="margin-bottom:4px;">${c.name}</li>`).join("");
-    }
+    html += p.deck.map((c, i) => `<li style="cursor:pointer; color:var(--mana); margin-bottom:6px; font-weight:bold; border-bottom:1px solid #1e293b; padding-bottom:4px;" onclick="drawSpecificCard(${pIdx}, ${i})">+ Pull: ${c.name}</li>`).join("");
     html += `</ul>`;
-    showModal("Loot Deck", html, [{ text: "Close", action: closeModal }]); 
+    showModal("Loot Deck (Test Mode)", html, [{ text: "Close", action: closeModal }]); 
 }
 
 function addLogEntry(text) { 
