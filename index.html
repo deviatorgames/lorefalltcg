@@ -171,6 +171,22 @@
         return saved ? JSON.parse(saved) : {};
       });
       const [selectedSavedDeck, setSelectedSavedDeck] = useState(null);
+      const [includeCommunityDecks, setIncludeCommunityDecks] = useState(false);
+
+      const getDeckOfficialStatus = (deckName, deckObj) => {
+        try {
+          const raw = localStorage.getItem('lorefall_deck_official_overrides');
+          if (raw) {
+            const overrides = JSON.parse(raw);
+            if (overrides && overrides[deckName] !== undefined) return Boolean(overrides[deckName]);
+          }
+        } catch(e) {}
+        if (deckObj) {
+          if (deckObj.isOfficial !== undefined && deckObj.isOfficial !== null) return Boolean(deckObj.isOfficial);
+          return (deckObj.creator === 'Gavin');
+        }
+        return false;
+      };
 
       const pullCloudData = async () => {
         if (!supabase) return;
@@ -190,14 +206,27 @@
 
           const { data: cloudDecks, error: dErr } = await supabase.from('saved_decks').select('*');
           if (cloudDecks && !dErr) {
+            const overrides = JSON.parse(localStorage.getItem('lorefall_deck_official_overrides') || '{}');
             setSavedDecks(prev => {
               const merged = { ...prev };
               cloudDecks.forEach(row => {
+                const existing = prev[row.name];
+                let isOff;
+                if (overrides[row.name] !== undefined) {
+                  isOff = overrides[row.name];
+                } else if (existing && existing.isOfficial !== undefined && existing.isOfficial !== null) {
+                  isOff = existing.isOfficial;
+                } else if (row.is_official !== undefined && row.is_official !== null) {
+                  isOff = Boolean(row.is_official);
+                } else {
+                  isOff = (row.creator === 'Gavin');
+                }
                 merged[row.name] = {
                   heroId: row.hero_id,
                   cards: row.cards,
                   creator: row.creator,
-                  date: row.date
+                  date: row.date,
+                  isOfficial: isOff
                 };
               });
               return merged;
@@ -570,12 +599,18 @@
               return triggerToast(`Cannot overwrite. "${finalName}" is owned by ${savedDecks[finalName].creator}.`, true);
           }
           
+          const existingDeck = savedDecks[finalName];
+          const isOfficial = (existingDeck && existingDeck.isOfficial !== undefined && existingDeck.isOfficial !== null)
+              ? Boolean(existingDeck.isOfficial)
+              : (currentUser === 'Gavin');
+
           const safeDeckCopy = JSON.parse(JSON.stringify(deck));
           const deckPayload = {
               heroId: selectedHeroId,
               cards: safeDeckCopy,
               date: new Date().toISOString(),
-              creator: currentUser
+              creator: currentUser,
+              isOfficial: isOfficial
           };
 
           setSavedDecks(prev => ({ ...prev, [finalName]: deckPayload }));
@@ -587,8 +622,50 @@
               hero_id: selectedHeroId,
               cards: safeDeckCopy,
               creator: currentUser,
-              date: deckPayload.date
+              date: deckPayload.date,
+              is_official: isOfficial
             });
+          }
+      };
+
+      const toggleDeckOfficial = async (deckName) => {
+          const deckObj = savedDecks[deckName];
+          if (!deckObj) return;
+          const overrides = JSON.parse(localStorage.getItem('lorefall_deck_official_overrides') || '{}');
+          const currentStatus = (overrides[deckName] !== undefined)
+              ? overrides[deckName]
+              : (deckObj.isOfficial !== undefined && deckObj.isOfficial !== null
+                  ? Boolean(deckObj.isOfficial)
+                  : (deckObj.creator === 'Gavin'));
+          const newStatus = !currentStatus;
+          
+          overrides[deckName] = newStatus;
+          localStorage.setItem('lorefall_deck_official_overrides', JSON.stringify(overrides));
+
+          const updated = {
+              ...savedDecks,
+              [deckName]: {
+                  ...deckObj,
+                  isOfficial: newStatus
+              }
+          };
+          setSavedDecks(updated);
+          triggerToast(`Deck "${deckName}" marked as ${newStatus ? 'Official' : 'Unofficial (Community)'}!`, false);
+
+          // Broadcast immediately to arena iframe if open
+          const iframe = document.getElementById('arena-iframe');
+          if (iframe && iframe.contentWindow) {
+            try {
+              iframe.contentWindow.postMessage({ type: 'LOREFALL_SYNC', savedDecks: updated, cards, currentUser }, '*');
+            } catch(e) {}
+          }
+
+          if (supabase) {
+            try {
+              await supabase.from('saved_decks').update({ is_official: newStatus }).eq('name', deckName);
+            } catch(e) {
+              console.warn("Could not sync deck official status to cloud:", e);
+            }
           }
       };
 
@@ -1215,48 +1292,82 @@
                        <h2 className="text-lg font-bold text-slate-200 uppercase tracking-wider text-xs">Saved Decks</h2>
                    </div>
                    
-                   <div className="flex bg-slate-800/80 rounded-lg p-1 border border-slate-700 mb-3 shrink-0">
+                   <div className="flex bg-slate-800/80 rounded-lg p-1 border border-slate-700 mb-2 shrink-0">
                        <button onClick={() => setSavedDeckTab('All')} className={`flex-1 py-1.5 rounded-md text-xs font-bold transition ${savedDeckTab === 'All' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}>All Decks</button>
                        <button onClick={() => {
                            if (!currentUser) return triggerToast("Please login to view your decks.", true);
                            setSavedDeckTab('Mine');
                        }} className={`flex-1 py-1.5 rounded-md text-xs font-bold transition ${savedDeckTab === 'Mine' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-slate-200'}`}>My Decks</button>
                    </div>
-                   
-                   {Object.keys(savedDecks).length === 0 && <p className="text-slate-500 text-xs">No decks saved yet.</p>}
-                   <div className="space-y-2.5 flex-1 overflow-y-auto pr-1 min-w-0 w-full">
-                     {Object.entries(savedDecks)
-                        .filter(([_, data]) => savedDeckTab === 'All' || data.creator === currentUser)
-                        .map(([name, deckData]) => {
-                        const hero = cards.find(c => c._id === deckData.heroId);
-                        const isSelected = selectedSavedDeck === name;
-                        const sDeckTotal = Object.values(deckData.cards).reduce((sum, item) => sum + item.count, 0);
-                        return (
-                          <div key={name} className={`p-3 rounded-xl border cursor-pointer transition min-w-0 ${isSelected ? 'bg-amber-900/20 border-amber-600' : 'bg-slate-800/80 border-slate-700 hover:border-amber-500/50'}`} onClick={() => setSelectedSavedDeck(name)}>
-                            <div className="flex justify-between items-start min-w-0 gap-2">
-                                <h3 className="font-bold text-amber-500 text-base leading-tight truncate min-w-0">{name}</h3>
-                                <span className="text-[10px] bg-slate-900 border border-slate-700 px-1.5 py-0.5 rounded text-slate-400 shrink-0">{sDeckTotal} Cards</span>
-                            </div>
-                            <p className="text-xs text-slate-400 mt-1 truncate">Hero: {hero ? (hero["Card Name"] || hero["Hero Name"]) : "Unknown"} <br/><span className="text-amber-500/70">By: {deckData.creator || 'Anonymous'}</span></p>
-                          </div>
-                        )
-                     })}
-                   </div>
-                 </div>
-                 
-                 <div className="flex-1 p-4 md:p-6 overflow-y-auto min-w-0 w-full">
-                   {selectedSavedDeck && savedDecks[selectedSavedDeck] ? (() => {
-                      const sDeck = savedDecks[selectedSavedDeck];
-                      const hero = cards.find(c => c._id === sDeck.heroId);
-                      const sDeckTotal = Object.values(sDeck.cards).reduce((sum, item) => sum + item.count, 0);
-                      return (
-                        <div className="min-w-0">
-                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5 min-w-0">
-                            <div className="min-w-0">
-                                <h2 className="text-xl md:text-2xl font-bold text-slate-100 truncate">{selectedSavedDeck}</h2>
-                                <p className="text-xs md:text-sm text-slate-400 mt-0.5">Total Main Deck: <strong className="text-amber-500">{sDeckTotal} / 40 Cards</strong></p>
-                            </div>
-                            <div className="flex gap-2 shrink-0">
+
+                   <div 
+                      onClick={() => setIncludeCommunityDecks(!includeCommunityDecks)} 
+                      className="flex items-center bg-slate-900 border border-slate-700 rounded-lg p-0.5 cursor-pointer select-none hover:border-slate-500 transition mb-3 shrink-0" 
+                      title="Click to toggle between Official Only and All Community Decks">
+                      <span className={`flex-1 text-center px-2 py-1 rounded-md text-[10px] md:text-xs font-bold uppercase tracking-wider transition ${!includeCommunityDecks ? 'bg-slate-700 text-amber-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>
+                        {'\u{1F6E1}\u{FE0F}'} Official
+                      </span>
+                      <span className={`flex-1 text-center px-2 py-1 rounded-md text-[10px] md:text-xs font-bold uppercase tracking-wider transition ${includeCommunityDecks ? 'bg-purple-900/80 text-purple-200 border border-purple-600/50 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>
+                        {'\u{1F9EA}'} Community
+                      </span>
+                    </div>
+                    
+                    {Object.keys(savedDecks).length === 0 && <p className="text-slate-500 text-xs">No decks saved yet.</p>}
+                    <div className="space-y-2.5 flex-1 overflow-y-auto pr-1 min-w-0 w-full">
+                      {Object.entries(savedDecks)
+                         .filter(([name, data]) => {
+                           if (savedDeckTab === 'Mine' && data.creator !== currentUser) return false;
+                           const isOff = getDeckOfficialStatus(name, data);
+                           if (!includeCommunityDecks && !isOff) return false;
+                           return true;
+                         })
+                         .map(([name, deckData]) => {
+                         const hero = cards.find(c => c._id === deckData.heroId);
+                         const isSelected = selectedSavedDeck === name;
+                         const sDeckTotal = Object.values(deckData.cards).reduce((sum, item) => sum + item.count, 0);
+                         const isOfficialDeck = getDeckOfficialStatus(name, deckData);
+                         return (
+                           <div key={name} className={`p-3 rounded-xl border cursor-pointer transition min-w-0 ${isSelected ? 'bg-amber-900/20 border-amber-600' : 'bg-slate-800/80 border-slate-700 hover:border-amber-500/50'}`} onClick={() => setSelectedSavedDeck(name)}>
+                             <div className="flex justify-between items-start min-w-0 gap-2">
+                                 <h3 className="font-bold text-amber-500 text-base leading-tight truncate min-w-0">{name}</h3>
+                                 <div className="flex items-center gap-1.5 shrink-0">
+                                   <span className={`text-[8px] uppercase font-bold px-1.5 py-0.5 rounded flex items-center gap-1 border ${isOfficialDeck ? 'bg-slate-800 text-slate-400 border-slate-600' : 'bg-purple-900/60 text-purple-300 border-purple-700/50'}`}>
+                                     {isOfficialDeck ? '\u{1F6E1}\u{FE0F} Official' : '\u{1F9EA} Community'}
+                                   </span>
+                                   <span className="text-[10px] bg-slate-900 border border-slate-700 px-1.5 py-0.5 rounded text-slate-400">{sDeckTotal} Cards</span>
+                                 </div>
+                             </div>
+                             <p className="text-xs text-slate-400 mt-1 truncate">Hero: {hero ? (hero["Card Name"] || hero["Hero Name"]) : "Unknown"} <br/><span className="text-amber-500/70">By: {deckData.creator || 'Anonymous'}</span></p>
+                           </div>
+                         )
+                      })}
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 p-4 md:p-6 overflow-y-auto min-w-0 w-full">
+                    {selectedSavedDeck && savedDecks[selectedSavedDeck] ? (() => {
+                       const sDeck = savedDecks[selectedSavedDeck];
+                       const hero = cards.find(c => c._id === sDeck.heroId);
+                       const sDeckTotal = Object.values(sDeck.cards).reduce((sum, item) => sum + item.count, 0);
+                       return (
+                         <div className="min-w-0">
+                           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5 min-w-0">
+                             <div className="min-w-0">
+                                 <h2 className="text-xl md:text-2xl font-bold text-slate-100 truncate">{selectedSavedDeck}</h2>
+                                 <p className="text-xs md:text-sm text-slate-400 mt-0.5">Total Main Deck: <strong className="text-amber-500">{sDeckTotal} / 40 Cards</strong></p>
+                             </div>
+                             <div className="flex flex-wrap gap-2 shrink-0">
+                                {(() => {
+                                  const isCurrentDeckOfficial = getDeckOfficialStatus(selectedSavedDeck, sDeck);
+                                  return (
+                                    <button 
+                                      onClick={() => toggleDeckOfficial(selectedSavedDeck)}
+                                      className={`px-3 py-1.5 rounded font-bold text-xs md:text-sm transition border flex items-center gap-1.5 ${isCurrentDeckOfficial ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-600' : 'bg-purple-900/60 hover:bg-purple-800 text-purple-200 border-purple-700/50'}`}
+                                      title="Toggle between Official and Community deck status">
+                                      {isCurrentDeckOfficial ? '\u{1F9EA} Set as Community' : '\u{1F6E1}\u{FE0F} Set as Official'}
+                                    </button>
+                                  );
+                                })()}
 								<button onClick={() => {
 									setStatsTargetDeck(sDeck);
 									setShowStatsModal(true);
@@ -1828,7 +1939,7 @@
                     src="lorefalltcg.html"
                     title="Lorefall Tactical Arena"
                     className="w-full h-full flex-1 border-0 bg-slate-950"
-                    allow="fullscreen"
+                    allow="autoplay; fullscreen"
                     onLoad={(e) => {
                       try {
                         e.target.contentWindow?.postMessage({ type: 'LOREFALL_SYNC', savedDecks, cards, currentUser }, '*');
