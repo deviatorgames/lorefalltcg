@@ -121,6 +121,11 @@
         shortDesc: "Exhausts defending enemy until next turn on chance success.",
         fullText: "Freeze (Roll for chance. If successful, defending enemy is exhausted until your next turn.)"
       },
+      "Blind": {
+        name: "Blind",
+        shortDesc: "Enemies targeted by affected character roll chance for evasion.",
+        fullText: "Blind (Enemies targeted by affected character roll chance for evasion.)"
+      },
       "Advantage": {
         name: "Advantage",
         shortDesc: "Roll two attack dice and take the higher result.",
@@ -178,8 +183,8 @@
       },
       "Overcharge": {
         name: "Overcharge",
-        shortDesc: "Character can store charge tokens beyond standard maximum.",
-        fullText: "Overcharge (This character can hold charge beyond maximum threshold.)"
+        shortDesc: "For every charge above base threshold, they get +1 power.",
+        fullText: "Overcharge (For every charge this character has above it's base threshold, they get +1 power.)"
       },
       "Chance for Critical": {
         name: "Chance for Critical",
@@ -219,6 +224,9 @@
       trigChanceEvent: 'win',
       trigCounterstrikeWho: 'character',
       trigTurnPhase: 'turnStart',
+      trigActivationCost: 'none',
+      trigCostAmount: 1,
+      trigCostCustom: '',
 
       // Static Aura Hierarchy
       staticConditionMode: 'always',
@@ -260,8 +268,15 @@
       tokenAmount: 1,
       lootCardsCount: 1,
       lootAction: 'hand',
+      attackOverrideMode: 'die',
+      attackFixedValue: 8,
+      attackInsteadOf: 'none',
+      attackStatTarget: 'attack',
       attackDieValue: 'D8',
       customEffectText: '',
+      counterstrikeHeroConstraint: 'none',
+      counterstrikeFollowUp: 'none',
+      counterstrikeCustomFollowUp: '',
 
       // Repeat Roll / Cascade Parameters
       repeatRollType: 'accuracy',
@@ -272,6 +287,57 @@
     };
 
     const OFFICIAL_ABILITY_PRESETS = [
+      {
+        name: "Purity Strike (Fixed Attack Override)",
+        category: "activated",
+        actCostType: "mana",
+        actManaCost: 2,
+        isOptional: false,
+        effectCondition: "none",
+        effectType: "attack_die",
+        attackOverrideMode: "fixed",
+        attackFixedValue: 8,
+        attackDieValue: "8",
+        attackInsteadOf: "D8",
+        attackStatTarget: "attack",
+        effectDuration: "thisTurn",
+        recommended: "[Mana:2] Purity Strike's attack is 8 instead of D8 this turn."
+      },
+      {
+        name: "Overcharge (Power Bonus Threshold)",
+        category: "keyword",
+        selectedKeyword: "Overcharge",
+        recommended: "Overcharge (For every charge this character has above it's base threshold, they get +1 power.)"
+      },
+      {
+        name: "Deadly Diversion (Forced Counterstrike)",
+        category: "activated",
+        actCostType: "free",
+        actPhase: "your_turn",
+        actFrequency: "once",
+        isOptional: true,
+        effectCondition: "none",
+        effectType: "force_counterstrike",
+        effectTarget: "targetDefendingCharacter",
+        counterstrikeHeroConstraint: "choose_skill",
+        counterstrikeFollowUp: "attacker_evasion",
+        recommended: "Once per turn on your turn, you may have target defending character counterstrike if able. If the defender is a hero, opponent must choose a skill to counterstrike with. Then the attacker rolls chance for evasion."
+      },
+      {
+        name: "Hulking Dreadmaw (Strike 3 Health Cost D12)",
+        category: "triggered",
+        trigEvent: "onStrike",
+        trigStrikeNum: 3,
+        trigStrikeZone: "any",
+        trigActivationCost: "lose_health",
+        trigCostAmount: 1,
+        isOptional: false,
+        effectCondition: "none",
+        effectType: "attack_die",
+        attackDieValue: "D12",
+        effectDuration: "thisTurn",
+        recommended: "Strike 3: Lose 1 health: Hulking Dreadmaw's attack is D12 this turn."
+      },
       {
         name: "Volley of Arrows (Cascade Accuracy)",
         category: "triggered",
@@ -487,8 +553,47 @@
         effectType: "mana",
         effectAmount: 1,
         recommended: "Whenever you win a chance roll, you gain 1 mana."
+      },
+      {
+        name: "Blinding Flash (Grant Blind to Target)",
+        category: "activated",
+        actCostType: "mana",
+        actManaCost: 2,
+        actPhase: "any",
+        actFrequency: "once",
+        effectType: "keyword_grant",
+        effectKeyword: "Blind",
+        effectTarget: "targetEnemyAlly",
+        effectDuration: "thisTurn",
+        recommended: "[Mana:2] Once per turn, target enemy ally gets Blind this turn. Blind (Enemies targeted by affected character roll chance for evasion.)"
       }
     ];
+
+    function getEffectTargetSubject(target, cName) {
+      if (target === 'selfHero') return 'you';
+      if (target === 'self') return cName;
+      if (target === 'targetAlly') return 'target ally';
+      if (target === 'targetFriendlyAlly') return 'target ally you control';
+      if (target === 'targetEnemyAlly') return 'target enemy ally';
+      if (target === 'targetSkill') return 'target skill';
+      if (target === 'targetRangedSkill') return 'target ranged skill';
+      if (target === 'targetAllyOrSkill') return 'target ally or skill';
+      if (target === 'allFriendlyDefending') return 'defending allies you control';
+      return 'target character';
+    }
+
+    function getEffectTargetObject(target, cName) {
+      if (target === 'selfHero') return 'yourself';
+      if (target === 'self') return cName;
+      if (target === 'targetAlly') return 'target ally';
+      if (target === 'targetFriendlyAlly') return 'target ally you control';
+      if (target === 'targetEnemyAlly') return 'target enemy ally';
+      if (target === 'targetSkill') return 'target skill';
+      if (target === 'targetRangedSkill') return 'target ranged skill';
+      if (target === 'targetAllyOrSkill') return 'target ally or skill';
+      if (target === 'allFriendlyDefending') return 'defending allies you control';
+      return 'target character';
+    }
 
     function buildIndicativeEffect(s, cName) {
       const amt = s.effectAmount;
@@ -504,6 +609,10 @@
         return amt === 1 ? "draw a card." : `draw ${amt} cards.`;
       }
       if (s.effectType === 'mana') {
+        if (s.effectTarget === 'targetCharacter') return `target character gains ${amt} mana.`;
+        if (s.effectTarget === 'targetAlly') return `target ally gains ${amt} mana.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `target ally you control gains ${amt} mana.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `target enemy ally gains ${amt} mana.`;
         return `you gain ${amt} mana.`;
       }
       if (s.effectType === 'charge') {
@@ -513,15 +622,24 @@
         if (s.effectTarget === 'targetRangedSkill') return `target ranged skill gains ${amt} charge.`;
         if (s.effectTarget === 'targetAlly') return `target ally gains ${amt} charge.`;
         if (s.effectTarget === 'targetFriendlyAlly') return `target ally you control gains ${amt} charge.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `target enemy ally gains ${amt} charge.`;
+        if (s.effectTarget === 'targetCharacter') return `target character gains ${amt} charge.`;
         return `${cName} gains ${amt} charge.`;
       }
       if (s.effectType === 'damage') {
-        if (s.effectTarget === 'allAllies') return `deals ${amt} non-combat damage to all allies in play.`;
-        if (s.effectTarget === 'targetEnemyAlly') return `deals ${amt} non-combat damage to target enemy ally.`;
-        if (s.effectTarget === 'targetCharacter') return `deals ${amt} non-combat damage to target character.`;
-        return `deals ${amt} non-combat damage to target ally.`;
+        if (s.effectTarget === 'selfHero') return `you take ${amt} non-combat damage.`;
+        if (s.effectTarget === 'self') return `${cName} takes ${amt} non-combat damage.`;
+        if (s.effectTarget === 'allAllies') return `deal ${amt} non-combat damage to all allies in play.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `deal ${amt} non-combat damage to target enemy ally.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `deal ${amt} non-combat damage to target ally you control.`;
+        if (s.effectTarget === 'targetAlly') return `deal ${amt} non-combat damage to target ally.`;
+        if (s.effectTarget === 'targetCharacter') return `deal ${amt} non-combat damage to target character.`;
+        return `deal ${amt} non-combat damage to target ally.`;
       }
       if (s.effectType === 'lose_health') {
+        if (s.effectTarget === 'selfHero') return `you lose ${amt} health.`;
+        if (s.effectTarget === 'self') return `${cName} loses ${amt} health.`;
+        if (s.effectTarget === 'targetAlly') return `target ally loses ${amt} health.`;
         if (s.effectTarget === 'targetEnemyAlly') return `target enemy ally loses ${amt} health.`;
         if (s.effectTarget === 'targetFriendlyAlly') return `target ally you control loses ${amt} health.`;
         return `target character loses ${amt} health.`;
@@ -534,58 +652,66 @@
         else if (s.effectTarget === 'targetCharacter') tgtPrefix = 'Target character gets';
         else if (s.effectTarget === 'targetAlly') tgtPrefix = 'Target ally gets';
         else if (s.effectTarget === 'targetFriendlyAlly') tgtPrefix = 'Target ally you control gets';
+        else if (s.effectTarget === 'targetEnemyAlly') tgtPrefix = 'Target enemy ally gets';
         else if (s.effectTarget === 'allFriendlyDefending') tgtPrefix = 'Defending allies you control get';
         return `${tgtPrefix} +${amt} ${statName}${dur ? ' ' + dur : ''}.`;
       }
       if (s.effectType === 'keyword_grant') {
         const dur = s.effectDuration === 'thisStrike' ? 'this strike' : (s.effectDuration === 'permanent' ? '' : 'this turn');
+        const durSuffix = dur ? ' ' + dur : '';
         const kw = s.effectKeyword || 'Freeze';
+        const subj = getEffectTargetSubject(s.effectTarget, cName);
+        const isYou = subj === 'you';
+
+        if (kw === 'Blind') {
+          return `${subj} ${isYou ? 'get' : 'gets'} Blind${durSuffix}. Blind (Enemies targeted by affected character roll chance for evasion.)`;
+        }
         if (kw === 'Chance for Critical') {
-          return s.effectTarget === 'selfHero' ? `you get chance for critical ${dur}.` : `target character gets chance for critical ${dur}.`;
+          return `${subj} ${isYou ? 'get' : 'gets'} chance for critical${durSuffix}.`;
         }
         if (kw === 'Chance for Evasion') {
-          return s.effectTarget === 'selfHero' ? `you get chance for evasion ${dur}.` : `target character gets chance for evasion ${dur}.`;
+          return `${subj} ${isYou ? 'get' : 'gets'} chance for evasion${durSuffix}.`;
         }
         if (kw === 'Advantage') {
-          return s.effectTarget === 'selfHero' || s.effectTarget === 'self' ? `user has advantage.` : `target character has advantage ${dur}.`;
+          return `${subj} ${isYou ? 'have' : 'has'} advantage${durSuffix}.`;
         }
         if (kw === 'Double Advantage') {
           return `roll with double advantage.`;
         }
         if (kw === 'Freeze') {
-          return `Freeze (Roll for chance. If successful, defending enemy is exhausted until your next turn.)`;
+          return `${subj} ${isYou ? 'get' : 'gets'} Freeze${durSuffix}. Freeze (Roll for chance. If successful, defending enemy is exhausted until your next turn.)`;
         }
         if (kw === 'Knockback') {
-          return `target has knockback this strike.`;
+          return `${subj} ${isYou ? 'have' : 'has'} Knockback${durSuffix || ' this strike'}.`;
         }
         if (kw === 'Overreach') {
-          return `${cName} has overreach ${dur}.`;
+          return `${subj} ${isYou ? 'have' : 'has'} Overreach${durSuffix}.`;
         }
         if (kw === 'Piercing') {
-          return `target character gets Piercing ${dur}.`;
+          return `${subj} ${isYou ? 'get' : 'gets'} Piercing${durSuffix}.`;
         }
         if (kw === 'Pierce Proof') {
-          return `target character gets Pierce Proof ${dur}.`;
+          return `${subj} ${isYou ? 'get' : 'gets'} Pierce Proof${durSuffix}.`;
         }
         if (kw === 'Leach') {
-          return `you have Leach ${dur}.`;
+          return `${subj} ${isYou ? 'have' : 'has'} Leach${durSuffix}.`;
         }
         if (kw === 'Poison') {
-          return `Poison (Defending enemy takes 2 non-combat damage at the start of their turn.)`;
+          return `${subj} ${isYou ? 'get' : 'gets'} Poison${durSuffix}. Poison (Defending enemy takes 2 non-combat damage at the start of their turn.)`;
         }
         if (kw === 'Curse') {
-          return `target character is cursed.`;
+          return `${subj} ${isYou ? 'are' : 'is'} cursed${durSuffix}. Curse (Target rolls with disadvantage on chance and attack rolls.)`;
         }
         if (kw === 'Aptitude') {
-          return `${cName} gets Aptitude.`;
+          return `${subj} ${isYou ? 'get' : 'gets'} Aptitude.`;
         }
         if (kw === 'Allegiance') {
           return `Allegiance (All other characters of the same class get advantage.)`;
         }
         if (kw === 'Overcharge') {
-          return `${cName} gets Overcharge.`;
+          return `${subj} ${isYou ? 'get' : 'gets'} Overcharge. Overcharge (For every charge this character has above it's base threshold, they get +1 power.)`;
         }
-        return `target character gets ${kw} ${dur}.`;
+        return `${subj} ${isYou ? 'get' : 'gets'} ${kw}${durSuffix}.`;
       }
       if (s.effectType === 'token') {
         return `you get ${amt} ${s.tokenName} Token${amt > 1 ? 's' : ''}.`;
@@ -599,7 +725,36 @@
         return `look at the top ${s.lootCardsCount === 1 ? 'card' : s.lootCardsCount + ' cards'} of your loot. You may put that card into your hand.`;
       }
       if (s.effectType === 'attack_die') {
-        return `${cName}'s attack is ${s.attackDieValue}.`;
+        const dur = s.effectDuration === 'thisStrike' ? ' this strike' : (s.effectDuration === 'permanent' ? '' : ' this turn');
+        const statLabel = s.attackStatTarget === 'rangedAttack' ? 'ranged attack' : 'attack';
+        const insteadPhrase = (s.attackInsteadOf && s.attackInsteadOf !== 'none') ? ` instead of ${s.attackInsteadOf}` : '';
+        const val = s.attackOverrideMode === 'fixed' ? (s.attackFixedValue || 8) : (s.attackDieValue || 'D8');
+        return `${cName}'s ${statLabel} is ${val}${insteadPhrase}${dur}.`;
+      }
+      if (s.effectType === 'force_counterstrike') {
+        let tgt = "target defending character";
+        if (s.effectTarget === 'targetDefendingAlly') tgt = "target defending ally";
+        else if (s.effectTarget === 'targetDefendingEnemy') tgt = "target defending enemy";
+        let base = `have ${tgt} counterstrike if able`;
+        let heroClause = "";
+        if (s.counterstrikeHeroConstraint === 'choose_skill') {
+          heroClause = " If the defender is a hero, opponent must choose a skill to counterstrike with.";
+        } else if (s.counterstrikeHeroConstraint === 'cannot_counter') {
+          heroClause = " If the defender is a hero, they cannot counterstrike.";
+        }
+        let followClause = "";
+        if (s.counterstrikeFollowUp === 'attacker_evasion') {
+          followClause = " Then the attacker rolls chance for evasion.";
+        } else if (s.counterstrikeFollowUp === 'attacker_critical') {
+          followClause = " Then the attacker rolls chance for critical.";
+        } else if (s.counterstrikeFollowUp === 'attacker_initiative') {
+          followClause = " Then the attacker gains initiative.";
+        } else if (s.counterstrikeFollowUp === 'custom' && s.counterstrikeCustomFollowUp) {
+          const rawF = s.counterstrikeCustomFollowUp.trim();
+          followClause = ` Then ${rawF.replace(/^then\s+/i, '')}`;
+          if (!followClause.endsWith('.')) followClause += '.';
+        }
+        return `${base}.${heroClause}${followClause}`;
       }
       if (s.effectType === 're_roll') {
         return `roll again and your original roll is null.`;
@@ -630,6 +785,13 @@
       }
       if (s.effectType === 'custom') {
         let eff = (s.customEffectText || "").trim();
+        // Defensive strip of duplicated costs/timing
+        eff = eff.replace(/^(\[(?:Mana|Gold):\s*\d+(?:-\d+)?\]\s*)+/gi, '');
+        eff = eff.replace(/^(?:Pay|Spend)\s+\d+\s+(?:mana|gold)\s*:\s*/gi, '');
+        eff = eff.replace(/^Exhaust(?:\s+[^:]+)?:?\s*/gi, '');
+        if (s.category === 'activated') {
+          eff = eff.replace(/^(?:Once per turn(?: on your turn)?(?: during your (?:command|combat) phase)?|During your (?:command|combat) phase|On your turn(?: during combat)?|Up to twice per turn),\s*/gi, '');
+        }
         if (eff && !eff.endsWith('.')) eff += '.';
         return eff;
       }
@@ -650,6 +812,10 @@
         return amt === 1 ? "draw a card." : `draw ${amt} cards.`;
       }
       if (s.effectType === 'mana') {
+        if (s.effectTarget === 'targetCharacter') return `have target character gain ${amt} mana.`;
+        if (s.effectTarget === 'targetAlly') return `have target ally gain ${amt} mana.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `have target ally you control gain ${amt} mana.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `have target enemy ally gain ${amt} mana.`;
         return `gain ${amt} mana.`;
       }
       if (s.effectType === 'charge') {
@@ -659,15 +825,24 @@
         if (s.effectTarget === 'targetRangedSkill') return `have target ranged skill gain ${amt} charge.`;
         if (s.effectTarget === 'targetAlly') return `have target ally gain ${amt} charge.`;
         if (s.effectTarget === 'targetFriendlyAlly') return `have target ally you control gain ${amt} charge.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `have target enemy ally gain ${amt} charge.`;
+        if (s.effectTarget === 'targetCharacter') return `have target character gain ${amt} charge.`;
         return `have ${cName} gain ${amt} charge.`;
       }
       if (s.effectType === 'damage') {
+        if (s.effectTarget === 'selfHero') return `take ${amt} non-combat damage.`;
+        if (s.effectTarget === 'self') return `have ${cName} take ${amt} non-combat damage.`;
         if (s.effectTarget === 'allAllies') return `deal ${amt} non-combat damage to all allies in play.`;
         if (s.effectTarget === 'targetEnemyAlly') return `deal ${amt} non-combat damage to target enemy ally.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `deal ${amt} non-combat damage to target ally you control.`;
+        if (s.effectTarget === 'targetAlly') return `deal ${amt} non-combat damage to target ally.`;
         if (s.effectTarget === 'targetCharacter') return `deal ${amt} non-combat damage to target character.`;
         return `deal ${amt} non-combat damage to target ally.`;
       }
       if (s.effectType === 'lose_health') {
+        if (s.effectTarget === 'selfHero') return `lose ${amt} health.`;
+        if (s.effectTarget === 'self') return `have ${cName} lose ${amt} health.`;
+        if (s.effectTarget === 'targetAlly') return `have target ally lose ${amt} health.`;
         if (s.effectTarget === 'targetEnemyAlly') return `have target enemy ally lose ${amt} health.`;
         if (s.effectTarget === 'targetFriendlyAlly') return `have target ally you control lose ${amt} health.`;
         return `have target character lose ${amt} health.`;
@@ -679,25 +854,75 @@
         if (s.effectTarget === 'selfHero') tgt = 'yourself';
         else if (s.effectTarget === 'targetAlly') tgt = 'target ally';
         else if (s.effectTarget === 'targetFriendlyAlly') tgt = 'target ally you control';
+        else if (s.effectTarget === 'targetEnemyAlly') tgt = 'target enemy ally';
         else if (s.effectTarget === 'allFriendlyDefending') tgt = 'defending allies you control';
         else if (s.effectTarget === 'self') tgt = cName;
         return `give ${tgt} +${amt} ${statName}${dur ? ' ' + dur : ''}.`;
       }
       if (s.effectType === 'keyword_grant') {
         const dur = s.effectDuration === 'thisStrike' ? 'this strike' : (s.effectDuration === 'permanent' ? '' : 'this turn');
+        const durSuffix = dur ? ' ' + dur : '';
         const kw = s.effectKeyword || 'Freeze';
-        if (kw === 'Chance for Critical') return `grant target character chance for critical ${dur}.`;
-        if (kw === 'Chance for Evasion') return `grant target character chance for evasion ${dur}.`;
-        if (kw === 'Advantage') return `grant user advantage ${dur}.`;
-        if (kw === 'Double Advantage') return `roll with double advantage.`;
-        if (kw === 'Freeze') return `freeze defending enemy (Roll for chance. If successful, defending enemy is exhausted until your next turn.)`;
-        if (kw === 'Knockback') return `grant target knockback this strike.`;
-        return `grant target character ${kw} ${dur}.`;
+        const obj = getEffectTargetObject(s.effectTarget, cName);
+
+        if (kw === 'Blind') {
+          return `give ${obj} Blind${durSuffix}. Blind (Enemies targeted by affected character roll chance for evasion.)`;
+        }
+        if (kw === 'Chance for Critical') {
+          return `give ${obj} chance for critical${durSuffix}.`;
+        }
+        if (kw === 'Chance for Evasion') {
+          return `give ${obj} chance for evasion${durSuffix}.`;
+        }
+        if (kw === 'Advantage') {
+          return obj === 'yourself' ? `have advantage${durSuffix}.` : `give ${obj} advantage${durSuffix}.`;
+        }
+        if (kw === 'Double Advantage') {
+          return `roll with double advantage.`;
+        }
+        if (kw === 'Freeze') {
+          return `give ${obj} Freeze${durSuffix}. Freeze (Roll for chance. If successful, defending enemy is exhausted until your next turn.)`;
+        }
+        if (kw === 'Knockback') {
+          return `give ${obj} Knockback${durSuffix || ' this strike'}.`;
+        }
+        if (kw === 'Overreach') {
+          return `give ${obj} Overreach${durSuffix}.`;
+        }
+        if (kw === 'Piercing') {
+          return `give ${obj} Piercing${durSuffix}.`;
+        }
+        if (kw === 'Pierce Proof') {
+          return `give ${obj} Pierce Proof${durSuffix}.`;
+        }
+        if (kw === 'Leach') {
+          return `give ${obj} Leach${durSuffix}.`;
+        }
+        if (kw === 'Poison') {
+          return `give ${obj} Poison${durSuffix}. Poison (Defending enemy takes 2 non-combat damage at the start of their turn.)`;
+        }
+        if (kw === 'Curse') {
+          return `curse ${obj}${durSuffix}. Curse (Target rolls with disadvantage on chance and attack rolls.)`;
+        }
+        if (kw === 'Aptitude') {
+          return `give ${obj} Aptitude.`;
+        }
+        if (kw === 'Allegiance') {
+          return `grant Allegiance (All other characters of the same class type as this character get advantage.)`;
+        }
+        if (kw === 'Overcharge') {
+          return `give ${obj} Overcharge (For every charge this character has above it's base threshold, they get +1 power.).`;
+        }
+        return `give ${obj} ${kw}${durSuffix}.`;
       }
       if (s.effectType === 'token') {
         return `summon ${amt === 1 ? 'a ' + s.tokenName : amt + ' ' + s.tokenName} Token${amt > 1 ? 's' : ''}.`;
       }
       if (s.effectType === 'force_chance') {
+        if (s.effectTarget === 'selfHero' || s.effectTarget === 'self') return `win chance roll this turn.`;
+        if (s.effectTarget === 'targetAlly') return `have target ally win chance roll this turn.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `have target ally you control win chance roll this turn.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `have target enemy ally win chance roll this turn.`;
         return `have target win chance roll this turn.`;
       }
       if (s.effectType === 'look_loot') {
@@ -706,7 +931,36 @@
         return `look at the top ${s.lootCardsCount === 1 ? 'card' : s.lootCardsCount + ' cards'} of your loot. You may put that card into your hand.`;
       }
       if (s.effectType === 'attack_die') {
-        return `have ${cName}'s attack be ${s.attackDieValue}.`;
+        const dur = s.effectDuration === 'thisStrike' ? ' this strike' : (s.effectDuration === 'permanent' ? '' : ' this turn');
+        const statLabel = s.attackStatTarget === 'rangedAttack' ? 'ranged attack' : 'attack';
+        const insteadPhrase = (s.attackInsteadOf && s.attackInsteadOf !== 'none') ? ` instead of ${s.attackInsteadOf}` : '';
+        const val = s.attackOverrideMode === 'fixed' ? (s.attackFixedValue || 8) : (s.attackDieValue || 'D8');
+        return `have ${cName}'s ${statLabel} be ${val}${insteadPhrase}${dur}.`;
+      }
+      if (s.effectType === 'force_counterstrike') {
+        let tgt = "target defending character";
+        if (s.effectTarget === 'targetDefendingAlly') tgt = "target defending ally";
+        else if (s.effectTarget === 'targetDefendingEnemy') tgt = "target defending enemy";
+        let base = `have ${tgt} counterstrike if able`;
+        let heroClause = "";
+        if (s.counterstrikeHeroConstraint === 'choose_skill') {
+          heroClause = " If the defender is a hero, opponent must choose a skill to counterstrike with.";
+        } else if (s.counterstrikeHeroConstraint === 'cannot_counter') {
+          heroClause = " If the defender is a hero, they cannot counterstrike.";
+        }
+        let followClause = "";
+        if (s.counterstrikeFollowUp === 'attacker_evasion') {
+          followClause = " Then the attacker rolls chance for evasion.";
+        } else if (s.counterstrikeFollowUp === 'attacker_critical') {
+          followClause = " Then the attacker rolls chance for critical.";
+        } else if (s.counterstrikeFollowUp === 'attacker_initiative') {
+          followClause = " Then the attacker gains initiative.";
+        } else if (s.counterstrikeFollowUp === 'custom' && s.counterstrikeCustomFollowUp) {
+          const rawF = s.counterstrikeCustomFollowUp.trim();
+          followClause = ` Then ${rawF.replace(/^then\s+/i, '')}`;
+          if (!followClause.endsWith('.')) followClause += '.';
+        }
+        return `${base}.${heroClause}${followClause}`;
       }
       if (s.effectType === 're_roll') {
         return `roll again and your original roll is null.`;
@@ -737,6 +991,13 @@
       }
       if (s.effectType === 'custom') {
         let eff = (s.customEffectText || "").trim();
+        // Defensive strip of duplicated costs/timing
+        eff = eff.replace(/^(\[(?:Mana|Gold):\s*\d+(?:-\d+)?\]\s*)+/gi, '');
+        eff = eff.replace(/^(?:Pay|Spend)\s+\d+\s+(?:mana|gold)\s*:\s*/gi, '');
+        eff = eff.replace(/^Exhaust(?:\s+[^:]+)?:?\s*/gi, '');
+        if (s.category === 'activated') {
+          eff = eff.replace(/^(?:Once per turn(?: on your turn)?(?: during your (?:command|combat) phase)?|During your (?:command|combat) phase|On your turn(?: during combat)?|Up to twice per turn),\s*/gi, '');
+        }
         if (eff && !eff.endsWith('.')) eff += '.';
         return eff;
       }
@@ -858,12 +1119,30 @@
           timingTag = s.actFrequency === 'once' ? "Once per turn during your command phase, " : "During your command phase, ";
         } else if (s.actPhase === 'combat') {
           timingTag = s.actFrequency === 'once' ? "Once per turn during your combat phase, " : "During your combat phase, ";
+        } else if (s.actPhase === 'your_turn') {
+          timingTag = s.actFrequency === 'once' ? "Once per turn on your turn, " : "On your turn, ";
+        } else if (s.actPhase === 'combat_your_turn') {
+          timingTag = s.actFrequency === 'once' ? "Once per turn on your turn during combat, " : "On your turn during combat, ";
         } else {
           if (s.actFrequency === 'once' && !costTag.includes('Exhaust')) timingTag = "Once per turn, ";
           else if (s.actFrequency === 'twice') timingTag = "Up to twice per turn, ";
         }
 
-        return `${costTag}${timingTag}${cap(fullOutcome)}`.trim();
+        let body = fullOutcome;
+        if (timingTag && /, ?$/.test(timingTag.trim())) {
+          // If timingTag ends with a comma, don't capitalize initial verb; keep "you" lowercase
+          if (!/^you\b/i.test(body)) {
+            if (!/^[A-Z][a-z]+ [A-Z]/.test(body)) {
+              body = body.charAt(0).toLowerCase() + body.slice(1);
+            }
+          } else {
+            body = 'you' + body.slice(3);
+          }
+        } else {
+          body = cap(body);
+        }
+
+        return `${costTag}${timingTag}${body}`.trim();
       }
 
       // 2. TRIGGERED PASSIVES
@@ -897,10 +1176,18 @@
         }
 
         if (s.trigEvent === 'onStrike') {
-          if (s.trigStrikeZone === 'bench') {
-            return `${cName} attacks on strike ${s.trigStrikeNum} from your bench: ${cap(fullOutcome)}`;
+          let costPrefix = "";
+          if (s.trigActivationCost && s.trigActivationCost !== 'none') {
+            if (s.trigActivationCost === 'lose_health') costPrefix = `Lose ${s.trigCostAmount || 1} health: `;
+            else if (s.trigActivationCost === 'pay_mana') costPrefix = `Pay ${s.trigCostAmount || 1} mana: `;
+            else if (s.trigActivationCost === 'pay_gold') costPrefix = `Pay ${s.trigCostAmount || 1} gold: `;
+            else if (s.trigActivationCost === 'deplete_charge') costPrefix = `Deplete ${s.trigCostAmount || 1} charge: `;
+            else if (s.trigActivationCost === 'custom') costPrefix = `${(s.trigCostCustom || "").trim().replace(/:$/, '')}: `;
           }
-          return `Strike ${s.trigStrikeNum}: ${cap(fullOutcome)}`;
+          if (s.trigStrikeZone === 'bench') {
+            return `${cName} attacks on strike ${s.trigStrikeNum} from your bench: ${costPrefix}${cap(fullOutcome)}`;
+          }
+          return `Strike ${s.trigStrikeNum}: ${costPrefix}${cap(fullOutcome)}`;
         }
 
         if (s.trigEvent === 'onDamageDealt') {
@@ -1051,6 +1338,22 @@
       if (/Exhaust\b/i.test(t)) {
         badges.push({ label: 'Cost: Exhaust Unit', color: 'bg-indigo-900/80 text-indigo-200 border-indigo-600' });
       }
+      if (/Lose\s+(\d+)\s+health\s*:/i.test(t)) {
+        const m = t.match(/Lose\s+(\d+)\s+health\s*:/i);
+        badges.push({ label: `Trigger Cost: Lose ${m[1]} HP 🩸`, color: 'bg-rose-950 text-rose-300 border-rose-700' });
+      }
+      if (/Pay\s+(\d+)\s+mana\s*:/i.test(t)) {
+        const m = t.match(/Pay\s+(\d+)\s+mana\s*:/i);
+        badges.push({ label: `Trigger Cost: Pay ${m[1]} Mana 💎`, color: 'bg-purple-950 text-purple-300 border-purple-700' });
+      }
+      if (/Pay\s+(\d+)\s+gold\s*:/i.test(t)) {
+        const m = t.match(/Pay\s+(\d+)\s+gold\s*:/i);
+        badges.push({ label: `Trigger Cost: Pay ${m[1]} Gold 🪙`, color: 'bg-amber-950 text-amber-300 border-amber-700' });
+      }
+      if (/Deplete\s+(\d+)\s+charge\s*:/i.test(t)) {
+        const m = t.match(/Deplete\s+(\d+)\s+charge\s*:/i);
+        badges.push({ label: `Trigger Cost: -${m[1]} Charge ⚡`, color: 'bg-slate-800 text-slate-300 border-slate-600' });
+      }
 
       // Trigger detection
       if (/When .* (?:comes into play|is played)/i.test(t)) badges.push({ label: 'Trigger: On Play (ETB)', color: 'bg-emerald-900/80 text-emerald-200 border-emerald-600' });
@@ -1093,11 +1396,20 @@
       if (/\bdeals?\s+\d+\s+(?:non-combat\s+)?damage\b/i.test(t)) badges.push({ label: 'Action: Non-Combat DMG', color: 'bg-rose-950 text-rose-300 border-rose-700' });
       if (/deals\s+it'?s\s+ranged\s+attack\s+damage/i.test(t)) badges.push({ label: 'Outcome: Ranged Attack DMG', color: 'bg-emerald-950 text-emerald-300 border-emerald-700' });
       if (/deals\s+it'?s\s+combat\s+damage/i.test(t)) badges.push({ label: 'Outcome: Combat DMG', color: 'bg-emerald-950 text-emerald-300 border-emerald-700' });
+      if (/counterstrike if able/i.test(t)) badges.push({ label: 'Action: Force Counterstrike ⚔️', color: 'bg-orange-950 text-orange-300 border-orange-700' });
+      if (/defender is a hero.*choose a skill/i.test(t)) badges.push({ label: 'Constraint: Hero Skill Counter 🛡️', color: 'bg-purple-950 text-purple-300 border-purple-700' });
+      if (/rolls? chance for evasion/i.test(t)) badges.push({ label: 'Follow-up: Attacker Evasion 💨', color: 'bg-teal-950 text-teal-300 border-teal-700' });
+      if (/(?:ranged\s+attack|attack)\s+(?:is|be)\s+(\d+|D\d+)/i.test(t)) {
+        const m = t.match(/(?:ranged\s+attack|attack)\s+(?:is|be)\s+(\d+|D\d+)(?:\s+instead\s+of\s+([A-Za-z0-9]+))?/i);
+        const insteadStr = m[2] ? ` (instead of ${m[2]})` : '';
+        badges.push({ label: `Outcome: Attack ${m[1]}${insteadStr} ⚔️`, color: 'bg-amber-950 text-amber-300 border-amber-700' });
+      }
       if (/Striking\s+with.*ends\s+your\s+combat\s+phase/i.test(t)) badges.push({ label: 'Consequence: Ends Combat Phase 🛑', color: 'bg-rose-950 text-rose-300 border-rose-700' });
       if (/keep rolling until you fail/i.test(t)) badges.push({ label: 'Action: Cascade / Repeat Roll 🎯', color: 'bg-emerald-950 text-emerald-300 border-emerald-700' });
       if (/\bTokens?\b/i.test(t)) badges.push({ label: 'Action: Summon Token', color: 'bg-indigo-950 text-indigo-300 border-indigo-700' });
       if (/look at the top/i.test(t) || /search your loot/i.test(t)) badges.push({ label: 'Action: Loot Deck Search', color: 'bg-sky-900/80 text-sky-200 border-sky-600' });
       if (/advantage/i.test(t)) badges.push({ label: 'Keyword: Advantage', color: 'bg-amber-950 text-amber-300 border-amber-700' });
+      if (/\bBlind\b/i.test(t)) badges.push({ label: 'Keyword: Blind', color: 'bg-indigo-950 text-indigo-300 border-indigo-700' });
       if (/Freeze/i.test(t)) badges.push({ label: 'Keyword: Freeze', color: 'bg-cyan-950 text-cyan-300 border-cyan-700' });
       if (/Piercing/i.test(t)) badges.push({ label: 'Keyword: Piercing', color: 'bg-slate-800 text-slate-200 border-slate-600' });
       if (/Pierce Proof/i.test(t)) badges.push({ label: 'Keyword: Pierce Proof', color: 'bg-slate-800 text-slate-200 border-slate-600' });
@@ -1114,11 +1426,13 @@
       if (/wins chance roll/i.test(t)) badges.push({ label: 'Action: Force Chance Win', color: 'bg-yellow-950 text-yellow-300 border-yellow-700' });
 
       // Target
-      if (/target\s+enemy\s+ally/i.test(t)) badges.push({ label: 'Target: Enemy Ally', color: 'bg-red-950 text-red-300 border-red-700' });
+      if (/target\s+defending\s+character/i.test(t)) badges.push({ label: 'Target: Defending Character', color: 'bg-orange-950 text-orange-300 border-orange-700' });
+      else if (/target\s+defending\s+ally/i.test(t)) badges.push({ label: 'Target: Defending Ally', color: 'bg-orange-950 text-orange-300 border-orange-700' });
+      else if (/target\s+enemy\s+ally/i.test(t)) badges.push({ label: 'Target: Enemy Ally', color: 'bg-red-950 text-red-300 border-red-700' });
       else if (/target\s+ally\s+you\s+control/i.test(t)) badges.push({ label: 'Target: Friendly Ally', color: 'bg-blue-950 text-blue-300 border-blue-700' });
       else if (/target\s+ally\s+or\s+skill/i.test(t)) badges.push({ label: 'Target: Ally or Skill', color: 'bg-purple-950 text-purple-300 border-purple-700' });
       else if (/target\s+character/i.test(t)) badges.push({ label: 'Target: Any Character', color: 'bg-slate-800 text-slate-300 border-slate-600' });
-      else if (/you\s+gain|your\s+hero/i.test(t)) badges.push({ label: 'Target: Self Hero', color: 'bg-amber-950 text-amber-300 border-amber-700' });
+      else if (/you\s+(?:gain|take|lose)|your\s+hero/i.test(t)) badges.push({ label: 'Target: Self Hero', color: 'bg-amber-950 text-amber-300 border-amber-700' });
 
       return {
         recognized: badges.length > 0,
@@ -1184,9 +1498,24 @@
         else if (/Up to twice per turn/i.test(text)) res.actFrequency = 'twice';
         else res.actFrequency = 'unlimited';
 
-        if (/command phase/i.test(text)) res.actPhase = 'command';
+        if (/on your turn during combat/i.test(text)) res.actPhase = 'combat_your_turn';
+        else if (/on your turn/i.test(text)) res.actPhase = 'your_turn';
+        else if (/command phase/i.test(text)) res.actPhase = 'command';
         else if (/combat phase/i.test(text)) res.actPhase = 'combat';
         else res.actPhase = 'any';
+      }
+
+      // Create a cleaned version of the text stripped of cost and timing prefixes to prevent double-prefixing
+      let cleanedText = text;
+      cleanedText = cleanedText.replace(/^\[(?:Mana|Gold):\s*\d+(?:-\d+)?\]\s*/i, '');
+      cleanedText = cleanedText.replace(/^(?:Pay|Spend)\s+\d+\s+(?:mana|gold)\s*:\s*/i, '');
+      cleanedText = cleanedText.replace(/^Exhaust(?:\s+[^:]+)?:?\s*/i, '');
+      cleanedText = cleanedText.replace(/^(?:Once per turn(?: on your turn)?(?: during your (?:command|combat) phase)?|During your (?:command|combat) phase|On your turn(?: during combat)?|Up to twice per turn),\s*/i, '');
+      cleanedText = cleanedText.trim();
+      if (res.category === 'triggered' && /Strike\s+\d+\s*:/i.test(cleanedText)) {
+        cleanedText = cleanedText.replace(/^Strike\s+\d+\s*:\s*/i, '');
+        cleanedText = cleanedText.replace(/^(?:Lose\s+\d+\s+health|Pay\s+\d+\s+(?:mana|gold)|Deplete\s+\d+\s+charge)\s*:\s*/i, '');
+        cleanedText = cleanedText.trim();
       }
 
       // 4. Triggered events
@@ -1212,6 +1541,7 @@
 
         if (/battle zone/i.test(text)) res.trigZone = 'battleZone';
         else if (/bench/i.test(text)) res.trigZone = 'bench';
+        else if (/skill slot/i.test(text)) res.trigZone = 'skillSlot';
         else res.trigZone = 'any';
       } else if (/Strike\s+(\d+)\s*:/i.test(text) || /attacks on strike\s+(\d+)/i.test(text)) {
         res.category = 'triggered';
@@ -1220,6 +1550,25 @@
         if (sM) res.trigStrikeNum = parseInt(sM[1]);
         if (/from your bench/i.test(text)) res.trigStrikeZone = 'bench';
         else res.trigStrikeZone = 'any';
+
+        // Detect nested activation cost like "Strike 3: Lose 1 health: ..."
+        if (/Lose\s+(\d+)\s+health\s*:/i.test(text)) {
+          res.trigActivationCost = 'lose_health';
+          const cM = text.match(/Lose\s+(\d+)\s+health/i);
+          if (cM) res.trigCostAmount = parseInt(cM[1]);
+        } else if (/Pay\s+(\d+)\s+mana\s*:/i.test(text)) {
+          res.trigActivationCost = 'pay_mana';
+          const cM = text.match(/Pay\s+(\d+)\s+mana/i);
+          if (cM) res.trigCostAmount = parseInt(cM[1]);
+        } else if (/Pay\s+(\d+)\s+gold\s*:/i.test(text)) {
+          res.trigActivationCost = 'pay_gold';
+          const cM = text.match(/Pay\s+(\d+)\s+gold/i);
+          if (cM) res.trigCostAmount = parseInt(cM[1]);
+        } else if (/Deplete\s+(\d+)\s+charge\s*:/i.test(text)) {
+          res.trigActivationCost = 'deplete_charge';
+          const cM = text.match(/Deplete\s+(\d+)\s+charge/i);
+          if (cM) res.trigCostAmount = parseInt(cM[1]);
+        }
       } else if (/When rolling accuracy/i.test(text)) {
         res.category = 'triggered';
         res.trigEvent = 'onAccuracyRoll';
@@ -1429,21 +1778,41 @@
         else if (/target ally you control/i.test(text)) res.effectTarget = 'targetFriendlyAlly';
         else if (/target ally/i.test(text)) res.effectTarget = 'targetAlly';
         else res.effectTarget = 'self';
-      } else if (/\bdeals?\s+(\d+)\s+(?:non-combat\s+)?damage/i.test(text)) {
+      } else if (/\bdeals?\s+(\d+)\s+(?:non-combat\s+)?damage/i.test(text) || /\btakes?\s+(\d+)\s+(?:non-combat\s+)?damage/i.test(text)) {
         res.effectType = 'damage';
-        const dM = text.match(/deals?\s+(\d+)\s+(?:non-combat\s+)?damage/i);
+        const dM = text.match(/(?:deals?|takes?)\s+(\d+)\s+(?:non-combat\s+)?damage/i);
         if (dM) res.effectAmount = parseInt(dM[1]);
 
-        if (/all allies in play/i.test(text)) res.effectTarget = 'allAllies';
+        if (/you take/i.test(text)) res.effectTarget = 'selfHero';
+        else if (/all allies in play/i.test(text)) res.effectTarget = 'allAllies';
         else if (/target enemy ally/i.test(text)) res.effectTarget = 'targetEnemyAlly';
+        else if (/target ally you control/i.test(text)) res.effectTarget = 'targetFriendlyAlly';
         else if (/target character/i.test(text)) res.effectTarget = 'targetCharacter';
+        else if (/takes \d+ non-combat damage/i.test(text) && !/target/i.test(text)) res.effectTarget = 'self';
         else res.effectTarget = 'targetAlly';
+      } else if (/counterstrike if able/i.test(text)) {
+        res.effectType = 'force_counterstrike';
+        if (/target defending ally/i.test(text)) res.effectTarget = 'targetDefendingAlly';
+        else if (/target defending enemy/i.test(text)) res.effectTarget = 'targetDefendingEnemy';
+        else res.effectTarget = 'targetDefendingCharacter';
+
+        if (/defender is a hero.*choose a skill/i.test(text)) res.counterstrikeHeroConstraint = 'choose_skill';
+        else if (/defender is a hero.*cannot counterstrike/i.test(text)) res.counterstrikeHeroConstraint = 'cannot_counter';
+        else res.counterstrikeHeroConstraint = 'none';
+
+        if (/attacker rolls chance for evasion/i.test(text)) res.counterstrikeFollowUp = 'attacker_evasion';
+        else if (/attacker rolls chance for critical/i.test(text)) res.counterstrikeFollowUp = 'attacker_critical';
+        else if (/attacker gains initiative/i.test(text)) res.counterstrikeFollowUp = 'attacker_initiative';
+        else res.counterstrikeFollowUp = 'none';
       } else if (/loses?\s+(\d+)\s+health/i.test(text)) {
         res.effectType = 'lose_health';
         const lM = text.match(/(\d+)\s+health/i);
         if (lM) res.effectAmount = parseInt(lM[1]);
-        if (/target enemy ally/i.test(text)) res.effectTarget = 'targetEnemyAlly';
+        if (/you lose/i.test(text) || (/lose \d+ health/i.test(text) && /you/i.test(text))) res.effectTarget = 'selfHero';
+        else if (new RegExp(`${cName}\\s+loses`, 'i').test(text) || /this character loses/i.test(text)) res.effectTarget = 'self';
+        else if (/target enemy ally/i.test(text)) res.effectTarget = 'targetEnemyAlly';
         else if (/target ally you control/i.test(text)) res.effectTarget = 'targetFriendlyAlly';
+        else if (/target ally/i.test(text)) res.effectTarget = 'targetAlly';
         else res.effectTarget = 'targetCharacter';
       } else if (/\+(\d+)\s+(power|defense|dexterity|ranged attack|max health|to accuracy rolls)/i.test(text)) {
         res.effectType = 'stat_buff';
@@ -1482,10 +1851,27 @@
         if (/reveal a skill/i.test(text)) res.lootAction = 'reveal_skill';
         else if (/skill 1 level higher/i.test(text)) res.lootAction = 'search_level';
         else res.lootAction = 'hand';
-      } else if (/attack is (D4|D6|D8|D10|D12)/i.test(text)) {
+      } else if (/(?:ranged\s+attack|attack)\s+(?:is|be)\s+(\d+|D\d+)/i.test(cleanedText || text)) {
         res.effectType = 'attack_die';
-        const aM = text.match(/attack is (D4|D6|D8|D10|D12)/i);
-        if (aM) res.attackDieValue = aM[1].toUpperCase();
+        const atkM = (cleanedText || text).match(/(?:(?:have\s+)?([\w\s'-]+?)'s\s+)?(ranged\s+attack|attack)\s+(?:is|be)\s+(\d+|D\d+)(?:\s+instead\s+of\s+([A-Za-z0-9]+))?/i);
+        if (atkM) {
+          const isRanged = /ranged/i.test(atkM[2]);
+          res.attackStatTarget = isRanged ? 'rangedAttack' : 'attack';
+          const val = atkM[3].toUpperCase();
+          if (/^\d+$/.test(val)) {
+            res.attackOverrideMode = 'fixed';
+            res.attackFixedValue = parseInt(val, 10);
+            res.attackDieValue = val;
+          } else {
+            res.attackOverrideMode = 'die';
+            res.attackDieValue = val;
+            res.attackFixedValue = 8;
+          }
+          res.attackInsteadOf = atkM[4] ? atkM[4].toUpperCase() : 'none';
+        }
+        if (/this strike/i.test(text)) res.effectDuration = 'thisStrike';
+        else if (/this turn/i.test(text)) res.effectDuration = 'thisTurn';
+        else res.effectDuration = 'permanent';
       } else if (/roll again and your original roll is null/i.test(text)) {
         res.effectType = 're_roll';
       } else if (/wins chance roll/i.test(text)) {
@@ -1498,12 +1884,22 @@
             res.effectType = 'keyword_grant';
             res.effectKeyword = kw;
             foundKw = true;
+            if (/this strike/i.test(text)) res.effectDuration = 'thisStrike';
+            else if (/this turn/i.test(text)) res.effectDuration = 'thisTurn';
+            else res.effectDuration = 'permanent';
+
+            if (/you get|you have|grant yourself/i.test(text)) res.effectTarget = 'selfHero';
+            else if (/target enemy ally/i.test(text)) res.effectTarget = 'targetEnemyAlly';
+            else if (/target ally you control/i.test(text)) res.effectTarget = 'targetFriendlyAlly';
+            else if (/target ally/i.test(text)) res.effectTarget = 'targetAlly';
+            else if (/target character/i.test(text)) res.effectTarget = 'targetCharacter';
+            else if (new RegExp(`${cName}\\s+(?:gets|has)`, 'i').test(text) || /this character (?:gets|has)/i.test(text)) res.effectTarget = 'self';
             break;
           }
         }
         if (!foundKw) {
           res.effectType = 'custom';
-          res.customEffectText = text;
+          res.customEffectText = cleanedText || text;
         }
       }
 
@@ -1540,6 +1936,9 @@
       const [trigChanceEvent, setTrigChanceEvent] = useState('win');
       const [trigCounterstrikeWho, setTrigCounterstrikeWho] = useState('character');
       const [trigTurnPhase, setTrigTurnPhase] = useState('turnStart');
+      const [trigActivationCost, setTrigActivationCost] = useState('none');
+      const [trigCostAmount, setTrigCostAmount] = useState(1);
+      const [trigCostCustom, setTrigCostCustom] = useState('');
 
       // Static Aura Hierarchy
       const [staticConditionMode, setStaticConditionMode] = useState('always');
@@ -1579,8 +1978,15 @@
       const [tokenAmount, setTokenAmount] = useState(1);
       const [lootCardsCount, setLootCardsCount] = useState(1);
       const [lootAction, setLootAction] = useState('hand');
+      const [attackOverrideMode, setAttackOverrideMode] = useState('die');
+      const [attackFixedValue, setAttackFixedValue] = useState(8);
+      const [attackInsteadOf, setAttackInsteadOf] = useState('none');
+      const [attackStatTarget, setAttackStatTarget] = useState('attack');
       const [attackDieValue, setAttackDieValue] = useState('D8');
       const [customEffectText, setCustomEffectText] = useState('');
+      const [counterstrikeHeroConstraint, setCounterstrikeHeroConstraint] = useState('none');
+      const [counterstrikeFollowUp, setCounterstrikeFollowUp] = useState('none');
+      const [counterstrikeCustomFollowUp, setCounterstrikeCustomFollowUp] = useState('');
 
       // Repeat Roll / Cascade Parameters
       const [repeatRollType, setRepeatRollType] = useState('accuracy');
@@ -1606,12 +2012,15 @@
         trigEvent, trigSubject, trigZone, trigStrikeNum, trigStrikeZone,
         trigDamageSource, trigDamageVictim, trigDamageWeapon,
         trigHealSubject, trigDrawSource, trigChanceEvent, trigCounterstrikeWho, trigTurnPhase,
+        trigActivationCost, trigCostAmount, trigCostCustom,
         staticConditionMode, staticZoneRole, staticSynergyType, staticClass, staticRace, staticPrecondition, staticScaling,
         selectedKeyword, profLevel,
         isOptional, isChanceRoll, chanceStyle,
         effectCondition, referringAction, conditionNote, condChargeThreshold, condClass, condEquipType, customConditionText,
         effectType, effectTarget, effectAmount, effectStat, effectDuration, effectKeyword,
-        tokenName, tokenAmount, lootCardsCount, lootAction, attackDieValue, customEffectText,
+        tokenName, tokenAmount, lootCardsCount, lootAction,
+        attackOverrideMode, attackFixedValue, attackInsteadOf, attackStatTarget, attackDieValue, customEffectText,
+        counterstrikeHeroConstraint, counterstrikeFollowUp, counterstrikeCustomFollowUp,
         repeatRollType, repeatStopCondition, repeatMaxCount, repeatSuccessOutcome, strikeConsequence
       };
 
@@ -1648,6 +2057,9 @@
         setTrigChanceEvent(next.trigChanceEvent);
         setTrigCounterstrikeWho(next.trigCounterstrikeWho);
         setTrigTurnPhase(next.trigTurnPhase);
+        setTrigActivationCost(next.trigActivationCost || 'none');
+        setTrigCostAmount(next.trigCostAmount || 1);
+        setTrigCostCustom(next.trigCostCustom || '');
 
         setStaticConditionMode(next.staticConditionMode);
         setStaticZoneRole(next.staticZoneRole);
@@ -1682,8 +2094,15 @@
         setTokenAmount(next.tokenAmount);
         setLootCardsCount(next.lootCardsCount);
         setLootAction(next.lootAction);
-        setAttackDieValue(next.attackDieValue);
+        setAttackOverrideMode(next.attackOverrideMode || 'die');
+        setAttackFixedValue(next.attackFixedValue || 8);
+        setAttackInsteadOf(next.attackInsteadOf || 'none');
+        setAttackStatTarget(next.attackStatTarget || 'attack');
+        setAttackDieValue(next.attackDieValue || 'D8');
         setCustomEffectText(next.customEffectText || '');
+        setCounterstrikeHeroConstraint(next.counterstrikeHeroConstraint || 'none');
+        setCounterstrikeFollowUp(next.counterstrikeFollowUp || 'none');
+        setCounterstrikeCustomFollowUp(next.counterstrikeCustomFollowUp || '');
         setRepeatRollType(next.repeatRollType || 'accuracy');
         setRepeatStopCondition(next.repeatStopCondition || 'until_fail_or_max');
         setRepeatMaxCount(next.repeatMaxCount || 5);
@@ -1889,11 +2308,13 @@
                     )}
 
                     <div>
-                      <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Allowed Phase</label>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Allowed Phase / Timing</label>
                       <select value={actPhase} onChange={e => { setActPhase(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
                         <option value="any">Any Phase</option>
+                        <option value="your_turn">On your turn (Any Phase) — Deadly Diversion</option>
                         <option value="command">Command Phase Only</option>
                         <option value="combat">Combat Phase Only</option>
+                        <option value="combat_your_turn">On your turn during combat</option>
                       </select>
                     </div>
 
@@ -1994,6 +2415,29 @@
                               <option value="bench">Attacks From your Bench</option>
                             </select>
                           </div>
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-amber-400 block mb-1">4. Optional Activation Cost (e.g. Hulking Dreadmaw)</label>
+                            <select value={trigActivationCost} onChange={e => { setTrigActivationCost(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                              <option value="none">None (Automatic Trigger)</option>
+                              <option value="lose_health">Lose [X] Health: (Hulking Dreadmaw)</option>
+                              <option value="pay_mana">Pay [X] Mana:</option>
+                              <option value="pay_gold">Pay [X] Gold:</option>
+                              <option value="deplete_charge">Deplete [X] Charge:</option>
+                              <option value="custom">Custom Cost String...</option>
+                            </select>
+                          </div>
+                          {['lose_health', 'pay_mana', 'pay_gold', 'deplete_charge'].includes(trigActivationCost) && (
+                            <div>
+                              <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Cost Amount</label>
+                              <input type="number" min="1" max="20" value={trigCostAmount} onChange={e => { setTrigCostAmount(parseInt(e.target.value) || 1); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200" />
+                            </div>
+                          )}
+                          {trigActivationCost === 'custom' && (
+                            <div>
+                              <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Custom Cost Clause</label>
+                              <input type="text" value={trigCostCustom} onChange={e => { setTrigCostCustom(e.target.value); setIsManualEdit(false); }} placeholder="e.g. Discard 1 card:" className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200" />
+                            </div>
+                          )}
                         </>
                       )}
 
@@ -2432,11 +2876,12 @@
                         <option value="mana">💎 Gain Mana</option>
                         <option value="damage">💥 Deal Non-Combat Damage</option>
                         <option value="lose_health">🩸 Target Loses Health</option>
+                        <option value="force_counterstrike">⚔️ Force Counterstrike (Deadly Diversion style)</option>
                         <option value="stat_buff">🛡️ Stat Modifier (+PWR, +DEX, etc.)</option>
                         <option value="keyword_grant">⚔️ Gain / Grant Keyword (Advantage, Freeze, etc.)</option>
                         <option value="token">♟️ Summon Token Unit</option>
                         <option value="look_loot">📜 Look at / Search Loot</option>
-                        <option value="attack_die">🎲 Override Attack Die (D6, D8...)</option>
+                        <option value="attack_die">🎲 Override Attack / Die (D12, 8 instead of D8...)</option>
                         <option value="re_roll">🔄 Re-roll Die</option>
                         <option value="repeat_roll">🎯 Repeat Roll Until Failure (Streak / Cascade)</option>
                         <option value="force_chance">🎯 Target Wins Chance Roll</option>
@@ -2445,24 +2890,64 @@
                     </div>
 
                     {/* Target Selector */}
-                    {['heal', 'charge', 'damage', 'lose_health', 'stat_buff', 'keyword_grant'].includes(effectType) && (
+                    {['heal', 'charge', 'mana', 'damage', 'lose_health', 'stat_buff', 'keyword_grant', 'force_counterstrike'].includes(effectType) && (
                       <div>
                         <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Target</label>
                         <select value={effectTarget} onChange={e => { setEffectTarget(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
-                          <option value="targetCharacter">Target character (Hero or Ally)</option>
-                          <option value="targetAlly">Target ally</option>
-                          <option value="targetFriendlyAlly">Target ally you control</option>
-                          <option value="targetEnemyAlly">Target enemy ally</option>
-                          <option value="targetAllyOrSkill">Target ally or skill</option>
-                          <option value="targetSkill">Target skill</option>
-                          <option value="targetRangedSkill">Target ranged skill</option>
-                          <option value="selfHero">You (Your Hero)</option>
-                          <option value="self">This card / self</option>
-                          {effectType === 'charge' && <option value="deplete">Deplete charge from it</option>}
-                          {effectType === 'damage' && <option value="allAllies">All allies in play</option>}
-                          {effectType === 'stat_buff' && <option value="allFriendlyDefending">Defending allies you control</option>}
+                          {effectType === 'force_counterstrike' ? (
+                            <>
+                              <option value="targetDefendingCharacter">Target defending character</option>
+                              <option value="targetDefendingAlly">Target defending ally</option>
+                              <option value="targetDefendingEnemy">Target defending enemy</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="targetCharacter">Target character (Hero or Ally)</option>
+                              <option value="targetAlly">Target ally</option>
+                              <option value="targetFriendlyAlly">Target ally you control</option>
+                              <option value="targetEnemyAlly">Target enemy ally</option>
+                              <option value="targetAllyOrSkill">Target ally or skill</option>
+                              <option value="targetSkill">Target skill</option>
+                              <option value="targetRangedSkill">Target ranged skill</option>
+                              <option value="selfHero">You (Your Hero)</option>
+                              <option value="self">This card / self</option>
+                              {effectType === 'charge' && <option value="deplete">Deplete charge from it</option>}
+                              {effectType === 'damage' && <option value="allAllies">All allies in play</option>}
+                              {effectType === 'stat_buff' && <option value="allFriendlyDefending">Defending allies you control</option>}
+                            </>
+                          )}
                         </select>
                       </div>
+                    )}
+
+                    {/* Force Counterstrike Sub-options (Deadly Diversion) */}
+                    {effectType === 'force_counterstrike' && (
+                      <>
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">If Defender is Hero</label>
+                          <select value={counterstrikeHeroConstraint} onChange={e => { setCounterstrikeHeroConstraint(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="choose_skill">Opponent must choose a skill to counterstrike with (Deadly Diversion)</option>
+                            <option value="none">No special hero rule</option>
+                            <option value="cannot_counter">Hero cannot counterstrike</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Then Follow-up Outcome</label>
+                          <select value={counterstrikeFollowUp} onChange={e => { setCounterstrikeFollowUp(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="attacker_evasion">Then the attacker rolls chance for evasion (Deadly Diversion)</option>
+                            <option value="attacker_critical">Then the attacker rolls chance for critical</option>
+                            <option value="attacker_initiative">Then the attacker gains initiative</option>
+                            <option value="custom">Custom "Then..." follow-up</option>
+                            <option value="none">None</option>
+                          </select>
+                        </div>
+                        {counterstrikeFollowUp === 'custom' && (
+                          <div className="col-span-1 sm:col-span-2">
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Custom Follow-up Clause</label>
+                            <input type="text" value={counterstrikeCustomFollowUp} onChange={e => { setCounterstrikeCustomFollowUp(e.target.value); setIsManualEdit(false); }} placeholder="e.g. the attacker takes 1 non-combat damage." className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200" />
+                          </div>
+                        )}
+                      </>
                     )}
 
                     {/* Numeric Amount */}
@@ -2559,18 +3044,60 @@
                       </>
                     )}
 
-                    {/* Attack Die Override Sub-options */}
+                    {/* Attack / Die Override Sub-options */}
                     {effectType === 'attack_die' && (
-                      <div>
-                        <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Attack Die</label>
-                        <select value={attackDieValue} onChange={e => { setAttackDieValue(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
-                          <option value="D4">D4</option>
-                          <option value="D6">D6</option>
-                          <option value="D8">D8</option>
-                          <option value="D10">D10</option>
-                          <option value="D12">D12</option>
-                        </select>
-                      </div>
+                      <>
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Target Stat</label>
+                          <select value={attackStatTarget} onChange={e => { setAttackStatTarget(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 font-medium">
+                            <option value="attack">Primary Attack</option>
+                            <option value="rangedAttack">Ranged Attack</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Value Type</label>
+                          <select value={attackOverrideMode} onChange={e => { setAttackOverrideMode(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 font-medium">
+                            <option value="die">Die (D4 – D12)</option>
+                            <option value="fixed">Fixed Number (e.g. 8)</option>
+                          </select>
+                        </div>
+                        {attackOverrideMode === 'fixed' ? (
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Fixed Attack Value</label>
+                            <input type="number" min="1" max="50" value={attackFixedValue} onChange={e => { setAttackFixedValue(parseInt(e.target.value) || 8); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 font-bold focus:border-amber-500" />
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Attack Die</label>
+                            <select value={attackDieValue} onChange={e => { setAttackDieValue(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 font-medium">
+                              <option value="D4">D4</option>
+                              <option value="D6">D6</option>
+                              <option value="D8">D8</option>
+                              <option value="D10">D10</option>
+                              <option value="D12">D12</option>
+                            </select>
+                          </div>
+                        )}
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Instead Of Clause</label>
+                          <select value={attackInsteadOf} onChange={e => { setAttackInsteadOf(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="none">None (Standard Override)</option>
+                            <option value="D4">instead of D4</option>
+                            <option value="D6">instead of D6</option>
+                            <option value="D8">instead of D8 (e.g. Purity Strike)</option>
+                            <option value="D10">instead of D10</option>
+                            <option value="D12">instead of D12</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Duration</label>
+                          <select value={effectDuration} onChange={e => { setEffectDuration(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="thisTurn">This Turn</option>
+                            <option value="thisStrike">This Strike</option>
+                            <option value="permanent">Permanent</option>
+                          </select>
+                        </div>
+                      </>
                     )}
 
                     {/* Repeat Roll / Cascade Sub-options */}

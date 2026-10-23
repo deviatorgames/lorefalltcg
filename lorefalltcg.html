@@ -1126,8 +1126,6 @@
     border: 1px solid rgba(147, 51, 234, 0.5);
     box-shadow: 0 1px 3px rgba(0,0,0,0.4);
   }
-    padding: 0;
-  }
   .fc-abilities, .fc-abilities-box {
     font-size: 0.8rem;
     line-height: 1.35;
@@ -1644,7 +1642,6 @@
     color: #fef3c7;
     margin-top: 4px;
   }
-  }
   .tut-action-arrow {
     font-size: 1.2rem;
     animation: tutArrowBounce 0.8s infinite alternate ease-in-out;
@@ -1673,7 +1670,17 @@
     animation: tutorialGlowPulse 1.2s infinite ease-in-out !important;
     outline: 3px solid #fbbf24 !important;
     outline-offset: 3px !important;
+    z-index: 1050 !important;
+  }
+  .tutorial-target:not(.mini-stat-overlay *):not(.mini-mana):not(.mini-gold):not(.mini-dex):not(.mini-hp):not(.mini-pow):not(.mini-atk-icon):not(.mini-atk-badge):not(.mini-charge-icon) {
     position: relative !important;
+  }
+  .mini-stat-overlay > div.tutorial-target {
+    position: absolute !important;
+    border-radius: 50% !important;
+    outline: 2px solid #fbbf24 !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 16px rgba(251, 191, 36, 0.95) !important;
     z-index: 1050 !important;
   }
   .tutorial-shake {
@@ -2392,7 +2399,7 @@ function stripAbilityReminders(text) {
   if (!text) return "";
   // Remove keyword reminder lines like "Curse: (..." or "Poison: (..." or "Leach: (..." or "Overreach: ..."
   return text
-    .replace(/^(Curse|Poison|Leach|Leech|Overreach|Revive|Advantage|Allegiance|Piercing|Knockback|Freeze|Aptitude|Overcharge)\s*:\s*\(?.*$/gim, "")
+    .replace(/^(Curse|Poison|Leach|Leech|Overreach|Revive|Advantage|Allegiance|Piercing|Knockback|Freeze|Aptitude|Overcharge|Blind)\s*:\s*\(?.*$/gim, "")
     .replace(/\((?!choose a skill)[^)]*\)?/gi, "")
     .trim();
 }
@@ -2572,6 +2579,18 @@ function parseEnglishEffectClauseCore(clauseText, cardType, cardName) {
     return { action: "heal", amount: amt, target: tgt };
   }
 
+  // Blind keyword grant
+  if (/\b(?:gets?|have|has|grant(?:ing)?)\s+blind\b|\bis\s+blinded\b/i.test(t)) {
+    let tgt = "self";
+    if (/target\s+enemy\s+ally/i.test(t)) tgt = "targetEnemyAlly";
+    else if (/target\s+ally\s+you\s+control/i.test(t)) tgt = "targetFriendlyAlly";
+    else if (/target\s+ally/i.test(t)) tgt = "targetAlly";
+    else if (/target\s+character/i.test(t)) tgt = "targetCharacter";
+    else if (/you\s+get|yourself/i.test(t)) tgt = "selfHero";
+    const dur = /this\s+strike/i.test(t) ? "thisStrike" : (/permanent/i.test(t) ? "permanent" : "thisTurn");
+    return { action: "grantKeyword", value: "blind", target: tgt, duration: dur };
+  }
+
   // Chance for evasion / critical / advantage / overreach grants
   if (/chance\s+for\s+evasion/i.test(t)) {
     const tgt = /target\s+character/i.test(t) ? "targetCharacter" : (/you\s+get/i.test(t) ? "selfHero" : "self");
@@ -2602,6 +2621,27 @@ function parseEnglishEffectClauseCore(clauseText, cardType, cardName) {
   }
   if (/\bhas\s+knockback\s+this\s+strike\b/i.test(t)) {
     return { action: "grantKeyword", value: "knockback", target: "self", duration: "thisStrike" };
+  }
+
+  // Attack die / fixed attack override: "attack is 8 instead of D8 this turn" or "attack is D12 this turn"
+  const atkIsMatch = t.match(/(?:ranged\s+attack|attack)\s+(?:is|be)\s+(\d+|D\d+)(?:\s+instead\s+of\s+([A-Za-z0-9]+))?(?:\s+(this\s+turn|this\s+strike))?/i);
+  if (atkIsMatch) {
+    const isRanged = /ranged/i.test(atkIsMatch[0]);
+    const val = atkIsMatch[1].toUpperCase();
+    const insteadOf = atkIsMatch[2] ? atkIsMatch[2].toUpperCase() : null;
+    const durRaw = atkIsMatch[3] ? atkIsMatch[3].toLowerCase().replace(/\s+/g, '') : "thisturn";
+    const dur = durRaw === "thisstrike" ? "thisStrike" : "thisTurn";
+    let tgt = "self";
+    if (/target\s+character/i.test(t)) tgt = "targetCharacter";
+    else if (/target\s+ally/i.test(t)) tgt = "targetAlly";
+    return {
+      action: "overrideAttack",
+      stat: isRanged ? "rangedAttack" : "attack",
+      value: /^\d+$/.test(val) ? parseInt(val, 10) : val,
+      insteadOf: insteadOf,
+      target: tgt,
+      duration: dur
+    };
   }
 
   // Defending allies you control get +X power and +Y ranged attack this turn ("Stalwart Prowess")
@@ -3163,6 +3203,9 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
     }
     if (/\bFreeze\b/i.test(clause)) {
       mech.staticModifiers.push({ effect: { action: "grantKeyword", value: "freeze", target: selfOrEquippedTarget } });
+    }
+    if (/\bBlind\b/i.test(clause)) {
+      mech.staticModifiers.push({ effect: { action: "grantKeyword", value: "blind", target: selfOrEquippedTarget } });
     }
     if (/\b(?:You\s+have\s+Leach|Leach)\b/i.test(clause)) {
       mech.staticModifiers.push({ effect: { action: "grantKeyword", value: "leach", target: type === "Synergy" ? "selfHero" : "self" } });
@@ -4164,6 +4207,15 @@ async function applyEffectAction(effect, targets, sourceCard, context) {
     else if (effect.action === "overrideAttackDieTemp") {
        target.temp_overrideAttackDie = effect.value;
        addLogEntry(`${target.name}'s attack die becomes ${effect.value} this turn!`);
+    }
+    else if (effect.action === "overrideAttack") {
+       if (typeof effect.value === "number") {
+           target.temp_overrideAttackValue = effect.value;
+           addLogEntry(`${target.name}'s attack becomes ${effect.value}${effect.insteadOf ? ` instead of ${effect.insteadOf}` : ''} this turn!`);
+       } else {
+           target.temp_overrideAttackDie = effect.value;
+           addLogEntry(`${target.name}'s attack die becomes ${effect.value}${effect.insteadOf ? ` instead of ${effect.insteadOf}` : ''} this turn!`);
+       }
     }
     else if (effect.action === "payHealthForAttackDie") {
        const hpCost = effect.healthCost || 1;
@@ -7589,7 +7641,7 @@ function isActivatedAbilityChunk(chunk) {
 }
 
 function isKeywordReminderChunk(chunk) {
-  return /^(Curse|Poison|Leach|Leech|Overreach|Revive|Advantage|Allegiance|Piercing|Knockback|Freeze|Aptitude|Overcharge)\s*[:(]/i.test((chunk || "").trim());
+  return /^(Curse|Poison|Leach|Leech|Overreach|Revive|Advantage|Allegiance|Piercing|Knockback|Freeze|Aptitude|Overcharge|Blind)\s*[:(]/i.test((chunk || "").trim());
 }
 
 function isClearlyPassiveChunk(chunk) {
@@ -8627,7 +8679,7 @@ async function runManaPhase() {
   }
   shiftSlotsLeft(activeP);
 
-  [activeP.hero, ...activeP.battleZone, ...activeP.bench].forEach(u => {
+  [activeP.hero, ...activeP.battleZone, ...activeP.bench, ...activeP.skills].forEach(u => {
       if (u) {
           Object.keys(u).forEach(k => { if(k.startsWith("temp")) delete u[k]; });
       }
@@ -8892,6 +8944,15 @@ function modifyCharge(playerIndex, zone, slotIndex, delta) {
     const steps = typeof getActiveTutorialSteps === 'function' ? getActiveTutorialSteps() : [];
     const currentStep = steps[tutorialState.stepIndex];
     if (currentStep) {
+      if (currentStep.id === 'charge_sniper_add' || currentStep.id === 'charge_bench_add') {
+        const needed = Math.max(1, (unit.chargeReq || 3) - (unit.charge || 0));
+        const spend = Math.min(needed, p.manaPool);
+        p.manaPool -= spend;
+        unit.charge = (unit.charge || 0) + spend;
+        unit.chargeAddedThisTurn = (unit.chargeAddedThisTurn || 0) + spend;
+        renderAll();
+        return;
+      }
       if (currentStep.id === 'id_turn2_add_sniper_bench_charge' && (unit.charge || 0) >= 1) {
         showToast("👉 Windrider Sniper already received +1 Charge!");
         return;
@@ -9707,11 +9768,15 @@ async function rollClashAttacker() {
           }
       }
 
-      // Slice and Dice flat damage override if equipped with a Dagger
+      // Slice and Dice flat damage override or active flat attack override (e.g. Purity Strike)
       const sliceMod = currentClash.attacker.mechanics?.staticModifiers?.find(m => m.effect?.action === "flatDamageOverride" && evaluateCondition(m.condition, currentClash.attacker, { triggerPlayer: currentClash.attackerPlayer }));
       let totalDieRoll = 0;
 
-      if (sliceMod) {
+      const flatOverride = currentClash.attacker.temp_overrideAttackValue || aUnit.temp_overrideAttackValue;
+      if (flatOverride) {
+          totalDieRoll = flatOverride * (isCrit ? 2 : 1);
+          logMsg += `Attack Override: <strong>${flatOverride}</strong> flat attack ${isCrit ? "<span class='log-crit'>(CRIT! -> " + totalDieRoll + ")</span>" : ""}<br>`;
+      } else if (sliceMod) {
           totalDieRoll = sliceMod.effect.value * (isCrit ? 2 : 1);
           logMsg += `Slice and Dice (Dagger Equipped): <strong>${totalDieRoll}</strong> flat damage ${isCrit ? "<span class='log-crit'>(CRIT!)</span>" : ""}<br>`;
       } else {
@@ -10047,6 +10112,15 @@ async function resolveClashDamage() {
   
   let hasEvasion = dUnit.temp_Evasion || dPlayer.hero.temp_Evasion || false;
   let chanceForEvasion = dUnit.temp_chanceForEvasion || dPlayer.hero.temp_chanceForEvasion || false;
+  
+  let aUnit = currentClash.aInfo.type === 'skill' ? currentClash.attackerPlayer.hero : currentClash.attacker;
+  let attackerIsBlind = checkKeyword(aUnit, currentClash.attackerPlayer, "blind") || 
+                        checkKeyword(currentClash.attacker, currentClash.attackerPlayer, "blind") || 
+                        (currentClash.attackerPlayer.hero && checkKeyword(currentClash.attackerPlayer.hero, currentClash.attackerPlayer, "blind")) ||
+                        aUnit.isBlinded || currentClash.attacker.isBlinded || false;
+  if (attackerIsBlind) {
+      chanceForEvasion = true;
+  }
   let aptitudeVal = getAptitudeVal(dUnit, dPlayer, dPlayer.hero);
 
   let evaded = hasEvasion;
@@ -10071,7 +10145,8 @@ async function resolveClashDamage() {
       else if (isAdv) advText = " <em style='color:#38bdf8;'>(Advantage)</em>";
       else if (isDisadv) advText = " <em style='color:#f43f5e;'>(Disadvantage)</em>";
       
-      await performAnimatedRoll("Evasion Roll", `<strong>${dUnit.name}</strong> is rolling to Evade!${advText}`, evadeRoll, dex, 11, forceWin, evadeRollObj, dPlayer.index);
+      let blindTag = attackerIsBlind ? " <em style='color:#a855f7;'>(Attacker is Blinded!)</em>" : "";
+      await performAnimatedRoll("Evasion Roll", `<strong>${dUnit.name}</strong> is rolling to Evade!${advText}${blindTag}`, evadeRoll, dex, 11, forceWin, evadeRollObj, dPlayer.index);
       if (forceWin) total = 99;
 
       if (total >= 11) {
@@ -10111,7 +10186,7 @@ async function resolveClashDamage() {
        logHTML += `<div>Attack missed entirely!</div>`;
   }
   
-  let aUnit = currentClash.aInfo.type === 'skill' ? currentClash.attackerPlayer.hero : currentClash.attacker;
+  aUnit = currentClash.aInfo.type === 'skill' ? currentClash.attackerPlayer.hero : currentClash.attacker;
   if (currentClash.defDamage > 0) {
       logHTML += `<div>${aUnit.name} takes <strong style="color:#f43f5e; font-size:1.1rem;">${currentClash.defDamage}</strong> counter damage!</div>`;
   }
@@ -11455,8 +11530,8 @@ function getActiveTutorialSteps() {
 const TUTORIAL_STEPS = [
   {
     id: "scout",
-    title: "🎓 Step 1: The Scout Phase & Starting Hand",
-    text: "Welcome to <strong>Lorefall TCG</strong>! Every battle begins with the <strong>Scout Phase</strong>. Both players draw 8 cards. You can inspect your hand and choose any cards you don't want to shuffle back into your deck, drawing replacements (up to 7 max).<br><br>Since our opening hand has a balanced squad of Allies, Equipment, Skills, and Potions, let's keep all 8 cards!",
+    title: "🎓 Scout Phase & Starting Hand",
+    text: "Welcome to <strong>Lorefall TCG</strong>! Both players draw 8 cards in the Scout Phase.<br><br>You can replace unwanted cards, but our hand is well-balanced — let's keep all 8 cards!",
     taskPrompt: "Click the green '✓ Keep Hand (8 Cards) & Ready' button.",
     getTargetEl: () => {
       const actions = document.getElementById('modal-actions');
@@ -11469,8 +11544,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "hero_health",
-    title: "❤️ Step 2: Hero Life Total (Health)",
-    text: "Meet your Hero, <strong>Prince Athran of Korvas</strong>! The red heart badge on the bottom-left of his card shows his current Health (<strong>14 HP</strong>).<br><br>Your Hero is your commander: if their Health drops to 0, you lose the battle! Protect Athran from lethal breakthroughs and direct strikes.",
+    title: "❤️ Hero Health",
+    text: "The red shield icon on the bottom-left shows Athran's current Health (<strong>14 HP</strong>). If your Hero reaches 0 HP, you lose the battle!",
     taskPrompt: "Inspect Health, then click 'Next Stat ▶'.",
     actionButtonText: "Next Stat ▶",
     getTargetEl: () => document.querySelector('#p1-hero-slot .mini-hp') || document.getElementById('p1-hero-slot'),
@@ -11478,8 +11553,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "hero_mana",
-    title: "💎 Step 3: Natural Mana Generation (Top-Left)",
-    text: "Look at the blue crystal badge at the top-left of Athran's card: <strong>4 Mana</strong>.<br><br>At the start of each turn, Athran generates 4 Mana in your pool. You spend Mana to summon Allies, learn Skills, and cast Spells. Leftover Mana during Command Phase can be invested into Charge!",
+    title: "💎 Natural Mana Intake",
+    text: "The blue and purple crystal icon at top-left shows Athran generates <strong>4 Mana</strong> at the start of each turn to summon Allies and Skills.",
     taskPrompt: "Inspect Mana, then click 'Next Stat ▶'.",
     actionButtonText: "Next Stat ▶",
     getTargetEl: () => document.querySelector('#p1-hero-slot .mini-mana') || document.getElementById('p1-hero-slot'),
@@ -11487,8 +11562,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "hero_power",
-    title: "💥 Step 4: Hero Power Stat (Top-Right)",
-    text: "Look at the orange burst badge at the top-right: <strong>4 Power</strong>.<br><br>In Lorefall, physical attacks roll their base weapon/strike die and add Power (<code>Die Roll + Power</code>). Athran's 4 Power turns standard strikes into devastating blows!",
+    title: "💥 Hero Power Stat",
+    text: "The swords and shield icon at bottom-right shows <strong>4 Power</strong>, adding flat bonus damage to all melee strikes (<code>Die Roll + Power</code>).",
     taskPrompt: "Inspect Power, then click 'Next Stat ▶'.",
     actionButtonText: "Next Stat ▶",
     getTargetEl: () => document.querySelector('#p1-hero-slot .mini-pow') || document.getElementById('p1-hero-slot'),
@@ -11496,8 +11571,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "hero_dexterity",
-    title: "⚡ Step 5: Hero Dexterity (Bottom-Right)",
-    text: "Look at the green lightning badge at the bottom-right: <strong>4 Dexterity</strong>.<br><br>Dexterity measures agility and accuracy. It adds a direct modifier to Ranged accuracy rolls (<code>D20 + Dex, 11+</code>) and fuels your Evasion rolls to dodge enemy strikes!",
+    title: "⚡ Hero Dexterity",
+    text: "The red D20 icon at top-right shows <strong>4 Dexterity</strong>, adding a modifier to Ranged accuracy, Evasion rolls, or any chance roll.",
     taskPrompt: "Inspect Dexterity, then click 'Next Stat ▶'.",
     actionButtonText: "Next Stat ▶",
     getTargetEl: () => document.querySelector('#p1-hero-slot .mini-dex') || document.getElementById('p1-hero-slot'),
@@ -11505,8 +11580,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "hero_gold",
-    title: "🪙 Step 6: Gold Tokens Economy",
-    text: "Look at your player status panel on the right: <strong>3 Gold Tokens</strong>.<br><br>Unlike Mana which resets every turn, <strong>Gold Tokens never reset!</strong> You accumulate Gold to forge and equip Weapons & Armor, and drink Flash potions.",
+    title: "🪙 Gold Tokens Economy",
+    text: "You have <strong>3 Gold Tokens</strong>. Gold is spent on Weapons, Armor, and Flash Potions. Get more gold by selling applicable cards in the end phase.",
     taskPrompt: "Inspect Gold, then click 'Next: Allies ▶'.",
     actionButtonText: "Next: Allies ▶",
     getTargetEl: () => document.querySelector('#half-p1 .stat-gold') || document.getElementById('p1-gold-val'),
@@ -11514,8 +11589,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "hero_overview",
-    title: "🛡️ Step 7: Inspect Frontline Soldier — Bastion Defender",
-    text: "Now that you understand Athran's core stats, let's summon a protector! Click on <strong>Bastion Defender</strong> in your hand to preview his stats before deploying him to the battlefield.",
+    title: "🛡️ Inspect Frontline Defender",
+    text: "Click on <strong>Bastion Defender</strong> in your hand to preview his stats before deploying him to the battlefield.",
     taskPrompt: "Click on 'Bastion Defender' in your hand to inspect his card.",
     getTargetEl: () => document.getElementById('p1-hand-card-0'),
     canClick: (target) => {
@@ -11525,8 +11600,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "melee_inspect",
-    title: "🛡️ Step 3: Card Anatomy — Melee & Single Strike",
-    text: "Inspect <strong>Bastion Defender</strong>'s stats:<br>• <strong style='color:#38bdf8;'>Mana Cost (1)</strong>: Affordable frontline soldier (you have 4 Mana).<br>• <strong style='color:#f43f5e;'>Attack Type: Melee (⚔️)</strong>: Must be deployed to the <strong>Battle Zone (Vanguard)</strong> to attack. Defending Melee units will counterstrike!<br>• <strong style='color:#cbd5e1;'>Strike Type: Single</strong>: Can strike 1 time per Combat Phase.",
+    title: "🛡️ Card Anatomy — Melee Ally",
+    text: "Bastion Defender costs 1 Mana, has D4 Melee Attack, Single-Strike, and must be in the Battle Zone to strike.<br><br>Click '▶ Play / Equip to Field' to deploy him.",
     taskPrompt: "Click '▶ Play / Equip to Field' in the card preview panel.",
     getTargetEl: () => document.querySelector('#card-detail-modal button[onclick*="playFromHandDetail"]'),
     canClick: (target) => {
@@ -11536,8 +11611,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "deploy_vanguard",
-    title: "⚔️ Step 4: Battlefield Zones — Vanguard vs Bench",
-    text: "Where to position your allies:<br>• <strong style='color:#f43f5e;'>Battle Zone (Frontline)</strong>: Shields your Hero from direct attacks and enables Melee strikes.<br>• <strong style='color:#38bdf8;'>Bench (Backline)</strong>: Safe zone where units recover and gain +1 Charge⚡ each End Phase (Garrison Bonus).",
+    title: "⚔️ Deploy to Battle Zone",
+    text: "Deploy Bastion Defender to the <strong>Battle Zone (Vanguard)</strong> to shield your Hero and attack enemy units.",
     taskPrompt: "Click 'Battle Zone' to deploy Bastion Defender to your frontline.",
     getTargetEl: () => {
       const btns = Array.from(document.querySelectorAll('#modal-actions button'));
@@ -11553,8 +11628,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "equip_select",
-    title: "🛡️ Step 5: Equipment & Gold Economy",
-    text: "Equipment cards (Weapons & Armor) cost <strong>Gold Tokens</strong> instead of Mana. They attach directly to characters to grant persistent stat boosts and abilities.<br><br>Let's equip Athran with a <strong>Leather Tunic</strong> (+2 Defense Modifier).",
+    title: "🛡️ Equipment & Gold Economy",
+    text: "Equipment cards cost <strong>Gold Tokens</strong> and attach directly to characters for persistent buffs.<br><br>Click on <strong>Leather Tunic</strong> in your hand (+2 Defense Modifier).",
     taskPrompt: "Click on 'Leather Tunic' in your hand.",
     getTargetEl: () => {
       const p = gameState.players[0];
@@ -11570,8 +11645,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "equip_play_btn",
-    title: "🛡️ Step 6: Equipping Armor",
-    text: "Leather Tunic costs 3 Gold Tokens and gives +2 Defense. This will make Athran much tougher against enemy strikes!",
+    title: "🛡️ Equipping Armor",
+    text: "Leather Tunic costs 3 Gold Tokens and grants +2 Defense to absorb incoming attack damage.",
     taskPrompt: "Click '▶ Play / Equip to Field'.",
     getTargetEl: () => document.querySelector('#card-detail-modal button[onclick*="playFromHandDetail"]'),
     canClick: (target) => {
@@ -11581,8 +11656,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "equip_target_hero",
-    title: "🛡️ Step 7: Select Recipient — Hero Athran",
-    text: "You can equip gear to either your Hero or eligible Allies in play. Let's bolster Athran!",
+    title: "🛡️ Select Recipient — Hero Athran",
+    text: "Equip Leather Tunic to your Hero <strong>Prince Athran</strong> to boost his Defense by +2.",
     taskPrompt: "Click 'Hero (Athran, Prince of Korvas)' in the modal.",
     getTargetEl: () => {
       const btns = Array.from(document.querySelectorAll('#modal-actions button'));
@@ -11598,8 +11673,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "charge_inspect",
-    title: "⚡ Step 8: The Charge System — Powering Allies",
-    text: "Before entering combat, your characters must be energized! Every physical strike or activated ability in Lorefall requires <strong>Charge (⚡)</strong>. Newly deployed units enter uncharged.<br><br>During the <strong>Command Phase</strong>, you can invest leftover Mana into your units: <strong>1 Mana = +1 Charge⚡</strong>.<br><br>Bastion Defender requires 1 Charge to strike. Let's inspect him on the battlefield!",
+    title: "⚡ The Charge System (⚡)",
+    text: "Allies require <strong>Charge (⚡)</strong> to attack.<br><br>During Command Phase, you can invest leftover Mana: <strong>1 Mana = +1 Charge⚡</strong>.<br><br>Click Bastion Defender in Battle Zone Slot 1 to allocate charge.",
     taskPrompt: "Click Bastion Defender in your Battle Zone (slot 1).",
     getTargetEl: () => {
       if (gameState?.players?.[0]?.battleZone[0]) gameState.players[0].battleZone[0].isExhausted = false;
@@ -11612,8 +11687,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "charge_add",
-    title: "⚡ Step 9: Adding Charge (1 Mana ➔ +1 Charge)",
-    text: "Notice Bastion Defender currently has <strong>0/1 Charge</strong>. You have 3 Mana remaining in your pool.<br><br>Click <strong>'+ Add Charge'</strong> to invest 1 Mana and grant him 1 Charge⚡. This powers him up so he is ready to strike in the Combat Phase!",
+    title: "⚡ Allocating Charge (1 Mana ➔ +1 Charge)",
+    text: "Click <strong>'+ Add Charge'</strong> in the side panel to spend 1 Mana and charge Bastion Defender to <strong>⚡ 1/1</strong>.",
     taskPrompt: "Click '+ Add Charge' in the card preview panel.",
     getTargetEl: () => document.querySelector('#card-detail-modal button[onclick*="modifyChargeFromDetail"][onclick*=", 1)"]') || Array.from(document.querySelectorAll('#card-detail-modal button')).find(b => (b.textContent || '').includes("Add Charge")) || null,
     canClick: (target) => {
@@ -11623,16 +11698,16 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "charge_close",
-    title: "🛡️ Step 10: Frontline Primed & Ready",
-    text: "Bastion Defender is now fully charged (⚡ 1/1)! With his armor secured and weapon energized, your frontline is fully prepared for battle.<br><br>Close the card preview to return to the board.",
+    title: "🛡️ Frontline Ready",
+    text: "Bastion Defender is fully charged (⚡ 1/1)! Close the preview panel to return to the board.",
     taskPrompt: "Click '✕ Close Preview' (or anywhere outside) to return to the board.",
     getTargetEl: () => document.getElementById('fc-side-close-btn') || document.querySelector('#card-detail-modal .fc-close'),
     canClick: () => true
   },
   {
     id: "advance_combat",
-    title: "⚔️ Step 11: Phase Shift — Entering Combat",
-    text: "Your frontline is charged and Athran is fortified! A turn follows 4 phases: <strong>Mana ➔ Command ➔ Combat ➔ End</strong>.<br><br>In standard games, Player 1 skips Turn 1 combat, but in this tutorial, we enter Combat now to strike the enemy vanguard!",
+    title: "⚔️ Enter Combat Phase",
+    text: "Your frontline is charged and Athran is fortified! Click <strong>'NEXT PHASE'</strong> to enter Combat.",
     taskPrompt: "Click the 'NEXT PHASE' button to enter Combat Phase.",
     getTargetEl: () => document.getElementById('btn-next-phase'),
     canClick: (target) => {
@@ -11642,8 +11717,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "select_attacker",
-    title: "🎯 Step 12: Declaring Strikes (3 Strikes Per Turn)",
-    text: "Notice the <strong>STRIKES: 3</strong> tracker at the top bar. You get up to 3 strikes per turn.<br>Let's declare a strike with your frontline ally, <strong>Bastion Defender</strong>!",
+    title: "🎯 Declaring Strikes (3 Strikes Per Turn)",
+    text: "You have 3 Strikes per turn. Click <strong>Bastion Defender</strong> in your Battle Zone to initiate a strike.",
     taskPrompt: "Click Bastion Defender in your Battle Zone (slot 1).",
     getTargetEl: () => {
       if (gameState?.players?.[0]?.battleZone[0]) gameState.players[0].battleZone[0].isExhausted = false;
@@ -11656,8 +11731,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "declare_strike_btn",
-    title: "⚔️ Step 13: Confirming Strike Declaration",
-    text: "Because Bastion Defender has 1 Charge, his <strong>⚔️ Declare Strike</strong> button is unlocked!<br><br><div style='background:rgba(255,255,255,0.07); border-left:3px solid var(--accent); padding:6px 10px; margin-top:6px; border-radius:4px;'><strong>⚡ Golden Rule of Charge:</strong> Striking on your turn requires meeting the Charge threshold (1 Charge⚡), but <strong>striking on your turn does NOT deplete Charge!</strong> Bastion Defender will retain his 1 Charge⚡ after striking.</div>",
+    title: "⚔️ Confirm Strike Declaration",
+    text: "Click <strong>'⚔️ Declare Strike'</strong> in the side panel.<br><br>⚡ <strong>Golden Rule of Charge:</strong> Striking on your turn does NOT deplete Charge! Bastion Defender keeps his 1 Charge⚡.",
     taskPrompt: "Click '⚔️ Declare Strike' in the side panel.",
     getTargetEl: () => {
       if (gameState?.players?.[0]?.battleZone[0]) gameState.players[0].battleZone[0].isExhausted = false;
@@ -11670,8 +11745,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "select_target_vanguard",
-    title: "🎯 Step 14: Frontline Defense Rule",
-    text: "Enemy <strong>Gladeweaver</strong> guards the opponent's Vanguard. In Lorefall, you must breach and defeat defending frontline units before you can strike the enemy Hero directly!",
+    title: "🎯 Frontline Defense Rule",
+    text: "You must breach defending frontline units before striking the Hero directly. Click enemy <strong>Gladeweaver</strong> to attack.",
     taskPrompt: "Click enemy Gladeweaver in their Battle Zone to attack him.",
     getTargetEl: () => document.getElementById('p2-bz-0'),
     canClick: (target) => {
@@ -11681,8 +11756,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "clash_roll",
-    title: "🎲 Step 15: The Clash Arena — Melee Damage & Simultaneous Combat",
-    text: "Welcome to the <strong>Clash Arena</strong>! Under official Lorefall rules, Melee combat resolves as follows:<br>• <strong style='color:#f43f5e;'>Melee Damage Calculation</strong>: Roll the base <strong>Attack Die + Power stat</strong>. Bastion Defender has 0 Power, so his damage is simply his D4 roll.<br>• <strong style='color:#38bdf8;'>Defense (Damage Reduction)</strong>: Defense is flat damage mitigation (<code>Incoming Damage − Defense = Final Damage</code> applied to Health). Gladeweaver has 0 Defense, so all rolled damage lands directly on her 4 HP!<br>• <strong style='color:#fbbf24;'>Optional Counterstrikes & Charge Rules</strong>: When attacked, defenders enter <em>The Declaration Lock</em> and choose to either <strong>Hold the Line</strong> (0 Charge, no damage dealt) or <strong>Counterstrike</strong>. Counterstriking is <strong>optional and not automatic</strong>! Crucially: <strong>striking on your turn does NOT deplete Charge</strong> (Bastion Defender keeps his 1 Charge⚡), but <strong>Counterstriking DOES deplete Charge</strong> (Gladeweaver spends her 1 Charge⚡ to strike back simultaneously!).<br>• <strong style='color:#a855f7;'>Simultaneous Combat Resolution</strong>: When both combatants strike, all damage resolves simultaneously. Units that reach 0 HP are placed into the discard pile, opening up their zone slots for future turns!",
+    title: "🎲 The Clash Arena",
+    text: "Melee Damage equals <strong>Attack Die + Power</strong> (D4 + 0 = D4 damage).<br><br>Defense reduces damage flatly: <code>Damage - Defense = Final Damage</code>.<br><br>Counterstriking is optional: striking on your turn keeps Charge, but counterstriking expends Charge.<br><br>Both combatants strike simultaneously — click '🎲 Roll Attack' to clash!",
     taskPrompt: "Click '🎲 Roll Attack' (or '🎲 Roll D4') to clash!",
     getTaskPrompt: () => {
       const clashBtn = document.querySelector('#clash-actions button');
@@ -11708,8 +11783,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "turn2_intro",
-    title: "🏹 Step 16: Turn 2 — Ranged Attack Type & Multi-Strike",
-    text: "Gladeweaver was defeated! Now in Turn 2, your Mana pool is refreshed with 4 Mana.<br>Let's inspect <strong>Windrider Sniper</strong> in your hand:<br>• <strong style='color:#38bdf8;'>Ranged Attacks (🏹)</strong>: Ranged attacks deal a fixed damage value (6) upon a successful <strong>Accuracy Chance roll (D20 + Dexterity, 11+ succeeds)</strong>! Power is not added to Ranged attacks. Defending Melee units <strong>cannot counterstrike</strong> Ranged attacks (the attacker is out of melee range)!<br>• <strong style='color:#fbbf24;'>Positioning Requirement</strong>: Like all Allies, Ranged units must be deployed to the <strong>Battle Zone</strong> to declare strikes (benched Allies cannot attack).<br>• <strong style='color:#a855f7;'>Multi-Strike</strong>: Can strike multiple times in a single Combat Phase up to the turn's 3-strike limit!",
+    title: "🏹 Turn 2 — Ranged Attacks & Multi-Strike",
+    text: "Turn 2 begins! You have 8 Mana. Click <strong>Windrider Sniper</strong> in your hand to inspect her.<br><br><strong>Ranged Attacks (🏹):</strong> Deal fixed 6 damage on Accuracy roll (D20 + Dex, 11+). Melee defenders cannot counterstrike!<br><br><strong>Multi-Strike:</strong> Can attack multiple times per Combat Phase up to the 3-strike turn limit.",
     taskPrompt: "Click on 'Windrider Sniper' in your hand.",
     getTargetEl: () => {
       const p = gameState.players[0];
@@ -11725,8 +11800,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "ranged_play_btn",
-    title: "🏹 Step 17: Deploying Ranged Unit",
-    text: "Windrider Sniper costs 3 Mana to summon. With Bastion Defender fallen, your frontline Vanguard slot is open! Let's deploy Windrider Sniper directly to your Battle Zone.",
+    title: "🏹 Deploying Ranged Unit",
+    text: "Windrider Sniper costs <strong>5 Mana</strong>. With your Vanguard slot open, let's deploy her to the field!",
     taskPrompt: "Click '▶ Play / Equip to Field'.",
     getTargetEl: () => document.querySelector('#card-detail-modal button[onclick*="playFromHandDetail"]'),
     canClick: (target) => {
@@ -11735,9 +11810,9 @@ const TUTORIAL_STEPS = [
     }
   },
   {
-    id: "deploy_bench",
-    title: "🏹 Step 18: Deploy to the Battle Zone",
-    text: "Under Lorefall rules, only units deployed to the active <strong>Battle Zone</strong> can declare attacks in combat. Select 'Battle Zone' to summon Windrider Sniper into Vanguard Slot 1!",
+    id: "deploy_vanguard_sniper",
+    title: "🏹 Deploy to Battle Zone",
+    text: "Select <strong>'Battle Zone'</strong> to summon Windrider Sniper into Vanguard Slot 1.",
     taskPrompt: "Click 'Battle Zone' in the deployment modal.",
     getTargetEl: () => {
       const btns = Array.from(document.querySelectorAll('#modal-actions button'));
@@ -11752,23 +11827,46 @@ const TUTORIAL_STEPS = [
     }
   },
   {
-    id: "charge_bench_select",
-    title: "⚡ Step 19: Powering Your Ranged Sniper",
-    text: "Just like melee units, ranged attackers require <strong>1 Charge⚡</strong> to strike in combat.<br><br>You have 1 Mana remaining from Athran's pool. Let's invest it to charge Windrider Sniper!",
+    id: "charge_sniper_select",
+    title: "⚡ Select Sniper for Charging",
+    text: "Windrider Sniper requires <strong>3 Charge (⚡ 3/3)</strong>. Click her in Battle Zone Slot 1 to allocate charge.",
     taskPrompt: "Click Windrider Sniper in your Battle Zone (slot 1).",
     getTargetEl: () => {
-      if (gameState?.players?.[0]?.battleZone[0]) gameState.players[0].battleZone[0].isExhausted = false;
+      const p = gameState?.players?.[0];
+      if (!p) return document.getElementById('p1-bz-0');
+      const bzIdx = p.battleZone.findIndex(u => u && u.name === "Windrider Sniper");
+      if (bzIdx !== -1) {
+        p.battleZone[bzIdx].isExhausted = false;
+        return document.getElementById('p1-bz-' + bzIdx);
+      }
+      const benchIdx = p.bench.findIndex(u => u && u.name === "Windrider Sniper");
+      if (benchIdx !== -1) {
+        p.bench[benchIdx].isExhausted = false;
+        return document.getElementById('p1-bench-' + benchIdx);
+      }
       return document.getElementById('p1-bz-0');
     },
     canClick: (target) => {
-      const el = document.getElementById('p1-bz-0');
-      return Boolean(el && (target === el || el.contains(target)));
+      const p = gameState?.players?.[0];
+      if (!p) return false;
+      const bzIdx = p.battleZone.findIndex(u => u && u.name === "Windrider Sniper");
+      if (bzIdx !== -1) {
+        const el = document.getElementById('p1-bz-' + bzIdx);
+        if (el && (target === el || el.contains(target))) return true;
+      }
+      const benchIdx = p.bench.findIndex(u => u && u.name === "Windrider Sniper");
+      if (benchIdx !== -1) {
+        const el = document.getElementById('p1-bench-' + benchIdx);
+        if (el && (target === el || el.contains(target))) return true;
+      }
+      const bz0 = document.getElementById('p1-bz-0');
+      return Boolean(bz0 && (target === bz0 || bz0.contains(target)));
     }
   },
   {
-    id: "charge_bench_add",
-    title: "⚡ Step 20: Charging Your Sniper",
-    text: "Click <strong>'+ Add Charge'</strong> to invest your final 1 Mana into Windrider Sniper.",
+    id: "charge_sniper_add",
+    title: "⚡ Charging Your Sniper",
+    text: "Click <strong>'+ Add Charge'</strong> in the side panel to invest 3 Mana and reach full <strong>⚡ 3/3 Charge</strong>.",
     taskPrompt: "Click '+ Add Charge' in the side panel.",
     getTargetEl: () => document.querySelector('#card-detail-modal button[onclick*="modifyChargeFromDetail"][onclick*=", 1)"]') || Array.from(document.querySelectorAll('#card-detail-modal button')).find(b => (b.textContent || '').includes("Add Charge")) || null,
     canClick: (target) => {
@@ -11777,17 +11875,17 @@ const TUTORIAL_STEPS = [
     }
   },
   {
-    id: "charge_bench_close",
-    title: "🏹 Step 21: Ranged Unit Ready",
-    text: "Windrider Sniper is now charged (⚡ 1/1) in your Battle Zone and ready to attack! Close the preview to proceed to Combat.",
+    id: "charge_sniper_close",
+    title: "🏹 Ranged Unit Ready",
+    text: "Windrider Sniper is charged (⚡ 3/3)! Close the preview panel to proceed to combat.",
     taskPrompt: "Click '✕ Close Preview' (or anywhere outside) to return to the board.",
     getTargetEl: () => document.getElementById('fc-side-close-btn') || document.querySelector('#card-detail-modal .fc-close'),
     canClick: () => true
   },
   {
     id: "advance_combat_2",
-    title: "⚔️ Step 22: Enter Turn 2 Combat",
-    text: "Windrider Sniper stands ready in your Battle Zone. Advance to Combat Phase to unleash her arrows!",
+    title: "⚔️ Enter Turn 2 Combat",
+    text: "Click <strong>'NEXT PHASE'</strong> to enter the Combat Phase and unleash your arrows.",
     taskPrompt: "Click 'NEXT PHASE' to enter Combat Phase.",
     getTargetEl: () => document.getElementById('btn-next-phase'),
     canClick: (target) => {
@@ -11797,22 +11895,31 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "select_ranged_attacker",
-    title: "🏹 Step 23: Initiating Ranged Strike",
-    text: "Select Windrider Sniper in your Battle Zone (slot 1) to declare your first strike!",
+    title: "🏹 Initiate Ranged Strike",
+    text: "Click <strong>Windrider Sniper</strong> in Battle Zone Slot 1 to declare your first ranged strike.",
     taskPrompt: "Click Windrider Sniper in your Battle Zone (slot 1).",
     getTargetEl: () => {
-      if (gameState?.players?.[0]?.battleZone[0]) gameState.players[0].battleZone[0].isExhausted = false;
+      const p = gameState?.players?.[0];
+      if (!p) return document.getElementById('p1-bz-0');
+      const bzIdx = p.battleZone.findIndex(u => u && u.name === "Windrider Sniper");
+      if (bzIdx !== -1) {
+        p.battleZone[bzIdx].isExhausted = false;
+        return document.getElementById('p1-bz-' + bzIdx);
+      }
       return document.getElementById('p1-bz-0');
     },
     canClick: (target) => {
-      const el = document.getElementById('p1-bz-0');
+      const p = gameState?.players?.[0];
+      if (!p) return false;
+      const bzIdx = p.battleZone.findIndex(u => u && u.name === "Windrider Sniper");
+      const el = bzIdx !== -1 ? document.getElementById('p1-bz-' + bzIdx) : document.getElementById('p1-bz-0');
       return Boolean(el && (target === el || el.contains(target)));
     }
   },
   {
     id: "declare_ranged_strike",
-    title: "⚔️ Step 24: Confirm Ranged Strike",
-    text: "Confirm strike declaration for Windrider Sniper.",
+    title: "⚔️ Confirm Ranged Strike",
+    text: "Click <strong>'⚔️ Declare Strike'</strong> in the side panel to ready your bow.",
     taskPrompt: "Click '⚔️ Declare Strike'.",
     getTargetEl: () => {
       if (gameState?.players?.[0]?.battleZone[0]) gameState.players[0].battleZone[0].isExhausted = false;
@@ -11825,8 +11932,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "target_enemy_hero",
-    title: "🎯 Step 25: Ranged Targeting & Non-Vanguard Rule",
-    text: "Now select your target!<br>• <strong style='color:#38bdf8;'>Ranged Targeting & No Breakthrough on Non-Vanguard</strong>: Ranged attacks ignore defensive priority and can target <em>any</em> enemy Ally in the Battle Zone or on the Bench! Crucially, if a Ranged attack defeats a non-Vanguard unit (rear slot or bench), <strong>there is NO Breakthrough damage</strong> — excess damage is negated because Breakthrough only applies when the Vanguard is defeated!<br>• <strong style='color:#10b981;'>Direct Assault on Hero</strong>: Because the enemy Vanguard was eliminated in Turn 1 and their Battle Zone is completely empty, you can strike enemy Hero <strong>Scholar Favar Dahv</strong> directly!",
+    title: "🎯 Direct Hero Assault",
+    text: "With the enemy Battle Zone empty, click enemy Hero <strong>Scholar Favar Dahv</strong> to strike him directly!<br><br><strong>Ranged Targeting Rule:</strong> Ranged attacks can target any unit, and defeating non-Vanguard units causes no Breakthrough.",
     taskPrompt: "Click enemy Hero Favar Dahv to attack him.",
     getTargetEl: () => document.getElementById('p2-hero-slot'),
     canClick: (target) => {
@@ -11836,8 +11943,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "clash_roll_ranged_1",
-    title: "🏹 Step 26: Ranged Accuracy Check & No Counterstrike",
-    text: "Windrider Sniper unleashes her bow against Favar Dahv!<br>• <strong style='color:#38bdf8;'>Accuracy Chance Roll</strong>: Ranged attacks roll a <strong>D20 + Dexterity (+4)</strong>. Scoring <strong>11 or higher</strong> succeeds, dealing 6 fixed damage directly to Favar Dahv!<br>• <strong style='color:#10b981;'>No Counterstrike</strong>: Defending Melee units <strong>cannot counterstrike</strong> Ranged attacks because the attacker is out of melee range!<br>• <strong style='color:#fbbf24;'>Charge Preserved</strong>: Attacking on your turn does NOT deplete Charge! Windrider Sniper keeps her 1 Charge⚡ to fire again with Multi-Strike.",
+    title: "🏹 Ranged Accuracy Roll",
+    text: "Roll Accuracy (D20 + Dex, 11+ succeeds). Deals 6 fixed damage directly to Favar Dahv!<br><br>Defenders cannot counterstrike Ranged attacks, and attacking on your turn does not deplete Charge.<br><br>Click '🎲 Roll Attack' to fire your first shot!",
     taskPrompt: "Click '🎲 Roll Attack' (or '🎲 Roll D20') to fire your first shot!",
     getTaskPrompt: () => {
       const clashBtn = document.querySelector('#clash-actions button');
@@ -11863,22 +11970,31 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "multi_strike_2nd",
-    title: "⚡ Step 27: Multi-Strike — Fire Again!",
-    text: "Notice that Windrider Sniper is <strong>NOT exhausted</strong>! Because of <strong>Multi-Strike</strong>, she can strike again in the same Combat Phase as long as you have Strike Pips remaining!",
+    title: "⚡ Multi-Strike — Fire Again!",
+    text: "Windrider Sniper is NOT exhausted! Thanks to <strong>Multi-Strike</strong>, click her to declare strike #2.",
     taskPrompt: "Click Windrider Sniper in your Battle Zone to declare your 2nd strike!",
     getTargetEl: () => {
-      if (gameState?.players?.[0]?.battleZone[0]) gameState.players[0].battleZone[0].isExhausted = false;
+      const p = gameState?.players?.[0];
+      if (!p) return document.getElementById('p1-bz-0');
+      const bzIdx = p.battleZone.findIndex(u => u && u.name === "Windrider Sniper");
+      if (bzIdx !== -1) {
+        p.battleZone[bzIdx].isExhausted = false;
+        return document.getElementById('p1-bz-' + bzIdx);
+      }
       return document.getElementById('p1-bz-0');
     },
     canClick: (target) => {
-      const el = document.getElementById('p1-bz-0');
+      const p = gameState?.players?.[0];
+      if (!p) return false;
+      const bzIdx = p.battleZone.findIndex(u => u && u.name === "Windrider Sniper");
+      const el = bzIdx !== -1 ? document.getElementById('p1-bz-' + bzIdx) : document.getElementById('p1-bz-0');
       return Boolean(el && (target === el || el.contains(target)));
     }
   },
   {
     id: "declare_multi_strike_btn",
-    title: "⚔️ Step 28: Final Strike Declaration",
-    text: "Spend your 2nd Strike Pip to finish off Favar Dahv!",
+    title: "⚔️ Confirm Final Strike",
+    text: "Click <strong>'⚔️ Declare Strike'</strong> in the side panel to spend your 2nd Strike Pip.",
     taskPrompt: "Click '⚔️ Declare Strike'.",
     getTargetEl: () => {
       if (gameState?.players?.[0]?.battleZone[0]) gameState.players[0].battleZone[0].isExhausted = false;
@@ -11891,8 +12007,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "target_enemy_hero_2",
-    title: "🎯 Step 29: Final Direct Strike",
-    text: "Favar Dahv is at critical health. Unleash the finishing blow!",
+    title: "🎯 Final Direct Strike",
+    text: "Favar Dahv is at critical health. Click enemy Hero <strong>Scholar Favar Dahv</strong> to target the finishing blow!",
     taskPrompt: "Click enemy Hero Favar Dahv.",
     getTargetEl: () => document.getElementById('p2-hero-slot'),
     canClick: (target) => {
@@ -11902,8 +12018,8 @@ const TUTORIAL_STEPS = [
   },
   {
     id: "clash_roll_final",
-    title: "💥 Step 30: The Finishing Blow!",
-    text: "Roll your final <strong>Accuracy Chance roll (D20 + Dex, 11+)</strong> to deliver the fatal 6 damage and claim victory!",
+    title: "💥 The Finishing Blow!",
+    text: "Roll your final <strong>Accuracy Chance roll (D20 + Dex, 11+)</strong> to deliver lethal damage and claim victory!",
     taskPrompt: "Click '🎲 Roll Attack' (or '🎲 Roll D20') to win the battle!",
     getTaskPrompt: () => {
       const clashBtn = document.querySelector('#clash-actions button');
@@ -13045,15 +13161,17 @@ function getTutorialPages(rawText) {
   if (!rawText) return [""];
   // Split on double <br> or paragraphs
   const rawParts = rawText.split(/(?:<br\s*\/?>\s*){2,}|(?:\r?\n){2,}/i).map(s => s.trim()).filter(Boolean);
-  if (rawParts.length <= 1) {
-    const singleParts = rawText.split(/<br\s*\/?>/i).map(s => s.trim()).filter(Boolean);
-    if (singleParts.length > 2) {
-      const mid = Math.ceil(singleParts.length / 2);
-      return [singleParts.slice(0, mid).join('<br>'), singleParts.slice(mid).join('<br>')];
+  const refined = [];
+  rawParts.forEach(part => {
+    if (part.includes('•') && /<br\s*\/?>\s*•/i.test(part)) {
+      const sub = part.split(/<br\s*\/?>\s*(?=•)/i).map(s => s.trim()).filter(Boolean);
+      refined.push(...sub);
+    } else {
+      refined.push(part);
     }
-    return [rawText];
-  }
-  return rawParts;
+  });
+  if (refined.length === 0) return [rawText];
+  return refined;
 }
 
 function pageTutorialText(delta) {
@@ -13270,12 +13388,12 @@ function tutorialGlobalClickHandler(e) {
   if (activeModal && activeModal.classList.contains('active')) {
     const modalBtn = e.target.closest('#modal-actions button');
     if (modalBtn) {
-      if (currentStep.id === 'deploy_vanguard' || currentStep.id === 'id_bastion_deploy_bz') {
+      if (currentStep.id === 'deploy_vanguard' || currentStep.id === 'deploy_vanguard_sniper' || currentStep.id === 'id_bastion_deploy_bz') {
         if ((modalBtn.textContent || '').includes("Battle Zone")) return;
         e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
         showToast("👉 Please select Battle Zone!");
         return false;
-      } else if (currentStep.id === 'deploy_bench' || currentStep.id === 'id_bastion_deploy_bench' || currentStep.id === 'id_sniper_deploy_bench') {
+      } else if (currentStep.id === 'id_bastion_deploy_bench' || currentStep.id === 'id_sniper_deploy_bench') {
         if ((modalBtn.textContent || '').includes("Bench")) return;
         e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
         showToast("👉 Please select Bench!");
@@ -13322,13 +13440,13 @@ function tutorialGlobalClickHandler(e) {
   }
 
   const chargeAddStepIds = [
-    'charge_add', 'charge_bench_add', 'id_bastion_add_charge', 'id_sniper_add_charge',
+    'charge_add', 'charge_sniper_add', 'charge_bench_add', 'id_bastion_add_charge', 'id_sniper_add_charge',
     'id_turn2_add_sniper_charge', 'id_turn2_add_sniper_bench_charge',
     'id_turn3_add_bash_charge', 'id_turn3_add_sniper_charge',
     'id_turn4_add_sword_charge'
   ];
   const chargeCloseStepIds = [
-    'charge_close', 'charge_bench_close', 'id_bastion_close_charge', 'id_sniper_close_charge',
+    'charge_close', 'charge_sniper_close', 'charge_bench_close', 'id_bastion_close_charge', 'id_sniper_close_charge',
     'id_turn2_close_sniper_charge', 'id_turn2_close_sniper_bench_charge',
     'id_turn3_close_bash_charge', 'id_turn3_close_sniper_charge',
     'id_turn4_close_sword_charge'
@@ -13425,7 +13543,7 @@ function onTutorialAction(type, payload) {
       advanceTutorialStep();
     } else if (currentStep.id === 'id_turn4_select_bash' && (payload.zone === 'skill' || payload.card?.name === 'Bash')) {
       advanceTutorialStep();
-    } else if ((currentStep.id === 'charge_bench_select' || currentStep.id === 'id_sniper_charge_select') && (payload.zone === 'bz' || payload.zone === 'bench' || payload.card?.name === 'Windrider Sniper')) {
+    } else if ((currentStep.id === 'charge_sniper_select' || currentStep.id === 'charge_bench_select' || currentStep.id === 'id_sniper_charge_select') && (payload.zone === 'bz' || payload.zone === 'bench' || payload.card?.name === 'Windrider Sniper')) {
       advanceTutorialStep();
     } else if ((currentStep.id === 'select_ranged_attacker' || currentStep.id === 'id_turn2_select_sniper') && payload.card?.name === 'Windrider Sniper') {
       advanceTutorialStep();
@@ -13434,7 +13552,7 @@ function onTutorialAction(type, payload) {
     }
   } else if (type === 'CHARGE_MODIFIED') {
     const chargeAddStepIds = [
-      'charge_add', 'charge_bench_add', 'id_bastion_add_charge', 'id_sniper_add_charge',
+      'charge_add', 'charge_sniper_add', 'charge_bench_add', 'id_bastion_add_charge', 'id_sniper_add_charge',
       'id_turn2_add_sniper_charge', 'id_turn2_add_sniper_bench_charge',
       'id_turn3_add_bash_charge', 'id_turn3_add_sniper_charge',
       'id_turn4_add_sword_charge'
@@ -13444,7 +13562,7 @@ function onTutorialAction(type, payload) {
     }
   } else if (type === 'CARD_DETAIL_CLOSED') {
     const chargeCloseStepIds = [
-      'charge_close', 'charge_bench_close', 'id_bastion_close_charge', 'id_sniper_close_charge',
+      'charge_close', 'charge_sniper_close', 'charge_bench_close', 'id_bastion_close_charge', 'id_sniper_close_charge',
       'id_turn2_close_sniper_charge', 'id_turn2_close_sniper_bench_charge',
       'id_turn3_close_bash_charge', 'id_turn3_close_sniper_charge',
       'id_turn4_close_sword_charge'
@@ -13457,7 +13575,7 @@ function onTutorialAction(type, payload) {
       advanceTutorialStep();
     }
   } else if (type === 'DEPLOY_DONE') {
-    if ((currentStep.id === 'deploy_vanguard' || currentStep.id === 'id_bastion_deploy_bz') && payload.choice === 'bz') {
+    if ((currentStep.id === 'deploy_vanguard' || currentStep.id === 'deploy_vanguard_sniper' || currentStep.id === 'id_bastion_deploy_bz') && payload.choice === 'bz') {
       advanceTutorialStep();
     } else if ((currentStep.id === 'deploy_bench' || currentStep.id === 'id_bastion_deploy_bench') && (payload.choice === 'bz' || payload.choice === 'bench')) {
       advanceTutorialStep();
@@ -13500,13 +13618,13 @@ function onTutorialAction(type, payload) {
       [...gameState.players[0].battleZone, ...gameState.players[0].bench].forEach(u => { if (u) { u.isExhausted = false; u.chargeAddedThisTurn = 0; } });
       if (gameState.gameMode === 'TUTORIAL') {
         if (gameState.players[0].battleZone[0]) {
-          gameState.players[0].battleZone[0].charge = Math.max(gameState.players[0].battleZone[0].charge || 0, 1);
+          gameState.players[0].battleZone[0].charge = Math.max(gameState.players[0].battleZone[0].charge || 0, gameState.players[0].battleZone[0].chargeReq || 1);
         }
         if (gameState.players[0].battleZone[1]) {
-          gameState.players[0].battleZone[1].charge = Math.max(gameState.players[0].battleZone[1].charge || 0, 1);
+          gameState.players[0].battleZone[1].charge = Math.max(gameState.players[0].battleZone[1].charge || 0, gameState.players[0].battleZone[1].chargeReq || 1);
         }
         if (gameState.players[0].bench[0]) {
-          gameState.players[0].bench[0].charge = Math.max(gameState.players[0].bench[0].charge || 0, 1);
+          gameState.players[0].bench[0].charge = Math.max(gameState.players[0].bench[0].charge || 0, gameState.players[0].bench[0].chargeReq || 1);
         }
       }
       if (currentStep.id === 'id_turn2_advance_combat') {
@@ -13521,8 +13639,8 @@ function onTutorialAction(type, payload) {
     if ((currentStep.id === 'advance_combat' || currentStep.id === 'charge_close') && payload.phase === 'COMBAT') {
       if (currentStep.id === 'charge_close') advanceTutorialStep();
       advanceTutorialStep();
-    } else if ((currentStep.id === 'advance_combat_2' || currentStep.id === 'charge_bench_close') && payload.phase === 'COMBAT') {
-      if (currentStep.id === 'charge_bench_close') advanceTutorialStep();
+    } else if ((currentStep.id === 'advance_combat_2' || currentStep.id === 'charge_sniper_close' || currentStep.id === 'charge_bench_close') && payload.phase === 'COMBAT') {
+      if (currentStep.id === 'charge_sniper_close' || currentStep.id === 'charge_bench_close') advanceTutorialStep();
       advanceTutorialStep();
     } else if (currentStep.id === 'id_turn1_advance_end' && payload.phase === 'END') {
       const p1 = gameState.players[0];
@@ -13586,10 +13704,10 @@ function onTutorialAction(type, payload) {
         gameState.currentPhaseIndex = PHASES.indexOf('COMMAND');
         gameState.strikesUsed = 0;
         gameState.maxStrikes = 3;
-        gameState.players[0].manaPool = 4;
+        gameState.players[0].manaPool = 8;
         updateStrikePips();
         updatePhaseTracker();
-        addLogEntry("<strong style='color:var(--gold);'>Tutorial: Turn 2 begins! 4 Mana restored. Command Phase active.</strong>");
+        addLogEntry("<strong style='color:var(--gold);'>Tutorial: Turn 2 begins! 8 Mana accumulated (2 leftover + 6 generated). Command Phase active.</strong>");
         renderAll();
       }, 300);
     } else if (currentStep.id === 'clash_roll_ranged_1') {
@@ -13709,11 +13827,9 @@ async function startTutorialBattle() {
     createCardInstance("Synergy_Comrade's Call")
   ].filter(Boolean);
 
-  // Set Windrider Sniper mana cost to 3 and chargeReq to 1 for tutorial pacing, and isolate core combat mechanics
+  // Isolate core combat mechanics for tutorial pacing while preserving authentic 5 Mana & 3 ChargeReq stats
   const sniper = p1.hand.find(c => c.name === "Windrider Sniper");
   if (sniper) {
-    sniper.manaCost = 3;
-    sniper.chargeReq = 1;
     sniper.mechanics = { passiveAbilities: [], activatedAbilities: [], staticModifiers: [] };
   }
 
@@ -14589,6 +14705,11 @@ function closeAudioSettingsModal() {
 window.AudioManager = AudioManager;
 window.openAudioSettingsModal = openAudioSettingsModal;
 window.closeAudioSettingsModal = closeAudioSettingsModal;
+window.selectMenuCategory = typeof selectMenuCategory === 'function' ? selectMenuCategory : () => {};
+window.setSinglePlayerMode = typeof setSinglePlayerMode === 'function' ? setSinglePlayerMode : () => {};
+window.setTutorialSelection = typeof setTutorialSelection === 'function' ? setTutorialSelection : () => {};
+window.startSelectedTutorial = typeof startSelectedTutorial === 'function' ? startSelectedTutorial : () => {};
+window.toggleArenaCommunityDecks = typeof toggleArenaCommunityDecks === 'function' ? toggleArenaCommunityDecks : () => {};
 window.setGameMode = typeof setGameMode === 'function' ? setGameMode : () => {};
 window.setAIDifficulty = typeof setAIDifficulty === 'function' ? setAIDifficulty : () => {};
 window.startGame = typeof startGame === 'function' ? startGame : () => {};
@@ -14601,29 +14722,33 @@ window.requestParentAuthModal = typeof requestParentAuthModal === 'function' ? r
 
 // Initial startup: Ensure clean menu state and populate decks
 function initArenaStartup() {
-  if (typeof cleanupTutorialEngine === 'function') cleanupTutorialEngine();
-  if (typeof tutorialState !== 'undefined') tutorialState.active = false;
-  const gameModal = document.getElementById('game-modal');
-  if (gameModal) gameModal.classList.remove('active');
-  const clashModal = document.getElementById('clash-modal');
-  if (clashModal) clashModal.style.display = 'none';
-  const detailModal = document.getElementById('card-detail-modal');
-  if (detailModal) detailModal.style.display = 'none';
-  const tutHUD = document.getElementById('tutorial-hud');
-  if (tutHUD) tutHUD.style.display = 'none';
+  try {
+    if (typeof cleanupTutorialEngine === 'function') cleanupTutorialEngine();
+    if (typeof tutorialState !== 'undefined') tutorialState.active = false;
+    const gameModal = document.getElementById('game-modal');
+    if (gameModal) gameModal.classList.remove('active');
+    const clashModal = document.getElementById('clash-modal');
+    if (clashModal) clashModal.style.display = 'none';
+    const detailModal = document.getElementById('card-detail-modal');
+    if (detailModal) detailModal.style.display = 'none';
+    const tutHUD = document.getElementById('tutorial-hud');
+    if (tutHUD) tutHUD.style.display = 'none';
 
-  if (typeof AudioManager !== 'undefined' && typeof AudioManager.init === 'function') {
-    AudioManager.init();
-  }
+    if (typeof AudioManager !== 'undefined' && typeof AudioManager.init === 'function') {
+      try { AudioManager.init(); } catch (e) { console.warn("AudioManager.init:", e); }
+    }
 
-  if (typeof preloadAllDeckImages === 'function') {
-    preloadAllDeckImages();
-  }
+    if (typeof preloadAllDeckImages === 'function') {
+      try { preloadAllDeckImages(); } catch (e) { console.warn("preloadAllDeckImages:", e); }
+    }
 
-  if (typeof loadSavedDecksFromLocalAndCloud === 'function') {
-    loadSavedDecksFromLocalAndCloud();
-  } else if (typeof renderDeckSelectionUI === 'function') {
-    renderDeckSelectionUI();
+    if (typeof loadSavedDecksFromLocalAndCloud === 'function') {
+      loadSavedDecksFromLocalAndCloud();
+    } else if (typeof renderDeckSelectionUI === 'function') {
+      renderDeckSelectionUI();
+    }
+  } catch (err) {
+    console.error("initArenaStartup error:", err);
   }
 }
 
