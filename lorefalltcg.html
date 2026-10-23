@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2797,10 +2797,20 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
       return;
     }
 
-    // Volley of Arrows: "When rolling accuracy for Volley of Arrows, keep rolling until you fail or until you succeed 5 times..."
+    // Striking ends combat phase: "Striking with <Card> ends your combat phase."
+    if (/Striking\s+with.*ends\s+your\s+combat\s+phase/i.test(clause)) {
+      mech.strikeEndsCombatPhase = true;
+    }
+
+    // Volley of Arrows & Cascade Accuracy: "When rolling accuracy for Volley of Arrows, keep rolling until you fail or until you succeed 5 times..."
     if (/keep\s+rolling\s+until\s+you\s+fail\s+or\s+until\s+you\s+succeed\s+(\d+)\s+times/i.test(clause)) {
       const m = clause.match(/succeed\s+(\d+)\s+times/i);
-      mech.volleyOfArrowsMaxHits = m ? parseInt(m[1]) : 5;
+      const maxH = m ? parseInt(m[1]) : 5;
+      mech.volleyOfArrowsMaxHits = maxH;
+      mech.staticModifiers.push({ effect: { action: "volleyOfArrows", maxHits: maxH } });
+      if (/Striking\s+with.*ends\s+your\s+combat\s+phase/i.test(clause)) {
+        mech.strikeEndsCombatPhase = true;
+      }
       return;
     }
 
@@ -9547,7 +9557,9 @@ async function rollClashAttacker() {
   let accMod = getStat(aUnit, 'accuracy', currentClash.attackerPlayer) + (aUnit !== currentClash.attacker ? getStat(currentClash.attacker, 'accuracy', currentClash.attackerPlayer) : 0);
   let isCrit = hasAutoCrit;
 
-  const hasVolley = currentClash.attacker.mechanics?.staticModifiers?.some(m => m.effect?.action === "volleyOfArrows");
+  const volleyMod = currentClash.attacker.mechanics?.staticModifiers?.find(m => m.effect?.action === "volleyOfArrows");
+  const hasVolley = Boolean(volleyMod || currentClash.attacker.mechanics?.volleyOfArrowsMaxHits);
+  const maxArrows = (volleyMod && volleyMod.effect?.maxHits) || currentClash.attacker.mechanics?.volleyOfArrowsMaxHits || 5;
 
   if (currentClash.attacker.attackType === "Ranged") {
       if (hasVolley) {
@@ -9559,7 +9571,7 @@ async function rollClashAttacker() {
               if (eq.rangedAttack) weaponBonusRng += eq.rangedAttack;
           }
           let perHitDmg = baseRng + charBonusRng + weaponBonusRng;
-          for (let arrow = 1; arrow <= 5; arrow++) {
+          for (let arrow = 1; arrow <= maxArrows; arrow++) {
               let accRoll = rollD20Adv(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
               let totalAcc = accRoll + dex + accMod;
               await performAnimatedRoll(`Volley Arrow #${arrow}`, `<strong>${aUnit.name}</strong> fires Arrow #${arrow}!`, accRoll, dex + accMod, 11, false, null, currentClash.attackerPlayer.index);
@@ -10258,6 +10270,12 @@ async function closeClashAndApply() {
   if (!currentClash.evaded && currentClash.atkHit) {
       await dispatchGlobalHook('onDamageDealt', { triggerPlayer: attackerPlayer, damageSource: attacker, damagedTarget: tUnit, damage: currentClash.finalDamage });
       await dispatchGlobalHook('onStrikeResolution', { triggerPlayer: attackerPlayer, attackRollValue: currentClash.finalDamage });
+  }
+
+  if (attacker?.mechanics?.strikeEndsCombatPhase || currentClash?.attacker?.mechanics?.strikeEndsCombatPhase || currentClash?.aInfo?.card?.mechanics?.strikeEndsCombatPhase) {
+      gameState.strikesUsed = gameState.maxStrikes;
+      updateStrikePips();
+      addLogEntry(`<strong style="color:var(--crimson);">Striking with ${attacker.name} ends your combat phase.</strong>`);
   }
 
   gameState.selectedAttacker = null; document.querySelectorAll('.card-slot').forEach(s => s.classList.remove('targetable'));

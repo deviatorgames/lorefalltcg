@@ -193,12 +193,106 @@
       }
     };
 
+    const DEFAULT_BUILDER_STATE = {
+      category: 'activated',
+      // Activated Costs & Timing
+      actCostType: 'mana',
+      actManaCost: 2,
+      actIsVariableMana: false,
+      actVariableMax: 3,
+      actGoldCost: 2,
+      actExhaustTarget: 'thisCard',
+      actPhase: 'any',
+      actFrequency: 'once',
+
+      // Triggered Hierarchy
+      trigEvent: 'onPlay',
+      trigSubject: 'self',
+      trigZone: 'any',
+      trigStrikeNum: 2,
+      trigStrikeZone: 'any',
+      trigDamageSource: 'self',
+      trigDamageVictim: 'anyEnemy',
+      trigDamageWeapon: 'none',
+      trigHealSubject: 'hero',
+      trigDrawSource: 'fromAbility',
+      trigChanceEvent: 'win',
+      trigCounterstrikeWho: 'character',
+      trigTurnPhase: 'turnStart',
+
+      // Static Aura Hierarchy
+      staticConditionMode: 'always',
+      staticZoneRole: 'vanguard',
+      staticSynergyType: 'another_class',
+      staticClass: 'Soldier',
+      staticRace: 'Elf',
+      staticPrecondition: 'enemy_defeated',
+      staticScaling: 'per_charge',
+
+      // Keyword Selection
+      selectedKeyword: 'Freeze',
+
+      // Proficiency Tier
+      profLevel: 2,
+
+      // Modality & Chance Roll
+      isOptional: false,
+      isChanceRoll: false,
+      chanceStyle: 'if_successful',
+
+      // If Condition & Referral Mapping
+      effectCondition: 'none',
+      referringAction: 'mana_spent',
+      conditionNote: 'none',
+      condChargeThreshold: 5,
+      condClass: 'Mage',
+      condEquipType: 'a dagger',
+      customConditionText: '',
+
+      // Then Effect & Target Action
+      effectType: 'heal',
+      effectTarget: 'targetCharacter',
+      effectAmount: 2,
+      effectStat: 'power',
+      effectDuration: 'thisTurn',
+      effectKeyword: 'Freeze',
+      tokenName: 'Korvas Soldier',
+      tokenAmount: 1,
+      lootCardsCount: 1,
+      lootAction: 'hand',
+      attackDieValue: 'D8',
+      customEffectText: '',
+
+      // Repeat Roll / Cascade Parameters
+      repeatRollType: 'accuracy',
+      repeatStopCondition: 'until_fail_or_max',
+      repeatMaxCount: 5,
+      repeatSuccessOutcome: 'deals_ranged_damage',
+      strikeConsequence: 'none'
+    };
+
     const OFFICIAL_ABILITY_PRESETS = [
+      {
+        name: "Volley of Arrows (Cascade Accuracy)",
+        category: "triggered",
+        trigEvent: "onAccuracyRoll",
+        trigSubject: "self",
+        effectCondition: "none",
+        effectType: "repeat_roll",
+        repeatRollType: "accuracy",
+        repeatStopCondition: "until_fail_or_max",
+        repeatMaxCount: 5,
+        repeatSuccessOutcome: "deals_ranged_damage",
+        strikeConsequence: "ends_combat_phase",
+        recommended: "When rolling accuracy for Volley of Arrows, keep rolling until you fail or until you succeed 5 times. For each successful roll, Volley of Arrows deals it's ranged attack damage to targeted character. Striking with Volley of Arrows ends your combat phase."
+      },
       {
         name: "Astute Cleric (Heal Target)",
         category: "activated",
         actCostType: "mana",
         actManaCost: 2,
+        isOptional: false,
+        effectCondition: "none",
         effectType: "heal",
         effectTarget: "targetCharacter",
         effectAmount: 2,
@@ -208,6 +302,10 @@
         name: "Gladeweaver (On-Play Draw)",
         category: "triggered",
         trigEvent: "onPlay",
+        trigSubject: "self",
+        trigZone: "any",
+        isOptional: false,
+        effectCondition: "none",
         effectType: "draw",
         effectAmount: 1,
         recommended: "When this card comes into play, draw a card."
@@ -216,7 +314,11 @@
         name: "Windrider Sniper (Chance Ambush)",
         category: "triggered",
         trigEvent: "onPlay",
+        trigSubject: "self",
+        trigZone: "any",
         isChanceRoll: true,
+        chanceStyle: "infinitive",
+        effectCondition: "none",
         effectType: "damage",
         effectTarget: "targetEnemyAlly",
         effectAmount: 6,
@@ -226,17 +328,21 @@
         name: "Bastion Defender (On-Defeat Critical)",
         category: "triggered",
         trigEvent: "onDefeat",
-        trigDefeatType: "self",
+        trigSubject: "self",
+        trigZone: "any",
+        isOptional: false,
+        effectCondition: "none",
         effectType: "keyword_grant",
-        effectKeyword: "chanceForCritical",
+        effectKeyword: "Chance for Critical",
         effectTarget: "targetCharacter",
         effectDuration: "thisTurn",
-        recommended: "When Bastion Defender is defeated, target character gets chance for critical this turn."
+        recommended: "When this card is defeated, target character gets chance for critical this turn."
       },
       {
         name: "Brother-In-Arms (Control Soldier Synergy)",
         category: "static",
-        staticCondition: "control_class",
+        staticConditionMode: "control_synergy",
+        staticSynergyType: "another_class",
         staticClass: "Soldier",
         recommended: "This character has D6 attack as long as you control another soldier."
       },
@@ -249,61 +355,393 @@
         actVariableMax: 3,
         actPhase: "command",
         actFrequency: "once",
+        isOptional: true,
+        effectCondition: "if_you_do",
+        referringAction: "mana_spent",
+        conditionNote: "single_trigger",
+        effectType: "heal",
+        effectTarget: "selfHero",
+        effectAmount: 1,
         recommended: "[Mana:1-3] Once per turn during your command phase, you may spend 1 mana up to 3 times. If you do, you gain 1 health for each mana that was spent. All health gained this way counts as 1 trigger."
+      },
+      {
+        name: "Stone Pulse Meditation (Strike Sacrifice Charge)",
+        category: "activated",
+        actCostType: "free",
+        actFrequency: "once",
+        isOptional: true,
+        effectCondition: "if_struck_twice",
+        referringAction: "sacrifice_strike",
+        effectType: "charge",
+        effectTarget: "targetAllyOrSkill",
+        effectAmount: 2,
+        recommended: "Once per turn, if you have struck twice this turn, you may have target ally or skill gain 2 charge. If you do, sacrifice your third strike."
       },
       {
         name: "Neophyte Seeress (Exhaust Chance Blessing)",
         category: "activated",
         actCostType: "exhaust",
+        actExhaustTarget: "thisCard",
+        isOptional: false,
+        effectCondition: "none",
         effectType: "force_chance",
         effectTarget: "targetCharacter",
-        recommended: "Exhaust this ally: Target wins chance roll this turn."
+        recommended: "Exhaust this character: Target wins chance roll this turn."
       },
       {
         name: "Comrade's Call (Gold Token Summon)",
         category: "activated",
         actCostType: "gold",
         actGoldCost: 2,
+        isOptional: false,
+        effectCondition: "none",
         effectType: "token",
         tokenName: "Korvas Soldier",
         tokenAmount: 1,
-        recommended: "[Gold:2] You get a Korvas Soldier token."
+        recommended: "[Gold:2] You get 1 Korvas Soldier Token."
       },
       {
         name: "Frost (Freeze on Proficiency 2)",
         category: "proficiency",
         profLevel: 2,
+        isOptional: false,
+        effectCondition: "none",
         effectType: "keyword_grant",
-        effectKeyword: "freeze",
+        effectKeyword: "Freeze",
         recommended: "Proficiency 2: Freeze (Roll for chance. If successful, defending enemy is exhausted until your next turn.)"
       },
       {
         name: "Inspiring Commander (Vanguard Aura)",
         category: "static",
-        staticCondition: "vanguard",
+        staticConditionMode: "zone_role",
+        staticZoneRole: "vanguard",
         staticClass: "Soldier",
         effectAmount: 1,
-        recommended: "All soldiers you control have +1 power as long as this unit is your Vanguard."
+        effectStat: "power",
+        recommended: "All soldiers you control have +1 power as long as this character is your Vanguard."
       },
       {
         name: "Pummel (Strike 2 Advantage)",
         category: "triggered",
         trigEvent: "onStrike",
         trigStrikeNum: 2,
+        isOptional: false,
+        effectCondition: "none",
         effectType: "keyword_grant",
-        effectKeyword: "advantage",
+        effectKeyword: "Advantage",
         recommended: "Strike 2: Roll with advantage."
       },
       {
         name: "Keen Visionary (Draw Triggers Charge)",
         category: "triggered",
         trigEvent: "onDraw",
+        trigDrawSource: "fromAbility",
+        isOptional: false,
+        effectCondition: "none",
         effectType: "charge",
         effectTarget: "targetAllyOrSkill",
         effectAmount: 2,
         recommended: "Whenever you draw a card from an ability, target ally or skill gains 2 charge."
+      },
+      {
+        name: "Hemophage Reaver (Non-Combat Damage Boost)",
+        category: "static",
+        staticConditionMode: "combat_precondition",
+        staticPrecondition: "enemy_noncombat",
+        recommended: "If an enemy took non-combat damage this turn, this character's attack is D8."
+      },
+      {
+        name: "Vampiric Relay (On-Heal Transfer)",
+        category: "triggered",
+        trigEvent: "onHeal",
+        trigHealSubject: "hero",
+        isOptional: true,
+        effectCondition: "none",
+        effectType: "stat_buff",
+        effectStat: "maxHealth",
+        effectTarget: "targetAlly",
+        effectAmount: 2,
+        effectDuration: "thisTurn",
+        recommended: "Whenever you gain health, you may give target ally +2 max health this turn."
+      },
+      {
+        name: "Favar Dahv (Loot Card Exchange)",
+        category: "triggered",
+        trigEvent: "onHeal",
+        trigHealSubject: "hero",
+        isOptional: true,
+        effectCondition: "if_you_do",
+        referringAction: "hp_lost",
+        effectType: "look_loot",
+        lootCardsCount: 1,
+        lootAction: "hand",
+        recommended: "Whenever you gain health, look at the top card of your loot. You may put that card into your hand. If you do, you lose the health gained, otherwise put the card on the bottom of your loot."
+      },
+      {
+        name: "Fortuitous Surge (Chance Win Mana)",
+        category: "triggered",
+        trigEvent: "onChanceWin",
+        trigChanceEvent: "win",
+        isOptional: false,
+        effectCondition: "none",
+        effectType: "mana",
+        effectAmount: 1,
+        recommended: "Whenever you win a chance roll, you gain 1 mana."
       }
     ];
+
+    function buildIndicativeEffect(s, cName) {
+      const amt = s.effectAmount;
+      if (s.effectType === 'heal') {
+        if (s.effectTarget === 'selfHero') return `you gain ${amt} health.`;
+        if (s.effectTarget === 'targetCharacter') return `target character gains ${amt} health.`;
+        if (s.effectTarget === 'targetAlly') return `target ally gains ${amt} health.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `target ally you control gains ${amt} health.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `target enemy ally gains ${amt} health.`;
+        return `${cName} gains ${amt} health.`;
+      }
+      if (s.effectType === 'draw') {
+        return amt === 1 ? "draw a card." : `draw ${amt} cards.`;
+      }
+      if (s.effectType === 'mana') {
+        return `you gain ${amt} mana.`;
+      }
+      if (s.effectType === 'charge') {
+        if (s.effectTarget === 'deplete') return `deplete ${amt} charge from it.`;
+        if (s.effectTarget === 'targetAllyOrSkill') return `target ally or skill gains ${amt} charge.`;
+        if (s.effectTarget === 'targetSkill') return `target skill gains ${amt} charge.`;
+        if (s.effectTarget === 'targetRangedSkill') return `target ranged skill gains ${amt} charge.`;
+        if (s.effectTarget === 'targetAlly') return `target ally gains ${amt} charge.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `target ally you control gains ${amt} charge.`;
+        return `${cName} gains ${amt} charge.`;
+      }
+      if (s.effectType === 'damage') {
+        if (s.effectTarget === 'allAllies') return `deals ${amt} non-combat damage to all allies in play.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `deals ${amt} non-combat damage to target enemy ally.`;
+        if (s.effectTarget === 'targetCharacter') return `deals ${amt} non-combat damage to target character.`;
+        return `deals ${amt} non-combat damage to target ally.`;
+      }
+      if (s.effectType === 'lose_health') {
+        if (s.effectTarget === 'targetEnemyAlly') return `target enemy ally loses ${amt} health.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `target ally you control loses ${amt} health.`;
+        return `target character loses ${amt} health.`;
+      }
+      if (s.effectType === 'stat_buff') {
+        const dur = s.effectDuration === 'thisStrike' ? 'this strike' : (s.effectDuration === 'permanent' ? '' : 'this turn');
+        const statName = s.effectStat === 'rangedAttack' ? 'ranged attack' : (s.effectStat === 'maxHealth' ? 'max health' : (s.effectStat === 'accuracy' ? 'to accuracy rolls' : s.effectStat));
+        let tgtPrefix = `${cName} gets`;
+        if (s.effectTarget === 'selfHero') tgtPrefix = 'You get';
+        else if (s.effectTarget === 'targetCharacter') tgtPrefix = 'Target character gets';
+        else if (s.effectTarget === 'targetAlly') tgtPrefix = 'Target ally gets';
+        else if (s.effectTarget === 'targetFriendlyAlly') tgtPrefix = 'Target ally you control gets';
+        else if (s.effectTarget === 'allFriendlyDefending') tgtPrefix = 'Defending allies you control get';
+        return `${tgtPrefix} +${amt} ${statName}${dur ? ' ' + dur : ''}.`;
+      }
+      if (s.effectType === 'keyword_grant') {
+        const dur = s.effectDuration === 'thisStrike' ? 'this strike' : (s.effectDuration === 'permanent' ? '' : 'this turn');
+        const kw = s.effectKeyword || 'Freeze';
+        if (kw === 'Chance for Critical') {
+          return s.effectTarget === 'selfHero' ? `you get chance for critical ${dur}.` : `target character gets chance for critical ${dur}.`;
+        }
+        if (kw === 'Chance for Evasion') {
+          return s.effectTarget === 'selfHero' ? `you get chance for evasion ${dur}.` : `target character gets chance for evasion ${dur}.`;
+        }
+        if (kw === 'Advantage') {
+          return s.effectTarget === 'selfHero' || s.effectTarget === 'self' ? `user has advantage.` : `target character has advantage ${dur}.`;
+        }
+        if (kw === 'Double Advantage') {
+          return `roll with double advantage.`;
+        }
+        if (kw === 'Freeze') {
+          return `Freeze (Roll for chance. If successful, defending enemy is exhausted until your next turn.)`;
+        }
+        if (kw === 'Knockback') {
+          return `target has knockback this strike.`;
+        }
+        if (kw === 'Overreach') {
+          return `${cName} has overreach ${dur}.`;
+        }
+        if (kw === 'Piercing') {
+          return `target character gets Piercing ${dur}.`;
+        }
+        if (kw === 'Pierce Proof') {
+          return `target character gets Pierce Proof ${dur}.`;
+        }
+        if (kw === 'Leach') {
+          return `you have Leach ${dur}.`;
+        }
+        if (kw === 'Poison') {
+          return `Poison (Defending enemy takes 2 non-combat damage at the start of their turn.)`;
+        }
+        if (kw === 'Curse') {
+          return `target character is cursed.`;
+        }
+        if (kw === 'Aptitude') {
+          return `${cName} gets Aptitude.`;
+        }
+        if (kw === 'Allegiance') {
+          return `Allegiance (All other characters of the same class get advantage.)`;
+        }
+        if (kw === 'Overcharge') {
+          return `${cName} gets Overcharge.`;
+        }
+        return `target character gets ${kw} ${dur}.`;
+      }
+      if (s.effectType === 'token') {
+        return `you get ${amt} ${s.tokenName} Token${amt > 1 ? 's' : ''}.`;
+      }
+      if (s.effectType === 'force_chance') {
+        return `target wins chance roll this turn.`;
+      }
+      if (s.effectType === 'look_loot') {
+        if (s.lootAction === 'reveal_skill') return `look at the top ${s.lootCardsCount} cards of your Loot. You may reveal a Skill card from among them and put it into your hand.`;
+        if (s.lootAction === 'search_level') return `search your loot for a skill 1 level higher than those and put it into your hand. Shuffle your loot.`;
+        return `look at the top ${s.lootCardsCount === 1 ? 'card' : s.lootCardsCount + ' cards'} of your loot. You may put that card into your hand.`;
+      }
+      if (s.effectType === 'attack_die') {
+        return `${cName}'s attack is ${s.attackDieValue}.`;
+      }
+      if (s.effectType === 're_roll') {
+        return `roll again and your original roll is null.`;
+      }
+      if (s.effectType === 'repeat_roll') {
+        let stopStr = `until you fail or until you succeed ${s.repeatMaxCount || 5} times`;
+        if (s.repeatStopCondition === 'until_fail') stopStr = 'until you fail';
+        else if (s.repeatStopCondition === 'until_success') stopStr = `until you succeed ${s.repeatMaxCount || 1} times`;
+        let outcomeStr = "";
+        if (s.repeatSuccessOutcome === 'deals_ranged_damage') {
+          outcomeStr = ` For each successful roll, ${cName} deals it's ranged attack damage to targeted character.`;
+        } else if (s.repeatSuccessOutcome === 'deals_combat_damage') {
+          outcomeStr = ` For each successful roll, ${cName} deals it's combat damage to targeted character.`;
+        } else if (s.repeatSuccessOutcome === 'deals_noncombat_damage' || s.repeatSuccessOutcome === 'deal_damage') {
+          outcomeStr = ` For each successful roll, ${cName} deals ${s.effectAmount || 1} non-combat damage to targeted character.`;
+        } else if (s.repeatSuccessOutcome === 'gain_charge') {
+          outcomeStr = ` For each successful roll, target gains 1 charge.`;
+        }
+        let consequenceStr = "";
+        if (s.strikeConsequence === 'ends_combat_phase') {
+          consequenceStr = ` Striking with ${cName} ends your combat phase.`;
+        } else if (s.strikeConsequence === 'exhausts_hero') {
+          consequenceStr = ` Striking with ${cName} exhausts your hero.`;
+        } else if (s.strikeConsequence === 'sacrifice_strikes') {
+          consequenceStr = ` Striking with ${cName} sacrifices your remaining strikes.`;
+        }
+        return `keep rolling ${stopStr}.${outcomeStr}${consequenceStr}`;
+      }
+      if (s.effectType === 'custom') {
+        let eff = (s.customEffectText || "").trim();
+        if (eff && !eff.endsWith('.')) eff += '.';
+        return eff;
+      }
+      return "";
+    }
+
+    function buildInfinitiveEffect(s, cName) {
+      const amt = s.effectAmount;
+      if (s.effectType === 'heal') {
+        if (s.effectTarget === 'selfHero') return `gain ${amt} health.`;
+        if (s.effectTarget === 'targetCharacter') return `have target character gain ${amt} health.`;
+        if (s.effectTarget === 'targetAlly') return `have target ally gain ${amt} health.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `have target ally you control gain ${amt} health.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `have target enemy ally gain ${amt} health.`;
+        return `have ${cName} gain ${amt} health.`;
+      }
+      if (s.effectType === 'draw') {
+        return amt === 1 ? "draw a card." : `draw ${amt} cards.`;
+      }
+      if (s.effectType === 'mana') {
+        return `gain ${amt} mana.`;
+      }
+      if (s.effectType === 'charge') {
+        if (s.effectTarget === 'deplete') return `deplete ${amt} charge from it.`;
+        if (s.effectTarget === 'targetAllyOrSkill') return `have target ally or skill gain ${amt} charge.`;
+        if (s.effectTarget === 'targetSkill') return `have target skill gain ${amt} charge.`;
+        if (s.effectTarget === 'targetRangedSkill') return `have target ranged skill gain ${amt} charge.`;
+        if (s.effectTarget === 'targetAlly') return `have target ally gain ${amt} charge.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `have target ally you control gain ${amt} charge.`;
+        return `have ${cName} gain ${amt} charge.`;
+      }
+      if (s.effectType === 'damage') {
+        if (s.effectTarget === 'allAllies') return `deal ${amt} non-combat damage to all allies in play.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `deal ${amt} non-combat damage to target enemy ally.`;
+        if (s.effectTarget === 'targetCharacter') return `deal ${amt} non-combat damage to target character.`;
+        return `deal ${amt} non-combat damage to target ally.`;
+      }
+      if (s.effectType === 'lose_health') {
+        if (s.effectTarget === 'targetEnemyAlly') return `have target enemy ally lose ${amt} health.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `have target ally you control lose ${amt} health.`;
+        return `have target character lose ${amt} health.`;
+      }
+      if (s.effectType === 'stat_buff') {
+        const dur = s.effectDuration === 'thisStrike' ? 'this strike' : (s.effectDuration === 'permanent' ? '' : 'this turn');
+        const statName = s.effectStat === 'rangedAttack' ? 'ranged attack' : (s.effectStat === 'maxHealth' ? 'max health' : (s.effectStat === 'accuracy' ? 'to accuracy rolls' : s.effectStat));
+        let tgt = 'target character';
+        if (s.effectTarget === 'selfHero') tgt = 'yourself';
+        else if (s.effectTarget === 'targetAlly') tgt = 'target ally';
+        else if (s.effectTarget === 'targetFriendlyAlly') tgt = 'target ally you control';
+        else if (s.effectTarget === 'allFriendlyDefending') tgt = 'defending allies you control';
+        else if (s.effectTarget === 'self') tgt = cName;
+        return `give ${tgt} +${amt} ${statName}${dur ? ' ' + dur : ''}.`;
+      }
+      if (s.effectType === 'keyword_grant') {
+        const dur = s.effectDuration === 'thisStrike' ? 'this strike' : (s.effectDuration === 'permanent' ? '' : 'this turn');
+        const kw = s.effectKeyword || 'Freeze';
+        if (kw === 'Chance for Critical') return `grant target character chance for critical ${dur}.`;
+        if (kw === 'Chance for Evasion') return `grant target character chance for evasion ${dur}.`;
+        if (kw === 'Advantage') return `grant user advantage ${dur}.`;
+        if (kw === 'Double Advantage') return `roll with double advantage.`;
+        if (kw === 'Freeze') return `freeze defending enemy (Roll for chance. If successful, defending enemy is exhausted until your next turn.)`;
+        if (kw === 'Knockback') return `grant target knockback this strike.`;
+        return `grant target character ${kw} ${dur}.`;
+      }
+      if (s.effectType === 'token') {
+        return `summon ${amt === 1 ? 'a ' + s.tokenName : amt + ' ' + s.tokenName} Token${amt > 1 ? 's' : ''}.`;
+      }
+      if (s.effectType === 'force_chance') {
+        return `have target win chance roll this turn.`;
+      }
+      if (s.effectType === 'look_loot') {
+        if (s.lootAction === 'reveal_skill') return `look at the top ${s.lootCardsCount} cards of your Loot. You may reveal a Skill card from among them and put it into your hand.`;
+        if (s.lootAction === 'search_level') return `search your loot for a skill 1 level higher than those and put it into your hand. Shuffle your loot.`;
+        return `look at the top ${s.lootCardsCount === 1 ? 'card' : s.lootCardsCount + ' cards'} of your loot. You may put that card into your hand.`;
+      }
+      if (s.effectType === 'attack_die') {
+        return `have ${cName}'s attack be ${s.attackDieValue}.`;
+      }
+      if (s.effectType === 're_roll') {
+        return `roll again and your original roll is null.`;
+      }
+      if (s.effectType === 'repeat_roll') {
+        let stopStr = `until you fail or until you succeed ${s.repeatMaxCount || 5} times`;
+        if (s.repeatStopCondition === 'until_fail') stopStr = 'until you fail';
+        else if (s.repeatStopCondition === 'until_success') stopStr = `until you succeed ${s.repeatMaxCount || 1} times`;
+        let outcomeStr = "";
+        if (s.repeatSuccessOutcome === 'deals_ranged_damage') {
+          outcomeStr = ` For each successful roll, ${cName} deals it's ranged attack damage to targeted character.`;
+        } else if (s.repeatSuccessOutcome === 'deals_combat_damage') {
+          outcomeStr = ` For each successful roll, ${cName} deals it's combat damage to targeted character.`;
+        } else if (s.repeatSuccessOutcome === 'deals_noncombat_damage' || s.repeatSuccessOutcome === 'deal_damage') {
+          outcomeStr = ` For each successful roll, ${cName} deals ${s.effectAmount || 1} non-combat damage to targeted character.`;
+        } else if (s.repeatSuccessOutcome === 'gain_charge') {
+          outcomeStr = ` For each successful roll, target gains 1 charge.`;
+        }
+        let consequenceStr = "";
+        if (s.strikeConsequence === 'ends_combat_phase') {
+          consequenceStr = ` Striking with ${cName} ends your combat phase.`;
+        } else if (s.strikeConsequence === 'exhausts_hero') {
+          consequenceStr = ` Striking with ${cName} exhausts your hero.`;
+        } else if (s.strikeConsequence === 'sacrifice_strikes') {
+          consequenceStr = ` Striking with ${cName} sacrifices your remaining strikes.`;
+        }
+        return `keep rolling ${stopStr}.${outcomeStr}${consequenceStr}`;
+      }
+      if (s.effectType === 'custom') {
+        let eff = (s.customEffectText || "").trim();
+        if (eff && !eff.endsWith('.')) eff += '.';
+        return eff;
+      }
+      return "";
+    }
 
     function generateAbilityTextFromState(s, cardName) {
       const cName = (cardName || "").trim() || "This character";
@@ -313,81 +751,103 @@
         return KEYWORD_DEFINITIONS[s.selectedKeyword]?.fullText || s.selectedKeyword;
       }
 
-      // Build the inner effect clause
-      let eff = "";
-      if (s.effectType === 'heal') {
-        if (s.effectTarget === 'selfHero') eff = `you gain ${s.effectAmount} health.`;
-        else if (s.effectTarget === 'targetCharacter') eff = `target character gains ${s.effectAmount} health.`;
-        else if (s.effectTarget === 'targetAlly') eff = `target ally gains ${s.effectAmount} health.`;
-        else if (s.effectTarget === 'targetFriendlyAlly') eff = `target ally you control gains ${s.effectAmount} health.`;
-        else eff = `${cName} gains ${s.effectAmount} health.`;
-      } else if (s.effectType === 'draw') {
-        eff = s.effectAmount === 1 ? "draw a card." : `draw ${s.effectAmount} cards.`;
-      } else if (s.effectType === 'mana') {
-        eff = `you gain ${s.effectAmount} mana.`;
-      } else if (s.effectType === 'charge') {
-        if (s.effectTarget === 'targetAllyOrSkill') eff = `target ally or skill gains ${s.effectAmount} charge.`;
-        else if (s.effectTarget === 'targetSkill') eff = `target skill gains ${s.effectAmount} charge.`;
-        else if (s.effectTarget === 'targetRangedSkill') eff = `target ranged skill gains ${s.effectAmount} charge.`;
-        else if (s.effectTarget === 'targetAlly') eff = `target ally gains ${s.effectAmount} charge.`;
-        else if (s.effectTarget === 'targetFriendlyAlly') eff = `target ally you control gains ${s.effectAmount} charge.`;
-        else eff = `deplete ${s.effectAmount} charge from it.`;
-      } else if (s.effectType === 'damage') {
-        if (s.effectTarget === 'allAllies') eff = `deals ${s.effectAmount} damage to all allies in play.`;
-        else if (s.effectTarget === 'targetEnemyAlly') eff = `deals ${s.effectAmount} non-combat damage to target enemy ally.`;
-        else if (s.effectTarget === 'targetCharacter') eff = `deals ${s.effectAmount} non-combat damage to target character.`;
-        else eff = `deals ${s.effectAmount} non-combat damage to target ally.`;
-      } else if (s.effectType === 'lose_health') {
-        if (s.effectTarget === 'targetEnemyAlly') eff = `target enemy ally loses ${s.effectAmount} health.`;
-        else eff = `target character loses ${s.effectAmount} health.`;
-      } else if (s.effectType === 'stat_buff') {
-        const dur = s.effectDuration === 'thisStrike' ? 'this strike' : (s.effectDuration === 'permanent' ? '' : 'this turn');
-        const statName = s.effectStat === 'rangedAttack' ? 'ranged attack' : (s.effectStat === 'maxHealth' ? 'max health' : s.effectStat);
-        let tgtPrefix = `${cName} gets`;
-        if (s.effectTarget === 'selfHero') tgtPrefix = 'You get';
-        else if (s.effectTarget === 'targetCharacter') tgtPrefix = 'Target character gets';
-        else if (s.effectTarget === 'targetAlly') tgtPrefix = 'Target ally gets';
-        else if (s.effectTarget === 'allFriendlyDefending') tgtPrefix = 'Defending allies you control get';
-        eff = `${tgtPrefix} +${s.effectAmount} ${statName}${dur ? ' ' + dur : ''}.`;
-      } else if (s.effectType === 'keyword_grant') {
-        const dur = s.effectDuration === 'thisStrike' ? 'this strike' : 'this turn';
-        if (s.effectKeyword === 'chanceForCritical') {
-          eff = s.effectTarget === 'selfHero' ? `you get chance for critical ${dur}.` : `target character gets chance for critical ${dur}.`;
-        } else if (s.effectKeyword === 'chanceForEvasion') {
-          eff = `target character gets chance for evasion ${dur}.`;
-        } else if (s.effectKeyword === 'advantage') {
-          eff = `user has advantage.`;
-        } else if (s.effectKeyword === 'doubleAdvantage') {
-          eff = `roll with double advantage.`;
-        } else if (s.effectKeyword === 'knockback') {
-          eff = `target has knockback this strike.`;
-        } else if (s.effectKeyword === 'overreach') {
-          eff = `${cName} has overreach ${dur}.`;
-        } else if (s.effectKeyword === 'freeze') {
-          eff = `Freeze (Roll for chance. If successful, defending enemy is exhausted until your next turn.)`;
-        }
-      } else if (s.effectType === 'token') {
-        eff = `you get ${s.tokenAmount} ${s.tokenName} Token${s.tokenAmount > 1 ? 's' : ''}.`;
-      } else if (s.effectType === 'force_chance') {
-        eff = `target wins chance roll this turn.`;
-      } else if (s.effectType === 'custom') {
-        eff = (s.customEffectText || "").trim();
-        if (eff && !eff.endsWith('.')) eff += '.';
+      const indicative = buildIndicativeEffect(s, cName);
+      const infinitive = buildInfinitiveEffect(s, cName);
+
+      // Base action phrasing respecting optional "you may..." and inline chance rolls
+      let baseEffect = indicative;
+      if (s.isChanceRoll && s.chanceStyle === 'infinitive') {
+        baseEffect = `they roll for chance to ${infinitive}`;
+      } else if (s.isOptional && !s.actIsVariableMana) {
+        baseEffect = `you may ${infinitive}`;
       }
 
-      // Chance roll wrapper: "they roll for chance to <effect>"
-      if (s.isChanceRoll && s.effectType !== 'keyword_grant' && s.effectType !== 'custom') {
-        eff = `they roll for chance to ${eff.replace(/\.$/, '')}.`;
+      // If Condition Integration
+      let fullOutcome = "";
+      if (s.effectCondition === 'if_you_do') {
+        if (s.actIsVariableMana) {
+          const maxS = s.actVariableMax || 3;
+          const spendClause = s.isOptional ? `you may spend 1 mana up to ${maxS} times.` : `spend 1 mana up to ${maxS} times.`;
+          
+          let perPhrase = "";
+          if (s.referringAction === 'mana_spent') perPhrase = " for each mana that was spent";
+          else if (s.referringAction === 'gold_spent') perPhrase = " for each gold that was spent";
+          else if (s.referringAction === 'charge_spent') perPhrase = " for each charge spent";
+          else if (s.referringAction === 'soldiers_controlled') perPhrase = " for every soldier you control in play";
+          else if (s.referringAction === 'allies_controlled') perPhrase = " for every ally you control in play";
+          else if (s.referringAction === 'counters_on_it') perPhrase = " for every counter on it";
+          else if (s.referringAction === 'damage_dealt') perPhrase = " equal to combat damage dealt";
+          else if (s.referringAction === 'attack_roll') perPhrase = " equal to the attack roll";
+
+          let notePhrase = "";
+          if (s.conditionNote === 'single_trigger') notePhrase = " All health gained this way counts as 1 trigger.";
+          else if (s.conditionNote === 'null_original') notePhrase = " Your original roll is null.";
+          else if (s.conditionNote === 'reroll_once') notePhrase = " You can only re-roll once.";
+
+          fullOutcome = `${spendClause} If you do, ${indicative.replace(/\.$/, '')}${perPhrase}.${notePhrase}`;
+        } else {
+          let followUp = "";
+          if (s.referringAction === 'sacrifice_strike') {
+            followUp = " If you do, sacrifice your third strike.";
+          } else if (s.referringAction === 'hp_lost') {
+            const whoLoses = (cName === 'This character' || s.trigHealSubject === 'hero') ? 'you lose' : `${cName} loses`;
+            followUp = ` If you do, ${whoLoses} the health gained, otherwise put the card on the bottom of your loot.`;
+          } else if (s.referringAction === 'mana_spent') {
+            followUp = ` If you do, ${indicative.replace(/\.$/, '')} for each mana that was spent.`;
+          } else if (s.referringAction !== 'none') {
+            followUp = ` If you do, ${indicative}`;
+          } else {
+            followUp = ` If you do, ${indicative}`;
+          }
+          fullOutcome = `${baseEffect.replace(/\.$/, '')}.${followUp}`;
+        }
+      } else if (s.effectCondition === 'if_chance_success') {
+        fullOutcome = `Roll for chance. If successful, ${indicative}`;
+      } else if (s.effectCondition === 'if_chance_win') {
+        fullOutcome = `Roll for chance. If you win, ${indicative}`;
+      } else if (s.effectCondition === 'if_defeated_enemy') {
+        fullOutcome = `If you defeated an enemy ally this turn, ${indicative}`;
+      } else if (s.effectCondition === 'if_enemy_noncombat') {
+        fullOutcome = `If an enemy took non-combat damage this turn, ${indicative}`;
+      } else if (s.effectCondition === 'if_struck_twice') {
+        const secPart = s.referringAction === 'sacrifice_strike' ? `${baseEffect.replace(/\.$/, '')}. If you do, sacrifice your third strike.` : baseEffect;
+        fullOutcome = `If you have struck twice this turn, ${secPart}`;
+      } else if (s.effectCondition === 'if_roll_one') {
+        fullOutcome = `If you roll a 1, ${baseEffect}`;
+      } else if (s.effectCondition === 'if_charge_count') {
+        fullOutcome = `If ${cName} has ${s.condChargeThreshold || 5} charge, ${indicative}`;
+      } else if (s.effectCondition === 'if_target_class') {
+        fullOutcome = `If target is a ${(s.condClass || 'Mage').toLowerCase()}, ${indicative}`;
+      } else if (s.effectCondition === 'if_user_equipped') {
+        fullOutcome = `If user has ${s.condEquipType || 'a dagger'} equipped, ${indicative}`;
+      } else if (s.effectCondition === 'custom') {
+        const cTxt = (s.customConditionText || "").trim();
+        fullOutcome = `${cTxt ? cTxt + ', ' : ''}${indicative}`;
+      } else {
+        // No If Condition specified
+        if (s.isChanceRoll) {
+          if (s.chanceStyle === 'if_successful') fullOutcome = `Roll for chance. If successful, ${indicative}`;
+          else if (s.chanceStyle === 'if_win') fullOutcome = `Roll for chance. If you win, ${indicative}`;
+          else fullOutcome = baseEffect;
+        } else {
+          fullOutcome = baseEffect;
+        }
+      }
+
+      if (s.strikeConsequence && s.strikeConsequence !== 'none' && s.effectType !== 'repeat_roll') {
+        let consequenceStr = "";
+        if (s.strikeConsequence === 'ends_combat_phase') consequenceStr = ` Striking with ${cName} ends your combat phase.`;
+        else if (s.strikeConsequence === 'exhausts_hero') consequenceStr = ` Striking with ${cName} exhausts your hero.`;
+        else if (s.strikeConsequence === 'sacrifice_strikes') consequenceStr = ` Striking with ${cName} sacrifices your remaining strikes.`;
+        fullOutcome = `${fullOutcome.replace(/\.$/, '')}.${consequenceStr}`;
       }
 
       // 1. ACTIVATED ABILITIES
       if (s.category === 'activated') {
-        if (s.actIsVariableMana) {
-          return `[Mana:${s.actManaCost}-${s.actVariableMax}] Once per turn during your command phase, you may spend 1 mana up to ${s.actVariableMax} times. If you do, you gain 1 health for each mana that was spent. All health gained this way counts as 1 trigger.`;
-        }
-
         let costTag = "";
-        if (s.actCostType === 'mana') costTag = `[Mana:${s.actManaCost}] `;
+        if (s.actIsVariableMana) {
+          costTag = `[Mana:${s.actManaCost || 1}-${s.actVariableMax || 3}] `;
+        } else if (s.actCostType === 'mana') costTag = `[Mana:${s.actManaCost}] `;
         else if (s.actCostType === 'gold') costTag = `[Gold:${s.actGoldCost}] `;
         else if (s.actCostType === 'exhaust') costTag = s.actExhaustTarget === 'hero' ? 'Exhaust your hero: ' : `Exhaust ${cName}: `;
         else if (s.actCostType === 'mana_exhaust') costTag = `[Mana:${s.actManaCost}] Exhaust ${cName}: `;
@@ -403,68 +863,173 @@
           else if (s.actFrequency === 'twice') timingTag = "Up to twice per turn, ";
         }
 
-        return `${costTag}${timingTag}${cap(eff)}`.trim();
+        return `${costTag}${timingTag}${cap(fullOutcome)}`.trim();
       }
 
       // 2. TRIGGERED PASSIVES
       if (s.category === 'triggered') {
         if (s.trigEvent === 'onPlay') {
-          return `When ${cName} comes into play, ${eff}`;
+          let subj = cName;
+          if (s.trigSubject === 'friendlyAlly') subj = "an ally you control";
+          else if (s.trigSubject === 'anyAlly') subj = "an ally";
+
+          let loc = "comes into play";
+          if (s.trigZone === 'battleZone') loc = "is played to the battle zone";
+          else if (s.trigZone === 'bench') loc = "is played to your bench";
+          else if (s.trigZone === 'skillSlot') loc = "is played to a skill slot";
+          else if (s.trigZone === 'any' && subj === cName) loc = "is played";
+
+          return `When ${subj} ${loc}, ${fullOutcome}`;
         }
+
         if (s.trigEvent === 'onDefeat') {
-          const who = s.trigDefeatType === 'friendly' ? 'an ally you control' : cName;
-          return `When ${who} is defeated, ${eff}`;
+          let who = cName;
+          if (s.trigSubject === 'friendlyAlly') who = "an ally you control";
+          else if (s.trigSubject === 'anyAlly') who = "any ally";
+          else if (s.trigSubject === 'enemyAlly') who = "an enemy ally";
+          else if (s.trigSubject === 'enemyHero') who = "an enemy hero";
+
+          let loc = "";
+          if (s.trigZone === 'battleZone') loc = " from the battle zone";
+          else if (s.trigZone === 'bench') loc = " from the bench";
+
+          return `When ${who} is defeated${loc}, ${fullOutcome}`;
         }
+
         if (s.trigEvent === 'onStrike') {
-          return `Strike ${s.trigStrikeNum}: ${cap(eff)}`;
+          if (s.trigStrikeZone === 'bench') {
+            return `${cName} attacks on strike ${s.trigStrikeNum} from your bench: ${cap(fullOutcome)}`;
+          }
+          return `Strike ${s.trigStrikeNum}: ${cap(fullOutcome)}`;
         }
+
         if (s.trigEvent === 'onDamageDealt') {
-          const who = s.trigDamageTarget === 'hero' ? 'a hero' : (s.trigDamageTarget === 'enemyAlly' ? 'an enemy ally' : 'an enemy');
-          return `Whenever ${cName} deals combat damage to ${who}, ${eff}`;
+          let src = cName;
+          if (s.trigDamageSource === 'friendlyAlly') src = "an ally you control";
+          else if (s.trigDamageSource === 'hero') src = "you";
+
+          let victim = "an enemy";
+          if (s.trigDamageVictim === 'enemyHero') victim = "a hero";
+          else if (s.trigDamageVictim === 'enemyAlly') victim = "an enemy ally";
+
+          let cond = "";
+          if (s.trigDamageWeapon === 'dagger') cond = " and user has a dagger equipped";
+          else if (s.trigDamageWeapon === 'withSkill') cond = ` with ${cName}`;
+
+          const verb = src === 'you' ? 'deal' : 'deals';
+          return `Whenever ${src} ${verb} combat damage to ${victim}${cond}, ${fullOutcome}`;
         }
-        if (s.trigEvent === 'onCounterstrike') {
-          return `Whenever a character counterstrikes, ${eff}`;
+
+        if (s.trigEvent === 'onDamageTaken') {
+          let subj = `${cName} takes`;
+          if (s.trigSubject === 'hero') subj = "your hero takes";
+          else if (s.trigSubject === 'friendlyAlly') subj = "an ally you control takes";
+          return `Whenever ${subj} combat damage, ${fullOutcome}`;
         }
+
         if (s.trigEvent === 'onHeal') {
-          return `Whenever you gain health, ${eff}`;
+          if (s.trigHealSubject === 'friendlyAlly') return `Whenever an ally you control gains health, ${fullOutcome}`;
+          if (s.trigHealSubject === 'character') return `Whenever a character gains health, ${fullOutcome}`;
+          return `Whenever you gain health, ${fullOutcome}`;
         }
+
         if (s.trigEvent === 'onDraw') {
-          return `Whenever you draw a card from an ability, ${eff}`;
+          if (s.trigDrawSource === 'turnStart') return `At the start of your turn after drawing, ${fullOutcome}`;
+          if (s.trigDrawSource === 'any') return `Whenever you draw a card, ${fullOutcome}`;
+          return `Whenever you draw a card from an ability, ${fullOutcome}`;
         }
+
         if (s.trigEvent === 'onChanceWin') {
-          return `Whenever you win a chance roll, ${eff}`;
+          if (s.trigChanceEvent === 'roll') return `Whenever you roll for chance, ${fullOutcome}`;
+          return `Whenever you win a chance roll, ${fullOutcome}`;
         }
+
+        if (s.trigEvent === 'onCounterstrike') {
+          if (s.trigCounterstrikeWho === 'you') return `Whenever you counterstrike, ${fullOutcome}`;
+          if (s.trigCounterstrikeWho === 'defending') return `Whenever ${cName} counterstrikes, ${fullOutcome}`;
+          return `Whenever a character counterstrikes, ${fullOutcome}`;
+        }
+
         if (s.trigEvent === 'onTurnStart') {
-          return `At the start of your turn, ${eff}`;
+          if (s.trigTurnPhase === 'turnEnd') return `At the end of your turn, ${fullOutcome}`;
+          if (s.trigTurnPhase === 'command') return `At the start of your command phase, ${fullOutcome}`;
+          if (s.trigTurnPhase === 'combat') return `At the start of your combat phase, ${fullOutcome}`;
+          return `At the start of your turn, ${fullOutcome}`;
+        }
+
+        if (s.trigEvent === 'onAccuracyRoll') {
+          let subj = cName;
+          if (s.trigSubject === 'hero') subj = "your hero";
+          else if (s.trigSubject === 'friendlyAlly') subj = "an ally you control";
+          return `When rolling accuracy for ${subj}, ${fullOutcome}`;
         }
       }
 
       // 3. STATIC / CONTINUOUS
       if (s.category === 'static') {
-        if (s.staticCondition === 'always') return cap(eff);
-        if (s.staticCondition === 'vanguard') {
-          return `All ${(s.staticClass || 'soldier').toLowerCase()}s you control have +${s.effectAmount} power as long as ${cName} is your Vanguard.`;
+        if (s.staticConditionMode === 'always') return cap(fullOutcome);
+
+        if (s.staticConditionMode === 'zone_role') {
+          if (s.staticZoneRole === 'bench_strike') {
+            return `${cName} can strike from your bench.`;
+          }
+          if (s.staticZoneRole === 'vanguard') {
+            return `All ${(s.staticClass || 'soldier').toLowerCase()}s you control have +${s.effectAmount || 1} ${s.effectStat || 'power'} as long as ${cName} is your Vanguard.`;
+          }
+          if (s.staticZoneRole === 'bench') {
+            return `${cName} has +${s.effectAmount || 1} ${s.effectStat || 'defense'} while on your bench.`;
+          }
+          if (s.staticZoneRole === 'defending') {
+            return `Defending allies you control get +${s.effectAmount || 1} ${s.effectStat || 'defense'} this turn.`;
+          }
         }
-        if (s.staticCondition === 'control_class') {
-          return `${cName} has D6 attack as long as you control another ${(s.staticClass || 'soldier').toLowerCase()}.`;
+
+        if (s.staticConditionMode === 'control_synergy') {
+          if (s.staticSynergyType === 'another_class') {
+            return `${cName} has D6 attack as long as you control another ${(s.staticClass || 'soldier').toLowerCase()}.`;
+          }
+          if (s.staticSynergyType === 'all_class') {
+            return `All ${(s.staticClass || 'soldier').toLowerCase()}s you control have +${s.effectAmount || 1} ${s.effectStat || 'power'}.`;
+          }
+          if (s.staticSynergyType === 'other_race') {
+            return `Other ${(s.staticRace || 'elf').toLowerCase()}s you control get +${s.effectAmount || 1} ${s.effectStat || 'ranged attack'}.`;
+          }
+          if (s.staticSynergyType === 'allegiance') {
+            return `Allegiance (All other characters of the same class get advantage.)`;
+          }
         }
-        if (s.staticCondition === 'enemy_defeated') {
-          return `If you defeated an enemy ally this turn, ${cName} has overreach.`;
+
+        if (s.staticConditionMode === 'combat_precondition') {
+          if (s.staticPrecondition === 'enemy_defeated') {
+            return `If you defeated an enemy ally this turn, ${cName} has ${s.effectKeyword ? s.effectKeyword.toLowerCase() : 'overreach'}.`;
+          }
+          if (s.staticPrecondition === 'enemy_noncombat') {
+            return `If an enemy took non-combat damage this turn, ${cName}'s attack is D8.`;
+          }
+          if (s.staticPrecondition === 'struck_twice') {
+            return `If you have struck twice this turn, ${fullOutcome}`;
+          }
+          if (s.staticPrecondition === 'won_chance') {
+            return `If you win a chance roll, ${cName}'s attack is D8 and they get advantage this turn.`;
+          }
         }
-        if (s.staticCondition === 'bench_strike') {
-          return `${cName} can strike from your bench.`;
-        }
-        if (s.staticCondition === 'allegiance') {
-          return `Allegiance (All other characters of the same class get advantage.)`;
+
+        if (s.staticConditionMode === 'scaling') {
+          if (s.staticScaling === 'per_charge') {
+            return `${cName} gets +${s.effectAmount || 1} ${s.effectStat || 'ranged attack'} for every charge on it.`;
+          }
+          if (s.staticScaling === 'discard_count') {
+            return `${cName}'s ranged attack is equal to the total number of allies, skills, and synergies in your discard pile.`;
+          }
         }
       }
 
       // 4. SKILL PROFICIENCY
       if (s.category === 'proficiency') {
-        return `Proficiency ${s.profLevel}: ${cap(eff)}`;
+        return `Proficiency ${s.profLevel}: ${cap(fullOutcome)}`;
       }
 
-      return cap(eff);
+      return cap(fullOutcome);
     }
 
     function analyzeAbilityForEngine(text) {
@@ -477,7 +1042,7 @@
       // Cost detection
       const mMatch = t.match(/\[Mana:\s*(\d+)(?:-(\d+))?\]/i) || t.match(/Pay\s+(\d+)\s+mana/i);
       if (mMatch) {
-        badges.push({ label: mMatch[2] ? `[Mana: ${mMatch[1]}-${mMatch[2]}]` : `[Mana: ${mMatch[1]}]`, color: 'bg-purple-900/80 text-purple-200 border-purple-600' });
+        badges.push({ label: mMatch[2] ? `[Mana: ${mMatch[1]}-${mMatch[2]} Variable Spend]` : `[Mana: ${mMatch[1]}]`, color: 'bg-purple-900/80 text-purple-200 border-purple-600' });
       }
       const gMatch = t.match(/\[Gold:\s*(\d+)\]/i) || t.match(/Pay\s+(\d+)\s+gold/i);
       if (gMatch) {
@@ -493,16 +1058,32 @@
       else if (/Strike\s+(\d+)\s*:/i.test(t)) {
         const s = t.match(/Strike\s+(\d+)\s*:/i);
         badges.push({ label: `Trigger: Strike ${s[1]}`, color: 'bg-orange-900/80 text-orange-200 border-orange-600' });
-      } else if (/Whenever .* deals combat damage/i.test(t)) badges.push({ label: 'Trigger: On Combat Damage', color: 'bg-red-900/80 text-red-200 border-red-600' });
+      } else if (/Whenever .* deals? combat damage/i.test(t)) badges.push({ label: 'Trigger: On Combat Damage', color: 'bg-red-900/80 text-red-200 border-red-600' });
+      else if (/Whenever .* takes? combat damage/i.test(t)) badges.push({ label: 'Trigger: On Damage Taken', color: 'bg-red-900/80 text-red-200 border-red-600' });
       else if (/Whenever .* counterstrikes/i.test(t)) badges.push({ label: 'Trigger: On Counterstrike', color: 'bg-yellow-900/80 text-yellow-200 border-yellow-600' });
-      else if (/Whenever you gain health/i.test(t)) badges.push({ label: 'Trigger: On Health Gain', color: 'bg-emerald-900/80 text-emerald-200 border-emerald-600' });
+      else if (/Whenever .* gains? health/i.test(t)) badges.push({ label: 'Trigger: On Health Gain', color: 'bg-emerald-900/80 text-emerald-200 border-emerald-600' });
       else if (/Whenever you draw/i.test(t)) badges.push({ label: 'Trigger: On Draw Card', color: 'bg-sky-900/80 text-sky-200 border-sky-600' });
       else if (/Whenever you win a chance roll/i.test(t)) badges.push({ label: 'Trigger: On Chance Win', color: 'bg-amber-900/80 text-amber-200 border-amber-600' });
       else if (/At the start of your turn/i.test(t)) badges.push({ label: 'Trigger: Turn Start', color: 'bg-blue-900/80 text-blue-200 border-blue-600' });
+      else if (/When rolling accuracy/i.test(t)) badges.push({ label: 'Trigger: On Accuracy Roll', color: 'bg-amber-900/80 text-amber-200 border-amber-600' });
       else if (/Proficiency\s+(\d+)\s*:/i.test(t)) {
         const p = t.match(/Proficiency\s+(\d+)\s*:/i);
         badges.push({ label: `Tier: Proficiency ${p[1]}`, color: 'bg-purple-900/80 text-purple-200 border-purple-600' });
       }
+
+      // Zone & Role detection
+      if (/is your Vanguard/i.test(t)) badges.push({ label: 'Zone: Frontline Vanguard', color: 'bg-blue-900/80 text-blue-200 border-blue-600' });
+      if (/from your bench/i.test(t) || /while on your bench/i.test(t)) badges.push({ label: 'Zone: Bench Position', color: 'bg-teal-900/80 text-teal-200 border-teal-600' });
+      if (/to the battle zone/i.test(t)) badges.push({ label: 'Zone: Battle Zone ETB', color: 'bg-cyan-900/80 text-cyan-200 border-cyan-600' });
+
+      // Modality & If/Then detection
+      if (/\byou may\b/i.test(t)) badges.push({ label: 'Permission: Optional (You May)', color: 'bg-amber-950 text-amber-300 border-amber-700' });
+      if (/spend 1 mana up to \d+ times\. If you do/i.test(t)) badges.push({ label: 'If: Variable Spend ("If you do")', color: 'bg-purple-950 text-purple-300 border-purple-600' });
+      else if (/If you do\b/i.test(t)) badges.push({ label: 'If: "If you do"', color: 'bg-purple-950 text-purple-300 border-purple-600' });
+      if (/if you defeated an enemy/i.test(t)) badges.push({ label: 'If: Defeated Enemy', color: 'bg-rose-950 text-rose-300 border-rose-600' });
+      if (/if you have struck twice/i.test(t)) badges.push({ label: 'If: Struck Twice', color: 'bg-orange-950 text-orange-300 border-orange-600' });
+      if (/sacrifice your third strike/i.test(t)) badges.push({ label: 'Cost: Sacrifice Strike', color: 'bg-red-950 text-red-300 border-red-600' });
+      if (/if successful/i.test(t) || /if you win/i.test(t)) badges.push({ label: 'If: Chance Success', color: 'bg-amber-950 text-amber-300 border-amber-600' });
 
       // Actions & Keywords
       if (/\bgains?\s+\d+\s+health\b|\bheal\b/i.test(t)) badges.push({ label: 'Action: Heal HP', color: 'bg-emerald-950 text-emerald-300 border-emerald-700' });
@@ -510,12 +1091,24 @@
       if (/\bgains?\s+\d+\s+charge\b/i.test(t)) badges.push({ label: 'Action: +Charge ⚡', color: 'bg-amber-950 text-amber-300 border-amber-700' });
       if (/\bdeplete\s+\d+\s+charge\b/i.test(t)) badges.push({ label: 'Action: -Deplete Charge', color: 'bg-slate-800 text-slate-300 border-slate-600' });
       if (/\bdeals?\s+\d+\s+(?:non-combat\s+)?damage\b/i.test(t)) badges.push({ label: 'Action: Non-Combat DMG', color: 'bg-rose-950 text-rose-300 border-rose-700' });
+      if (/deals\s+it'?s\s+ranged\s+attack\s+damage/i.test(t)) badges.push({ label: 'Outcome: Ranged Attack DMG', color: 'bg-emerald-950 text-emerald-300 border-emerald-700' });
+      if (/deals\s+it'?s\s+combat\s+damage/i.test(t)) badges.push({ label: 'Outcome: Combat DMG', color: 'bg-emerald-950 text-emerald-300 border-emerald-700' });
+      if (/Striking\s+with.*ends\s+your\s+combat\s+phase/i.test(t)) badges.push({ label: 'Consequence: Ends Combat Phase 🛑', color: 'bg-rose-950 text-rose-300 border-rose-700' });
+      if (/keep rolling until you fail/i.test(t)) badges.push({ label: 'Action: Cascade / Repeat Roll 🎯', color: 'bg-emerald-950 text-emerald-300 border-emerald-700' });
       if (/\bTokens?\b/i.test(t)) badges.push({ label: 'Action: Summon Token', color: 'bg-indigo-950 text-indigo-300 border-indigo-700' });
+      if (/look at the top/i.test(t) || /search your loot/i.test(t)) badges.push({ label: 'Action: Loot Deck Search', color: 'bg-sky-900/80 text-sky-200 border-sky-600' });
       if (/advantage/i.test(t)) badges.push({ label: 'Keyword: Advantage', color: 'bg-amber-950 text-amber-300 border-amber-700' });
       if (/Freeze/i.test(t)) badges.push({ label: 'Keyword: Freeze', color: 'bg-cyan-950 text-cyan-300 border-cyan-700' });
       if (/Piercing/i.test(t)) badges.push({ label: 'Keyword: Piercing', color: 'bg-slate-800 text-slate-200 border-slate-600' });
+      if (/Pierce Proof/i.test(t)) badges.push({ label: 'Keyword: Pierce Proof', color: 'bg-slate-800 text-slate-200 border-slate-600' });
       if (/Knockback/i.test(t)) badges.push({ label: 'Keyword: Knockback', color: 'bg-orange-950 text-orange-300 border-orange-700' });
       if (/Overreach/i.test(t)) badges.push({ label: 'Keyword: Overreach', color: 'bg-emerald-950 text-emerald-300 border-emerald-700' });
+      if (/Leach/i.test(t)) badges.push({ label: 'Keyword: Leach', color: 'bg-emerald-950 text-emerald-300 border-emerald-700' });
+      if (/Poison/i.test(t)) badges.push({ label: 'Keyword: Poison', color: 'bg-green-950 text-green-300 border-green-700' });
+      if (/cursed|Curse/i.test(t)) badges.push({ label: 'Keyword: Curse', color: 'bg-purple-950 text-purple-300 border-purple-700' });
+      if (/Aptitude/i.test(t)) badges.push({ label: 'Keyword: Aptitude', color: 'bg-sky-950 text-sky-300 border-sky-700' });
+      if (/Allegiance/i.test(t)) badges.push({ label: 'Keyword: Allegiance', color: 'bg-blue-950 text-blue-300 border-blue-700' });
+      if (/Overcharge/i.test(t)) badges.push({ label: 'Keyword: Overcharge', color: 'bg-amber-950 text-amber-300 border-amber-700' });
       if (/chance for critical/i.test(t)) badges.push({ label: 'Keyword: Critical', color: 'bg-rose-950 text-rose-300 border-rose-700' });
       if (/chance for evasion/i.test(t)) badges.push({ label: 'Keyword: Evasion', color: 'bg-teal-950 text-teal-300 border-teal-700' });
       if (/wins chance roll/i.test(t)) badges.push({ label: 'Action: Force Chance Win', color: 'bg-yellow-950 text-yellow-300 border-yellow-700' });
@@ -533,13 +1126,397 @@
       };
     }
 
-    function AbilityBuilderModal({ isOpen, onClose, onApply, cardName, cardType, initialAbilities }) {
+    function parseAbilityTextToBuilderState(rawText, cardName, cardType) {
+      if (!rawText || !rawText.trim()) return { ...DEFAULT_BUILDER_STATE };
+      const text = rawText.trim();
+      const res = { ...DEFAULT_BUILDER_STATE };
+      const cName = (cardName || "").trim();
+
+      // Check if it's an exact preset match first for 100% fidelity
+      const matchedPreset = OFFICIAL_ABILITY_PRESETS.find(p => p.recommended && p.recommended.trim().toLowerCase() === text.toLowerCase());
+      if (matchedPreset) {
+        return { ...DEFAULT_BUILDER_STATE, ...matchedPreset };
+      }
+
+      // 1. Keyword check
+      for (const kw of Object.keys(KEYWORD_DEFINITIONS)) {
+        if (new RegExp(`^${kw}\\b`, 'i').test(text) || new RegExp(`\\(${kw}\\)`, 'i').test(text)) {
+          if (text.length < 50 || !text.includes(':') || new RegExp(`^${kw}:`, 'i').test(text)) {
+            res.category = 'keyword';
+            res.selectedKeyword = kw;
+            return res;
+          }
+        }
+      }
+
+      // 2. Proficiency check
+      const profM = text.match(/Proficiency\s+(\d+)\s*:/i);
+      if (profM) {
+        res.category = 'proficiency';
+        res.profLevel = parseInt(profM[1]);
+      }
+
+      // 3. Activated costs & timings
+      const manaM = text.match(/\[Mana:\s*(\d+)(?:-(\d+))?\]/i) || text.match(/Pay\s+(\d+)\s+mana/i);
+      const goldM = text.match(/\[Gold:\s*(\d+)\]/i) || text.match(/Pay\s+(\d+)\s+gold/i);
+      const exhM = text.match(/Exhaust\s+([^:]+):/i);
+
+      if (manaM || goldM || exhM || /^Once per turn/i.test(text)) {
+        if (!profM) res.category = 'activated';
+        if (manaM) {
+          res.actManaCost = parseInt(manaM[1]);
+          if (manaM[2]) {
+            res.actIsVariableMana = true;
+            res.actVariableMax = parseInt(manaM[2]);
+          }
+        }
+        if (goldM) res.actGoldCost = parseInt(goldM[1]);
+        if (exhM) res.actExhaustTarget = /hero/i.test(exhM[1]) ? 'hero' : 'thisCard';
+
+        if (manaM && exhM) res.actCostType = 'mana_exhaust';
+        else if (goldM && exhM) res.actCostType = 'gold_exhaust';
+        else if (exhM) res.actCostType = 'exhaust';
+        else if (goldM) res.actCostType = 'gold';
+        else if (manaM) res.actCostType = 'mana';
+        else res.actCostType = 'free';
+
+        if (/Once per turn/i.test(text)) res.actFrequency = 'once';
+        else if (/Up to twice per turn/i.test(text)) res.actFrequency = 'twice';
+        else res.actFrequency = 'unlimited';
+
+        if (/command phase/i.test(text)) res.actPhase = 'command';
+        else if (/combat phase/i.test(text)) res.actPhase = 'combat';
+        else res.actPhase = 'any';
+      }
+
+      // 4. Triggered events
+      if (/When .* (?:comes into play|is played)/i.test(text)) {
+        res.category = 'triggered';
+        res.trigEvent = 'onPlay';
+        if (/an ally you control/i.test(text)) res.trigSubject = 'friendlyAlly';
+        else if (/an ally/i.test(text)) res.trigSubject = 'anyAlly';
+        else res.trigSubject = 'self';
+
+        if (/battle zone/i.test(text)) res.trigZone = 'battleZone';
+        else if (/bench/i.test(text)) res.trigZone = 'bench';
+        else if (/skill slot/i.test(text)) res.trigZone = 'skillSlot';
+        else res.trigZone = 'any';
+      } else if (/When .* is defeated/i.test(text)) {
+        res.category = 'triggered';
+        res.trigEvent = 'onDefeat';
+        if (/an ally you control/i.test(text)) res.trigSubject = 'friendlyAlly';
+        else if (/an enemy hero/i.test(text)) res.trigSubject = 'enemyHero';
+        else if (/an enemy ally/i.test(text)) res.trigSubject = 'enemyAlly';
+        else if (/any ally/i.test(text)) res.trigSubject = 'anyAlly';
+        else res.trigSubject = 'self';
+
+        if (/battle zone/i.test(text)) res.trigZone = 'battleZone';
+        else if (/bench/i.test(text)) res.trigZone = 'bench';
+        else res.trigZone = 'any';
+      } else if (/Strike\s+(\d+)\s*:/i.test(text) || /attacks on strike\s+(\d+)/i.test(text)) {
+        res.category = 'triggered';
+        res.trigEvent = 'onStrike';
+        const sM = text.match(/strike\s+(\d+)/i);
+        if (sM) res.trigStrikeNum = parseInt(sM[1]);
+        if (/from your bench/i.test(text)) res.trigStrikeZone = 'bench';
+        else res.trigStrikeZone = 'any';
+      } else if (/When rolling accuracy/i.test(text)) {
+        res.category = 'triggered';
+        res.trigEvent = 'onAccuracyRoll';
+        if (/your hero/i.test(text)) res.trigSubject = 'hero';
+        else if (/an ally you control/i.test(text)) res.trigSubject = 'friendlyAlly';
+        else res.trigSubject = 'self';
+      } else if (/Whenever .* deals? combat damage/i.test(text)) {
+        res.category = 'triggered';
+        res.trigEvent = 'onDamageDealt';
+        if (/an ally you control/i.test(text)) res.trigDamageSource = 'friendlyAlly';
+        else if (/\byou\s+deal/i.test(text)) res.trigDamageSource = 'hero';
+        else res.trigDamageSource = 'self';
+
+        if (/a hero/i.test(text) || /enemy hero/i.test(text)) res.trigDamageVictim = 'enemyHero';
+        else if (/enemy ally/i.test(text)) res.trigDamageVictim = 'enemyAlly';
+        else res.trigDamageVictim = 'anyEnemy';
+
+        if (/dagger equipped/i.test(text)) res.trigDamageWeapon = 'dagger';
+        else if (/with/i.test(text) && cName && text.includes(cName)) res.trigDamageWeapon = 'withSkill';
+        else res.trigDamageWeapon = 'none';
+      } else if (/Whenever .* takes? combat damage/i.test(text)) {
+        res.category = 'triggered';
+        res.trigEvent = 'onDamageTaken';
+        if (/your hero/i.test(text)) res.trigSubject = 'hero';
+        else if (/an ally you control/i.test(text)) res.trigSubject = 'friendlyAlly';
+        else res.trigSubject = 'self';
+      } else if (/Whenever .* gains? health/i.test(text)) {
+        res.category = 'triggered';
+        res.trigEvent = 'onHeal';
+        if (/an ally you control/i.test(text)) res.trigHealSubject = 'friendlyAlly';
+        else if (/a character/i.test(text)) res.trigHealSubject = 'character';
+        else res.trigHealSubject = 'hero';
+      } else if (/Whenever .* draws?/i.test(text) || /At the start of your turn after drawing/i.test(text)) {
+        res.category = 'triggered';
+        res.trigEvent = 'onDraw';
+        if (/start of your turn after drawing/i.test(text)) res.trigDrawSource = 'turnStart';
+        else if (/from an ability/i.test(text)) res.trigDrawSource = 'fromAbility';
+        else res.trigDrawSource = 'any';
+      } else if (/Whenever .* (?:wins a chance roll|rolls for chance)/i.test(text)) {
+        res.category = 'triggered';
+        res.trigEvent = 'onChanceWin';
+        if (/rolls for chance/i.test(text)) res.trigChanceEvent = 'roll';
+        else res.trigChanceEvent = 'win';
+      } else if (/Whenever .* counterstrikes/i.test(text)) {
+        res.category = 'triggered';
+        res.trigEvent = 'onCounterstrike';
+        if (/you counterstrike/i.test(text)) res.trigCounterstrikeWho = 'you';
+        else if (/counterstrikes/i.test(text) && cName && text.includes(cName)) res.trigCounterstrikeWho = 'defending';
+        else res.trigCounterstrikeWho = 'character';
+      } else if (/At the (?:start|end) of your/i.test(text)) {
+        res.category = 'triggered';
+        res.trigEvent = 'onTurnStart';
+        if (/end of your turn/i.test(text)) res.trigTurnPhase = 'turnEnd';
+        else if (/command phase/i.test(text)) res.trigTurnPhase = 'command';
+        else if (/combat phase/i.test(text)) res.trigTurnPhase = 'combat';
+        else res.trigTurnPhase = 'turnStart';
+      }
+
+      // 5. Static / Continuous
+      if (/is your Vanguard/i.test(text)) {
+        res.category = 'static';
+        res.staticConditionMode = 'zone_role';
+        res.staticZoneRole = 'vanguard';
+        const clMatch = text.match(/All (\w+)s you control/i);
+        if (clMatch) res.staticClass = clMatch[1].charAt(0).toUpperCase() + clMatch[1].slice(1).toLowerCase();
+      } else if (/can strike from your bench/i.test(text)) {
+        res.category = 'static';
+        res.staticConditionMode = 'zone_role';
+        res.staticZoneRole = 'bench_strike';
+      } else if (/while on your bench/i.test(text)) {
+        res.category = 'static';
+        res.staticConditionMode = 'zone_role';
+        res.staticZoneRole = 'bench';
+      } else if (/control another (\w+)/i.test(text)) {
+        res.category = 'static';
+        res.staticConditionMode = 'control_synergy';
+        res.staticSynergyType = 'another_class';
+        const clM = text.match(/control another (\w+)/i);
+        if (clM) res.staticClass = clM[1].charAt(0).toUpperCase() + clM[1].slice(1).toLowerCase();
+      } else if (/All (\w+)s you control have/i.test(text)) {
+        res.category = 'static';
+        res.staticConditionMode = 'control_synergy';
+        res.staticSynergyType = 'all_class';
+        const clM = text.match(/All (\w+)s you control/i);
+        if (clM) res.staticClass = clM[1].charAt(0).toUpperCase() + clM[1].slice(1).toLowerCase();
+      } else if (/Other (\w+)s you control get/i.test(text)) {
+        res.category = 'static';
+        res.staticConditionMode = 'control_synergy';
+        res.staticSynergyType = 'other_race';
+        const rM = text.match(/Other (\w+)s you control/i);
+        if (rM) res.staticRace = rM[1].charAt(0).toUpperCase() + rM[1].slice(1).toLowerCase();
+      } else if (/for every charge/i.test(text)) {
+        res.category = 'static';
+        res.staticConditionMode = 'scaling';
+        res.staticScaling = 'per_charge';
+      } else if (/discard pile/i.test(text)) {
+        res.category = 'static';
+        res.staticConditionMode = 'scaling';
+        res.staticScaling = 'discard_count';
+      }
+
+      // 6. Modality & Conditions
+      res.isOptional = /\byou may\b/i.test(text);
+      res.isChanceRoll = /roll for chance/i.test(text);
+      if (/If successful/i.test(text)) res.chanceStyle = 'if_successful';
+      else if (/If you win/i.test(text)) res.chanceStyle = 'if_win';
+      else if (/roll for chance to/i.test(text)) res.chanceStyle = 'infinitive';
+
+      if (/If you do\b/i.test(text)) {
+        res.effectCondition = 'if_you_do';
+        if (/mana that was spent/i.test(text)) res.referringAction = 'mana_spent';
+        else if (/gold that was spent/i.test(text)) res.referringAction = 'gold_spent';
+        else if (/charge spent/i.test(text)) res.referringAction = 'charge_spent';
+        else if (/soldier you control/i.test(text)) res.referringAction = 'soldiers_controlled';
+        else if (/ally you control/i.test(text)) res.referringAction = 'allies_controlled';
+        else if (/counter on it/i.test(text)) res.referringAction = 'counters_on_it';
+        else if (/combat damage dealt/i.test(text)) res.referringAction = 'damage_dealt';
+        else if (/attack roll/i.test(text)) res.referringAction = 'attack_roll';
+        else if (/sacrifice your third strike/i.test(text)) res.referringAction = 'sacrifice_strike';
+        else if (/lose the health gained/i.test(text)) res.referringAction = 'hp_lost';
+
+        if (/1 trigger/i.test(text)) res.conditionNote = 'single_trigger';
+        else if (/original roll is null/i.test(text)) res.conditionNote = 'null_original';
+        else if (/re-roll once/i.test(text)) res.conditionNote = 'reroll_once';
+      } else if (/If successful/i.test(text)) {
+        res.effectCondition = 'if_chance_success';
+      } else if (/If you win/i.test(text)) {
+        res.effectCondition = 'if_chance_win';
+      } else if (/If you defeated an enemy ally/i.test(text)) {
+        res.effectCondition = 'if_defeated_enemy';
+      } else if (/If an enemy took non-combat damage/i.test(text)) {
+        res.effectCondition = 'if_enemy_noncombat';
+      } else if (/If you have struck twice/i.test(text)) {
+        res.effectCondition = 'if_struck_twice';
+        if (/sacrifice your third strike/i.test(text)) res.referringAction = 'sacrifice_strike';
+      } else if (/If you roll a 1/i.test(text)) {
+        res.effectCondition = 'if_roll_one';
+      } else if (/If .* has (\d+) charge/i.test(text)) {
+        res.effectCondition = 'if_charge_count';
+        const cM = text.match(/has (\d+) charge/i);
+        if (cM) res.condChargeThreshold = parseInt(cM[1]);
+      } else if (/If target is a (\w+)/i.test(text)) {
+        res.effectCondition = 'if_target_class';
+        const tcM = text.match(/If target is a (\w+)/i);
+        if (tcM) res.condClass = tcM[1].charAt(0).toUpperCase() + tcM[1].slice(1).toLowerCase();
+      } else if (/If user has (a \w+) equipped/i.test(text)) {
+        res.effectCondition = 'if_user_equipped';
+        const eqM = text.match(/If user has (a \w+) equipped/i);
+        if (eqM) res.condEquipType = eqM[1].toLowerCase();
+      }
+
+      // 7. Strike Consequences
+      if (/Striking with.*ends your combat phase/i.test(text)) {
+        res.strikeConsequence = 'ends_combat_phase';
+      } else if (/Striking with.*exhausts your hero/i.test(text)) {
+        res.strikeConsequence = 'exhausts_hero';
+      } else if (/Striking with.*sacrifices your remaining strikes/i.test(text)) {
+        res.strikeConsequence = 'sacrifice_strikes';
+      }
+
+      // 8. Effect Type & Action
+      if (/keep rolling until you fail/i.test(text)) {
+        res.effectType = 'repeat_roll';
+        res.repeatRollType = 'accuracy';
+        const mHits = text.match(/succeed\s+(\d+)\s+times/i);
+        if (mHits) res.repeatMaxCount = parseInt(mHits[1]);
+        if (/until you fail or/i.test(text)) res.repeatStopCondition = 'until_fail_or_max';
+        else if (/until you succeed/i.test(text)) res.repeatStopCondition = 'until_success';
+        else res.repeatStopCondition = 'until_fail';
+
+        if (/deals\s+it'?s\s+ranged\s+attack\s+damage/i.test(text)) res.repeatSuccessOutcome = 'deals_ranged_damage';
+        else if (/deals\s+it'?s\s+combat\s+damage/i.test(text)) res.repeatSuccessOutcome = 'deals_combat_damage';
+        else if (/deals\s+(\d+)\s+non-combat\s+damage/i.test(text)) {
+          res.repeatSuccessOutcome = 'deals_noncombat_damage';
+          const dM = text.match(/deals\s+(\d+)\s+non-combat\s+damage/i);
+          if (dM) res.effectAmount = parseInt(dM[1]);
+        } else if (/charge/i.test(text)) res.repeatSuccessOutcome = 'gain_charge';
+        else res.repeatSuccessOutcome = 'none';
+      } else if (/gains?\s+(\d+)\s+health/i.test(text) || /\bheal\b/i.test(text)) {
+        res.effectType = 'heal';
+        const hM = text.match(/(\d+)\s+health/i);
+        if (hM) res.effectAmount = parseInt(hM[1]);
+
+        if (/you gain/i.test(text)) res.effectTarget = 'selfHero';
+        else if (/target ally you control/i.test(text)) res.effectTarget = 'targetFriendlyAlly';
+        else if (/target enemy ally/i.test(text)) res.effectTarget = 'targetEnemyAlly';
+        else if (/target ally/i.test(text)) res.effectTarget = 'targetAlly';
+        else if (/target character/i.test(text)) res.effectTarget = 'targetCharacter';
+        else res.effectTarget = 'self';
+      } else if (/\bdraw\s+(?:a|(\d+))\s+cards?/i.test(text)) {
+        res.effectType = 'draw';
+        const dM = text.match(/draw\s+(\d+)\s+cards?/i);
+        res.effectAmount = dM ? parseInt(dM[1]) : 1;
+      } else if (/\bgains?\s+(\d+)\s+mana/i.test(text)) {
+        res.effectType = 'mana';
+        const mM = text.match(/(\d+)\s+mana/i);
+        if (mM) res.effectAmount = parseInt(mM[1]);
+      } else if (/gains?\s+(\d+)\s+charge/i.test(text) || /deplete\s+(\d+)\s+charge/i.test(text)) {
+        res.effectType = 'charge';
+        const cM = text.match(/(\d+)\s+charge/i);
+        if (cM) res.effectAmount = parseInt(cM[1]);
+
+        if (/deplete/i.test(text)) res.effectTarget = 'deplete';
+        else if (/target ally or skill/i.test(text)) res.effectTarget = 'targetAllyOrSkill';
+        else if (/target ranged skill/i.test(text)) res.effectTarget = 'targetRangedSkill';
+        else if (/target skill/i.test(text)) res.effectTarget = 'targetSkill';
+        else if (/target ally you control/i.test(text)) res.effectTarget = 'targetFriendlyAlly';
+        else if (/target ally/i.test(text)) res.effectTarget = 'targetAlly';
+        else res.effectTarget = 'self';
+      } else if (/\bdeals?\s+(\d+)\s+(?:non-combat\s+)?damage/i.test(text)) {
+        res.effectType = 'damage';
+        const dM = text.match(/deals?\s+(\d+)\s+(?:non-combat\s+)?damage/i);
+        if (dM) res.effectAmount = parseInt(dM[1]);
+
+        if (/all allies in play/i.test(text)) res.effectTarget = 'allAllies';
+        else if (/target enemy ally/i.test(text)) res.effectTarget = 'targetEnemyAlly';
+        else if (/target character/i.test(text)) res.effectTarget = 'targetCharacter';
+        else res.effectTarget = 'targetAlly';
+      } else if (/loses?\s+(\d+)\s+health/i.test(text)) {
+        res.effectType = 'lose_health';
+        const lM = text.match(/(\d+)\s+health/i);
+        if (lM) res.effectAmount = parseInt(lM[1]);
+        if (/target enemy ally/i.test(text)) res.effectTarget = 'targetEnemyAlly';
+        else if (/target ally you control/i.test(text)) res.effectTarget = 'targetFriendlyAlly';
+        else res.effectTarget = 'targetCharacter';
+      } else if (/\+(\d+)\s+(power|defense|dexterity|ranged attack|max health|to accuracy rolls)/i.test(text)) {
+        res.effectType = 'stat_buff';
+        const bM = text.match(/\+(\d+)\s+(power|defense|dexterity|ranged attack|max health|to accuracy rolls)/i);
+        if (bM) {
+          res.effectAmount = parseInt(bM[1]);
+          const sName = bM[2].toLowerCase();
+          if (sName === 'power') res.effectStat = 'power';
+          else if (sName === 'defense') res.effectStat = 'defense';
+          else if (sName === 'dexterity') res.effectStat = 'dexterity';
+          else if (sName === 'ranged attack') res.effectStat = 'rangedAttack';
+          else if (sName === 'max health') res.effectStat = 'maxHealth';
+          else if (sName === 'to accuracy rolls') res.effectStat = 'accuracy';
+        }
+        if (/this strike/i.test(text)) res.effectDuration = 'thisStrike';
+        else if (/this turn/i.test(text)) res.effectDuration = 'thisTurn';
+        else res.effectDuration = 'permanent';
+
+        if (/You get|yourself/i.test(text)) res.effectTarget = 'selfHero';
+        else if (/Defending allies you control/i.test(text)) res.effectTarget = 'allFriendlyDefending';
+        else if (/Target ally you control/i.test(text)) res.effectTarget = 'targetFriendlyAlly';
+        else if (/Target ally/i.test(text)) res.effectTarget = 'targetAlly';
+        else if (/Target character/i.test(text)) res.effectTarget = 'targetCharacter';
+        else res.effectTarget = 'self';
+      } else if (/(\d+)\s+([^.\n]+)\s+Tokens?/i.test(text)) {
+        res.effectType = 'token';
+        const tM = text.match(/(\d+)\s+([^.\n]+)\s+Tokens?/i);
+        if (tM) {
+          res.tokenAmount = parseInt(tM[1]);
+          res.tokenName = tM[2].trim();
+        }
+      } else if (/look at the top/i.test(text) || /search your loot/i.test(text)) {
+        res.effectType = 'look_loot';
+        const cM = text.match(/top\s+(\d+)\s+cards/i);
+        res.lootCardsCount = cM ? parseInt(cM[1]) : 1;
+        if (/reveal a skill/i.test(text)) res.lootAction = 'reveal_skill';
+        else if (/skill 1 level higher/i.test(text)) res.lootAction = 'search_level';
+        else res.lootAction = 'hand';
+      } else if (/attack is (D4|D6|D8|D10|D12)/i.test(text)) {
+        res.effectType = 'attack_die';
+        const aM = text.match(/attack is (D4|D6|D8|D10|D12)/i);
+        if (aM) res.attackDieValue = aM[1].toUpperCase();
+      } else if (/roll again and your original roll is null/i.test(text)) {
+        res.effectType = 're_roll';
+      } else if (/wins chance roll/i.test(text)) {
+        res.effectType = 'force_chance';
+      } else {
+        // Check keyword grant
+        let foundKw = false;
+        for (const kw of Object.keys(KEYWORD_DEFINITIONS)) {
+          if (new RegExp(`\\b${kw}\\b`, 'i').test(text)) {
+            res.effectType = 'keyword_grant';
+            res.effectKeyword = kw;
+            foundKw = true;
+            break;
+          }
+        }
+        if (!foundKw) {
+          res.effectType = 'custom';
+          res.customEffectText = text;
+        }
+      }
+
+      return res;
+    }
+
+    function AbilityBuilderModal({ isOpen, onClose, onApply, cardName, cardType, initialAbilities, initialClause }) {
       if (!isOpen) return null;
 
-      // Builder State
+      // Classification
       const [category, setCategory] = useState(cardType === 'Skill' ? 'proficiency' : 'activated');
       
-      // Activated
+      // Activated Costs & Timing
       const [actCostType, setActCostType] = useState('mana');
       const [actManaCost, setActManaCost] = useState(2);
       const [actIsVariableMana, setActIsVariableMana] = useState(false);
@@ -549,33 +1526,68 @@
       const [actPhase, setActPhase] = useState('any');
       const [actFrequency, setActFrequency] = useState('once');
 
-      // Triggered
+      // Triggered Hierarchy
       const [trigEvent, setTrigEvent] = useState('onPlay');
+      const [trigSubject, setTrigSubject] = useState('self');
+      const [trigZone, setTrigZone] = useState('any');
       const [trigStrikeNum, setTrigStrikeNum] = useState(2);
-      const [trigDefeatType, setTrigDefeatType] = useState('self');
-      const [trigDamageTarget, setTrigDamageTarget] = useState('any');
+      const [trigStrikeZone, setTrigStrikeZone] = useState('any');
+      const [trigDamageSource, setTrigDamageSource] = useState('self');
+      const [trigDamageVictim, setTrigDamageVictim] = useState('anyEnemy');
+      const [trigDamageWeapon, setTrigDamageWeapon] = useState('none');
+      const [trigHealSubject, setTrigHealSubject] = useState('hero');
+      const [trigDrawSource, setTrigDrawSource] = useState('fromAbility');
+      const [trigChanceEvent, setTrigChanceEvent] = useState('win');
+      const [trigCounterstrikeWho, setTrigCounterstrikeWho] = useState('character');
+      const [trigTurnPhase, setTrigTurnPhase] = useState('turnStart');
 
-      // Static
-      const [staticCondition, setStaticCondition] = useState('always');
+      // Static Aura Hierarchy
+      const [staticConditionMode, setStaticConditionMode] = useState('always');
+      const [staticZoneRole, setStaticZoneRole] = useState('vanguard');
+      const [staticSynergyType, setStaticSynergyType] = useState('another_class');
       const [staticClass, setStaticClass] = useState('Soldier');
+      const [staticRace, setStaticRace] = useState('Elf');
+      const [staticPrecondition, setStaticPrecondition] = useState('enemy_defeated');
+      const [staticScaling, setStaticScaling] = useState('per_charge');
 
-      // Keyword
+      // Keyword & Proficiency
       const [selectedKeyword, setSelectedKeyword] = useState('Freeze');
-
-      // Proficiency
       const [profLevel, setProfLevel] = useState(2);
 
-      // Effect
+      // Modality & Chance Roll
+      const [isOptional, setIsOptional] = useState(false);
+      const [isChanceRoll, setIsChanceRoll] = useState(false);
+      const [chanceStyle, setChanceStyle] = useState('if_successful');
+
+      // If Condition & Referral Mapping
+      const [effectCondition, setEffectCondition] = useState('none');
+      const [referringAction, setReferringAction] = useState('mana_spent');
+      const [conditionNote, setConditionNote] = useState('none');
+      const [condChargeThreshold, setCondChargeThreshold] = useState(5);
+      const [condClass, setCondClass] = useState('Mage');
+      const [condEquipType, setCondEquipType] = useState('a dagger');
+      const [customConditionText, setCustomConditionText] = useState('');
+
+      // Then Effect Action & Targeting
       const [effectType, setEffectType] = useState('heal');
       const [effectTarget, setEffectTarget] = useState('targetCharacter');
       const [effectAmount, setEffectAmount] = useState(2);
       const [effectStat, setEffectStat] = useState('power');
       const [effectDuration, setEffectDuration] = useState('thisTurn');
-      const [effectKeyword, setEffectKeyword] = useState('chanceForCritical');
+      const [effectKeyword, setEffectKeyword] = useState('Freeze');
       const [tokenName, setTokenName] = useState('Korvas Soldier');
       const [tokenAmount, setTokenAmount] = useState(1);
-      const [isChanceRoll, setIsChanceRoll] = useState(false);
+      const [lootCardsCount, setLootCardsCount] = useState(1);
+      const [lootAction, setLootAction] = useState('hand');
+      const [attackDieValue, setAttackDieValue] = useState('D8');
       const [customEffectText, setCustomEffectText] = useState('');
+
+      // Repeat Roll / Cascade Parameters
+      const [repeatRollType, setRepeatRollType] = useState('accuracy');
+      const [repeatStopCondition, setRepeatStopCondition] = useState('until_fail_or_max');
+      const [repeatMaxCount, setRepeatMaxCount] = useState(5);
+      const [repeatSuccessOutcome, setRepeatSuccessOutcome] = useState('deals_ranged_damage');
+      const [strikeConsequence, setStrikeConsequence] = useState('none');
 
       // Manual Override / Preview Text
       const [manualText, setManualText] = useState('');
@@ -587,16 +1599,20 @@
         return initialAbilities.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
       });
 
-      // Auto-compute recommended text
+      // Synchronized State Bundle
       const currentState = {
         category,
         actCostType, actManaCost, actIsVariableMana, actVariableMax, actGoldCost, actExhaustTarget, actPhase, actFrequency,
-        trigEvent, trigStrikeNum, trigDefeatType, trigDamageTarget,
-        staticCondition, staticClass,
-        selectedKeyword,
-        profLevel,
+        trigEvent, trigSubject, trigZone, trigStrikeNum, trigStrikeZone,
+        trigDamageSource, trigDamageVictim, trigDamageWeapon,
+        trigHealSubject, trigDrawSource, trigChanceEvent, trigCounterstrikeWho, trigTurnPhase,
+        staticConditionMode, staticZoneRole, staticSynergyType, staticClass, staticRace, staticPrecondition, staticScaling,
+        selectedKeyword, profLevel,
+        isOptional, isChanceRoll, chanceStyle,
+        effectCondition, referringAction, conditionNote, condChargeThreshold, condClass, condEquipType, customConditionText,
         effectType, effectTarget, effectAmount, effectStat, effectDuration, effectKeyword,
-        tokenName, tokenAmount, isChanceRoll, customEffectText
+        tokenName, tokenAmount, lootCardsCount, lootAction, attackDieValue, customEffectText,
+        repeatRollType, repeatStopCondition, repeatMaxCount, repeatSuccessOutcome, strikeConsequence
       };
 
       const recommendedText = useMemo(() => {
@@ -606,39 +1622,122 @@
       const activeText = isManualEdit ? manualText : recommendedText;
       const engineAnalysis = useMemo(() => analyzeAbilityForEngine(activeText), [activeText]);
 
+      // Robust Reset & Preset Application: Never leaves stale flags that could hide Step 3!
       const handlePresetSelect = (preset) => {
-        setCategory(preset.category);
-        if (preset.actCostType) setActCostType(preset.actCostType);
-        if (preset.actManaCost) setActManaCost(preset.actManaCost);
-        if (preset.actIsVariableMana !== undefined) setActIsVariableMana(preset.actIsVariableMana);
-        if (preset.actVariableMax) setActVariableMax(preset.actVariableMax);
-        if (preset.actGoldCost) setActGoldCost(preset.actGoldCost);
-        if (preset.actPhase) setActPhase(preset.actPhase);
-        if (preset.actFrequency) setActFrequency(preset.actFrequency);
-        if (preset.trigEvent) setTrigEvent(preset.trigEvent);
-        if (preset.trigStrikeNum) setTrigStrikeNum(preset.trigStrikeNum);
-        if (preset.trigDefeatType) setTrigDefeatType(preset.trigDefeatType);
-        if (preset.staticCondition) setStaticCondition(preset.staticCondition);
-        if (preset.staticClass) setStaticClass(preset.staticClass);
-        if (preset.profLevel) setProfLevel(preset.profLevel);
-        if (preset.effectType) setEffectType(preset.effectType);
-        if (preset.effectTarget) setEffectTarget(preset.effectTarget);
-        if (preset.effectAmount) setEffectAmount(preset.effectAmount);
-        if (preset.effectKeyword) setEffectKeyword(preset.effectKeyword);
-        if (preset.tokenName) setTokenName(preset.tokenName);
-        if (preset.tokenAmount) setTokenAmount(preset.tokenAmount);
-        if (preset.isChanceRoll !== undefined) setIsChanceRoll(preset.isChanceRoll);
+        const next = { ...DEFAULT_BUILDER_STATE, ...preset };
+        setCategory(next.category);
+        setActCostType(next.actCostType);
+        setActManaCost(next.actManaCost);
+        setActIsVariableMana(Boolean(next.actIsVariableMana));
+        setActVariableMax(next.actVariableMax);
+        setActGoldCost(next.actGoldCost);
+        setActExhaustTarget(next.actExhaustTarget);
+        setActPhase(next.actPhase);
+        setActFrequency(next.actFrequency);
+
+        setTrigEvent(next.trigEvent);
+        setTrigSubject(next.trigSubject);
+        setTrigZone(next.trigZone);
+        setTrigStrikeNum(next.trigStrikeNum);
+        setTrigStrikeZone(next.trigStrikeZone);
+        setTrigDamageSource(next.trigDamageSource);
+        setTrigDamageVictim(next.trigDamageVictim);
+        setTrigDamageWeapon(next.trigDamageWeapon);
+        setTrigHealSubject(next.trigHealSubject);
+        setTrigDrawSource(next.trigDrawSource);
+        setTrigChanceEvent(next.trigChanceEvent);
+        setTrigCounterstrikeWho(next.trigCounterstrikeWho);
+        setTrigTurnPhase(next.trigTurnPhase);
+
+        setStaticConditionMode(next.staticConditionMode);
+        setStaticZoneRole(next.staticZoneRole);
+        setStaticSynergyType(next.staticSynergyType);
+        setStaticClass(next.staticClass);
+        setStaticRace(next.staticRace);
+        setStaticPrecondition(next.staticPrecondition);
+        setStaticScaling(next.staticScaling);
+
+        setSelectedKeyword(next.selectedKeyword);
+        setProfLevel(next.profLevel);
+
+        setIsOptional(Boolean(next.isOptional));
+        setIsChanceRoll(Boolean(next.isChanceRoll));
+        setChanceStyle(next.chanceStyle || 'if_successful');
+
+        setEffectCondition(next.effectCondition);
+        setReferringAction(next.referringAction);
+        setConditionNote(next.conditionNote);
+        setCondChargeThreshold(next.condChargeThreshold);
+        setCondClass(next.condClass);
+        setCondEquipType(next.condEquipType);
+        setCustomConditionText(next.customConditionText || '');
+
+        setEffectType(next.effectType);
+        setEffectTarget(next.effectTarget);
+        setEffectAmount(next.effectAmount);
+        setEffectStat(next.effectStat);
+        setEffectDuration(next.effectDuration);
+        setEffectKeyword(next.effectKeyword);
+        setTokenName(next.tokenName);
+        setTokenAmount(next.tokenAmount);
+        setLootCardsCount(next.lootCardsCount);
+        setLootAction(next.lootAction);
+        setAttackDieValue(next.attackDieValue);
+        setCustomEffectText(next.customEffectText || '');
+        setRepeatRollType(next.repeatRollType || 'accuracy');
+        setRepeatStopCondition(next.repeatStopCondition || 'until_fail_or_max');
+        setRepeatMaxCount(next.repeatMaxCount || 5);
+        setRepeatSuccessOutcome(next.repeatSuccessOutcome || 'none');
+        setStrikeConsequence(next.strikeConsequence || 'none');
+
         setIsManualEdit(false);
       };
 
+      const [activeClauseIdx, setActiveClauseIdx] = useState(null);
+
+      const handleLoadClause = (clauseText, idx = null) => {
+        if (!clauseText || !clauseText.trim()) return;
+        const parsed = parseAbilityTextToBuilderState(clauseText, cardName, cardType);
+        handlePresetSelect(parsed);
+        setActiveClauseIdx(idx);
+      };
+
+      const handleUpdateActiveClause = () => {
+        if (activeClauseIdx === null || !activeText.trim()) return;
+        setStackedClauses(prev => {
+          const next = [...prev];
+          next[activeClauseIdx] = activeText.trim();
+          return next;
+        });
+      };
+
+      useEffect(() => {
+        if (isOpen) {
+          if (initialClause) {
+            handleLoadClause(initialClause, null);
+          } else if (initialAbilities) {
+            const clauses = initialAbilities.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+            if (clauses.length > 0) {
+              handleLoadClause(clauses[0], 0);
+            }
+          }
+        }
+      }, [isOpen, initialClause]);
+
       const handleAddClauseToStack = () => {
         if (!activeText.trim()) return;
-        setStackedClauses(prev => [...prev, activeText.trim()]);
+        setStackedClauses(prev => {
+          const next = [...prev, activeText.trim()];
+          setActiveClauseIdx(next.length - 1);
+          return next;
+        });
         setIsManualEdit(false);
       };
 
       const handleRemoveClause = (idx) => {
         setStackedClauses(prev => prev.filter((_, i) => i !== idx));
+        if (activeClauseIdx === idx) setActiveClauseIdx(null);
+        else if (activeClauseIdx > idx) setActiveClauseIdx(prev => prev - 1);
       };
 
       const handleFinishApply = (mode) => {
@@ -728,7 +1827,7 @@
               <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800 space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                   <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-                    2. {category === 'activated' ? 'Activation Cost & Timing' : (category === 'triggered' ? 'Trigger Event & Conditions' : (category === 'static' ? 'Static Condition & Aura Scope' : (category === 'keyword' ? 'Select Official Keyword' : 'Proficiency Tier')))}
+                    2. {category === 'activated' ? 'Activation Cost & Timing' : (category === 'triggered' ? 'Trigger Event, Subject & Location' : (category === 'static' ? 'Static Condition, Role & Synergy' : (category === 'keyword' ? 'Select Official Keyword' : 'Proficiency Tier')))}
                   </span>
                   <span className="text-[10px] text-slate-500 font-medium">Reactive inputs based on classification</span>
                 </div>
@@ -747,7 +1846,7 @@
                         <option value="exhaust">Exhaust Unit (No Mana)</option>
                         <option value="mana_exhaust">Mana + Exhaust ([Mana:X] Exhaust:)</option>
                         <option value="gold_exhaust">Gold + Exhaust ([Gold:X] Exhaust:)</option>
-                        <option value="free">Free / Frequency Only</option>
+                        <option value="free">Free / Timing Only</option>
                       </select>
                     </div>
 
@@ -757,14 +1856,14 @@
                           <label className="text-[10px] uppercase font-bold text-slate-400">Mana Amount</label>
                           <label className="text-[10px] text-amber-500 flex items-center gap-1 cursor-pointer">
                             <input type="checkbox" checked={actIsVariableMana} onChange={e => { setActIsVariableMana(e.target.checked); setIsManualEdit(false); }} className="accent-amber-500" />
-                            <span>Variable (1-3)</span>
+                            <span>Variable Spend (1-X)</span>
                           </label>
                         </div>
                         {actIsVariableMana ? (
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-slate-400">1 to</span>
-                            <input type="number" min="2" max="5" value={actVariableMax} onChange={e => { setActVariableMax(parseInt(e.target.value) || 3); setIsManualEdit(false); }} className="w-16 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200" />
-                            <span className="text-xs text-slate-400">Mana</span>
+                            <input type="number" min="2" max="10" value={actVariableMax} onChange={e => { setActVariableMax(parseInt(e.target.value) || 3); setIsManualEdit(false); }} className="w-16 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200" />
+                            <span className="text-xs text-slate-400">Times</span>
                           </div>
                         ) : (
                           <input type="number" min="1" max="10" value={actManaCost} onChange={e => { setActManaCost(parseInt(e.target.value) || 1); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200" />
@@ -809,83 +1908,311 @@
                   </div>
                 )}
 
-                {/* 2B. Triggered Form */}
+                {/* 2B. Triggered Form with Clean Hierarchical Secondary Selectors */}
                 {category === 'triggered' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">When does it trigger?</label>
-                      <select value={trigEvent} onChange={e => { setTrigEvent(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
-                        <option value="onPlay">When played / comes into play (ETB)</option>
-                        <option value="onDefeat">When defeated (Death trigger)</option>
-                        <option value="onStrike">On Strike declaration (Strike 1 / 2 / 3)</option>
-                        <option value="onDamageDealt">Whenever dealing combat damage</option>
-                        <option value="onHeal">Whenever you gain health</option>
-                        <option value="onDraw">Whenever you draw a card from an ability</option>
-                        <option value="onChanceWin">Whenever you win a chance roll</option>
-                        <option value="onCounterstrike">Whenever a character counterstrikes</option>
-                        <option value="onTurnStart">At the start of your turn</option>
-                      </select>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">1. Primary Event (When does it trigger?)</label>
+                        <select value={trigEvent} onChange={e => { setTrigEvent(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 font-bold focus:border-amber-500">
+                          <option value="onPlay">When played / comes into play (ETB)</option>
+                          <option value="onDefeat">When defeated (Death trigger)</option>
+                          <option value="onStrike">On Strike declaration (Strike 1 / 2 / 3)</option>
+                          <option value="onDamageDealt">Whenever dealing combat damage</option>
+                          <option value="onDamageTaken">Whenever taking combat damage</option>
+                          <option value="onHeal">Whenever health is gained</option>
+                          <option value="onDraw">Whenever a card is drawn</option>
+                          <option value="onChanceWin">On chance roll result</option>
+                          <option value="onCounterstrike">Whenever a character counterstrikes</option>
+                          <option value="onTurnStart">Turn phase timing</option>
+                          <option value="onAccuracyRoll">When rolling accuracy (Accuracy check)</option>
+                        </select>
+                      </div>
+
+                      {/* Secondary Selectors for On-Play */}
+                      {trigEvent === 'onPlay' && (
+                        <>
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">2. Subject (Who enters play?)</label>
+                            <select value={trigSubject} onChange={e => { setTrigSubject(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                              <option value="self">This card ({cardName || 'This Character'})</option>
+                              <option value="friendlyAlly">An ally you control</option>
+                              <option value="anyAlly">Any ally in the arena</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">3. Destination Zone / Location</label>
+                            <select value={trigZone} onChange={e => { setTrigZone(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                              <option value="any">Any Zone (Standard ETB)</option>
+                              <option value="battleZone">To the Battle Zone (Frontline Vanguard)</option>
+                              <option value="bench">To the Bench</option>
+                              <option value="skillSlot">To a Skill Slot</option>
+                            </select>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Secondary Selectors for On-Defeat */}
+                      {trigEvent === 'onDefeat' && (
+                        <>
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">2. Target Defeated (Who dies?)</label>
+                            <select value={trigSubject} onChange={e => { setTrigSubject(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                              <option value="self">This card ({cardName || 'This Character'})</option>
+                              <option value="friendlyAlly">An ally you control</option>
+                              <option value="anyAlly">Any ally</option>
+                              <option value="enemyAlly">An enemy ally</option>
+                              <option value="enemyHero">An enemy Hero</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">3. Location / Zone</label>
+                            <select value={trigZone} onChange={e => { setTrigZone(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                              <option value="any">Any Zone</option>
+                              <option value="battleZone">From the Battle Zone (Vanguard)</option>
+                              <option value="bench">From the Bench</option>
+                            </select>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Secondary Selectors for On-Strike */}
+                      {trigEvent === 'onStrike' && (
+                        <>
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">2. Which Strike #?</label>
+                            <select value={trigStrikeNum} onChange={e => { setTrigStrikeNum(parseInt(e.target.value)); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                              <option value="1">Strike 1</option>
+                              <option value="2">Strike 2</option>
+                              <option value="3">Strike 3</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">3. Strike Location / Role</label>
+                            <select value={trigStrikeZone} onChange={e => { setTrigStrikeZone(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                              <option value="any">Standard (Frontline Vanguard)</option>
+                              <option value="bench">Attacks From your Bench</option>
+                            </select>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Secondary Selectors for Combat Damage Dealt */}
+                      {trigEvent === 'onDamageDealt' && (
+                        <>
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">2. Damage Source</label>
+                            <select value={trigDamageSource} onChange={e => { setTrigDamageSource(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                              <option value="self">This card / unit</option>
+                              <option value="friendlyAlly">An ally you control</option>
+                              <option value="hero">You (Hero)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">3. Victim / Target</label>
+                            <select value={trigDamageVictim} onChange={e => { setTrigDamageVictim(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                              <option value="anyEnemy">Any enemy</option>
+                              <option value="enemyHero">An enemy Hero directly</option>
+                              <option value="enemyAlly">An enemy Ally</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">4. Weapon / Condition</label>
+                            <select value={trigDamageWeapon} onChange={e => { setTrigDamageWeapon(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                              <option value="none">Standard Combat Damage</option>
+                              <option value="dagger">User has a dagger equipped</option>
+                              <option value="withSkill">With this skill</option>
+                            </select>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Secondary Selectors for Combat Damage Taken */}
+                      {trigEvent === 'onDamageTaken' && (
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">2. Subject (Who takes damage?)</label>
+                          <select value={trigSubject} onChange={e => { setTrigSubject(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="self">This card ({cardName || 'This Character'})</option>
+                            <option value="hero">Your Hero</option>
+                            <option value="friendlyAlly">An ally you control</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Secondary Selectors for On-Heal */}
+                      {trigEvent === 'onHeal' && (
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">2. Who gains health?</label>
+                          <select value={trigHealSubject} onChange={e => { setTrigHealSubject(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="hero">You (Your Hero)</option>
+                            <option value="friendlyAlly">An ally you control</option>
+                            <option value="character">Any character</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Secondary Selectors for On-Draw */}
+                      {trigEvent === 'onDraw' && (
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">2. Draw Source</label>
+                          <select value={trigDrawSource} onChange={e => { setTrigDrawSource(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="fromAbility">From an ability or effect</option>
+                            <option value="turnStart">At start of turn draw step</option>
+                            <option value="any">Whenever you draw a card (Any source)</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Secondary Selectors for Chance Roll */}
+                      {trigEvent === 'onChanceWin' && (
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">2. Chance Event</label>
+                          <select value={trigChanceEvent} onChange={e => { setTrigChanceEvent(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="win">Whenever you win a chance roll</option>
+                            <option value="roll">Whenever you roll for chance</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Secondary Selectors for Counterstrike */}
+                      {trigEvent === 'onCounterstrike' && (
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">2. Counterstrike Character</label>
+                          <select value={trigCounterstrikeWho} onChange={e => { setTrigCounterstrikeWho(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="character">Any character</option>
+                            <option value="you">You (Hero)</option>
+                            <option value="defending">This unit</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Secondary Selectors for Turn Start */}
+                      {trigEvent === 'onTurnStart' && (
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">2. Phase Timing</label>
+                          <select value={trigTurnPhase} onChange={e => { setTrigTurnPhase(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="turnStart">At the start of your turn</option>
+                            <option value="turnEnd">At the end of your turn</option>
+                            <option value="command">At the start of your command phase</option>
+                            <option value="combat">At the start of your combat phase</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Secondary Selectors for On-Accuracy Roll */}
+                      {trigEvent === 'onAccuracyRoll' && (
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">2. Rolling Accuracy For</label>
+                          <select value={trigSubject} onChange={e => { setTrigSubject(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="self">This card / skill ({cardName || 'This Skill'})</option>
+                            <option value="hero">Your Hero</option>
+                            <option value="friendlyAlly">An ally you control</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
-
-                    {trigEvent === 'onStrike' && (
-                      <div>
-                        <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Which Strike #?</label>
-                        <select value={trigStrikeNum} onChange={e => { setTrigStrikeNum(parseInt(e.target.value)); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
-                          <option value="1">Strike 1</option>
-                          <option value="2">Strike 2</option>
-                          <option value="3">Strike 3</option>
-                        </select>
-                      </div>
-                    )}
-
-                    {trigEvent === 'onDefeat' && (
-                      <div>
-                        <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Who dies?</label>
-                        <select value={trigDefeatType} onChange={e => { setTrigDefeatType(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
-                          <option value="self">This specific character</option>
-                          <option value="friendly">Any friendly ally you control</option>
-                        </select>
-                      </div>
-                    )}
-
-                    {trigEvent === 'onDamageDealt' && (
-                      <div>
-                        <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Dealt damage to whom?</label>
-                        <select value={trigDamageTarget} onChange={e => { setTrigDamageTarget(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
-                          <option value="any">Any enemy character</option>
-                          <option value="hero">An enemy Hero directly</option>
-                          <option value="enemyAlly">An enemy Ally</option>
-                        </select>
-                      </div>
-                    )}
                   </div>
                 )}
 
-                {/* 2C. Static / Continuous Form */}
+                {/* 2C. Static / Continuous Form with Clean Hierarchical Selectors */}
                 {category === 'static' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Condition</label>
-                      <select value={staticCondition} onChange={e => { setStaticCondition(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
-                        <option value="always">Always Active (Continuous trait)</option>
-                        <option value="vanguard">As long as this unit is your Vanguard</option>
-                        <option value="control_class">As long as you control another unit of class...</option>
-                        <option value="enemy_defeated">If you defeated an enemy ally this turn</option>
-                        <option value="bench_strike">Can strike from your bench</option>
-                        <option value="allegiance">Allegiance (Buff allies of same class)</option>
-                      </select>
-                    </div>
-
-                    {(staticCondition === 'vanguard' || staticCondition === 'control_class') && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Associated Class</label>
-                        <select value={staticClass} onChange={e => { setStaticClass(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
-                          {["Soldier", "Knight", "Mage", "Ranger", "Assassin", "Paladin", "Berserker", "Cleric", "Sprite", "Wyrm"].map(c => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
+                        <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">1. Static Condition Category</label>
+                        <select value={staticConditionMode} onChange={e => { setStaticConditionMode(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 font-bold focus:border-amber-500">
+                          <option value="always">Always Active (Continuous passive)</option>
+                          <option value="zone_role">Location & Frontline Role (Vanguard / Bench)</option>
+                          <option value="control_synergy">Control Synergy (Tribal / Class / Race)</option>
+                          <option value="combat_precondition">Combat Preconditions (Defeated enemy, etc.)</option>
+                          <option value="scaling">Resource & Counter Scaling (Charge, Discard)</option>
                         </select>
                       </div>
-                    )}
+
+                      {/* Sub-selectors for Zone & Role */}
+                      {staticConditionMode === 'zone_role' && (
+                        <>
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">2. Role / Placement</label>
+                            <select value={staticZoneRole} onChange={e => { setStaticZoneRole(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                              <option value="vanguard">As long as this unit is your Vanguard</option>
+                              <option value="bench_strike">Can strike from your bench</option>
+                              <option value="bench">While on your bench</option>
+                              <option value="defending">Defending allies in combat</option>
+                            </select>
+                          </div>
+                          {staticZoneRole === 'vanguard' && (
+                            <div>
+                              <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">3. Class Buffed by Vanguard</label>
+                              <select value={staticClass} onChange={e => { setStaticClass(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                                {["Soldier", "Knight", "Mage", "Ranger", "Assassin", "Paladin", "Berserker", "Cleric", "Sprite", "Wyrm"].map(c => (
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* Sub-selectors for Control Synergy */}
+                      {staticConditionMode === 'control_synergy' && (
+                        <>
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">2. Synergy Requirement</label>
+                            <select value={staticSynergyType} onChange={e => { setStaticSynergyType(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                              <option value="another_class">Control another ally of class...</option>
+                              <option value="all_class">All allies you control of class...</option>
+                              <option value="other_race">Other allies you control of race...</option>
+                              <option value="allegiance">Allegiance (Advantage to same class)</option>
+                            </select>
+                          </div>
+                          {(staticSynergyType === 'another_class' || staticSynergyType === 'all_class') && (
+                            <div>
+                              <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">3. Class Required</label>
+                              <select value={staticClass} onChange={e => { setStaticClass(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                                {["Soldier", "Knight", "Mage", "Ranger", "Assassin", "Paladin", "Berserker", "Cleric", "Sprite", "Wyrm"].map(c => (
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                          {staticSynergyType === 'other_race' && (
+                            <div>
+                              <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">3. Race Required</label>
+                              <select value={staticRace} onChange={e => { setStaticRace(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                                {["Elf", "Human", "Orc", "Dwarf", "Undead", "Beast", "Dragon", "Goblin"].map(r => (
+                                  <option key={r} value={r}>{r}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* Sub-selectors for Combat Preconditions */}
+                      {staticConditionMode === 'combat_precondition' && (
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">2. Precondition Met</label>
+                          <select value={staticPrecondition} onChange={e => { setStaticPrecondition(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="enemy_defeated">If you defeated an enemy ally this turn</option>
+                            <option value="enemy_noncombat">If an enemy took non-combat damage this turn</option>
+                            <option value="struck_twice">If you have struck twice this turn</option>
+                            <option value="won_chance">If you won a chance roll this turn</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Sub-selectors for Scaling */}
+                      {staticConditionMode === 'scaling' && (
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">2. Scaling Factor</label>
+                          <select value={staticScaling} onChange={e => { setStaticScaling(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="per_charge">For every charge token on this card</option>
+                            <option value="discard_count">Total cards in your discard pile</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -925,32 +2252,193 @@
 
               </div>
 
-              {/* Step 3: Effect & Target Selector (when not a pure keyword) */}
-              {category !== 'keyword' && !actIsVariableMana && (
+              {/* Step 3: Effect Action & If Condition */}
+              {category !== 'keyword' && (
                 <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800 space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                    <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
-                      3. Effect & Target
+                  {/* Section Header with Modality and Chance Controls */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-2 gap-2">
+                    <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>3. Effect Action, If Condition & Outcome</span>
                     </span>
-                    <label className="text-[11px] text-amber-400 font-semibold flex items-center gap-1.5 cursor-pointer">
-                      <input type="checkbox" checked={isChanceRoll} onChange={e => { setIsChanceRoll(e.target.checked); setIsManualEdit(false); }} className="accent-amber-500 w-3.5 h-3.5" />
-                      <span>🎲 Require Chance Roll (Roll for chance to...)</span>
-                    </label>
+                    <div className="flex items-center gap-3">
+                      <label className="text-[11px] text-amber-300 font-semibold flex items-center gap-1.5 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={isOptional} 
+                          onChange={e => { setIsOptional(e.target.checked); setIsManualEdit(false); }} 
+                          className="accent-amber-500 w-3.5 h-3.5" 
+                        />
+                        <span>Optional ("You may...")</span>
+                      </label>
+                      <label className="text-[11px] text-amber-400 font-semibold flex items-center gap-1.5 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={isChanceRoll} 
+                          onChange={e => { setIsChanceRoll(e.target.checked); setIsManualEdit(false); }} 
+                          className="accent-amber-500 w-3.5 h-3.5" 
+                        />
+                        <span>🎲 Require Chance Roll</span>
+                      </label>
+                    </div>
                   </div>
 
+                  {/* If Condition Configuration */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-900/60 p-3 rounded-lg border border-slate-800/80">
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-amber-400 block mb-1">
+                        If Condition
+                      </label>
+                      <select 
+                        value={effectCondition} 
+                        onChange={e => { setEffectCondition(e.target.value); setIsManualEdit(false); }} 
+                        className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-amber-300 font-medium focus:border-amber-500">
+                        <option value="none">None (Always happens / Unconditional)</option>
+                        <option value="if_you_do">"If you do..." (Refer to previous action / spend)</option>
+                        <option value="if_chance_success">"If successful..." (Roll for chance. If successful...)</option>
+                        <option value="if_chance_win">"If you win..." (Roll for chance. If you win...)</option>
+                        <option value="if_defeated_enemy">"If you defeated an enemy ally this turn..."</option>
+                        <option value="if_enemy_noncombat">"If an enemy took non-combat damage this turn..."</option>
+                        <option value="if_struck_twice">"If you have struck twice this turn..."</option>
+                        <option value="if_roll_one">"If you roll a 1..."</option>
+                        <option value="if_charge_count">"If this card has [X] charge..."</option>
+                        <option value="if_target_class">"If target is a [Class]..."</option>
+                        <option value="if_user_equipped">"If user has [Equipment] equipped..."</option>
+                        <option value="custom">Custom If Condition...</option>
+                      </select>
+                    </div>
+
+                    {/* Sub-selectors for "If you do" */}
+                    {effectCondition === 'if_you_do' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Referring to / Scaled by</label>
+                          <select 
+                            value={referringAction} 
+                            onChange={e => { setReferringAction(e.target.value); setIsManualEdit(false); }} 
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="mana_spent">for each mana that was spent</option>
+                            <option value="gold_spent">for each gold that was spent</option>
+                            <option value="charge_spent">for each charge spent / removed</option>
+                            <option value="soldiers_controlled">for every soldier you control in play</option>
+                            <option value="allies_controlled">for every ally you control in play</option>
+                            <option value="counters_on_it">for every counter on it</option>
+                            <option value="damage_dealt">equal to combat damage dealt</option>
+                            <option value="attack_roll">equal to the attack roll</option>
+                            <option value="sacrifice_strike">sacrifice your third strike</option>
+                            <option value="hp_lost">lose the health gained</option>
+                            <option value="none">none (standard follow-up)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Trigger / Rule Note</label>
+                          <select 
+                            value={conditionNote} 
+                            onChange={e => { setConditionNote(e.target.value); setIsManualEdit(false); }} 
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="none">None</option>
+                            <option value="single_trigger">All health gained counts as 1 trigger</option>
+                            <option value="null_original">Original roll is null</option>
+                            <option value="reroll_once">You can only re-roll once</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Chance Roll Style Selector */}
+                    {isChanceRoll && effectCondition !== 'if_chance_success' && effectCondition !== 'if_chance_win' && (
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Chance Phrasing Style</label>
+                        <select 
+                          value={chanceStyle} 
+                          onChange={e => { setChanceStyle(e.target.value); setIsManualEdit(false); }} 
+                          className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                          <option value="if_successful">Clause ("Roll for chance. If successful, ...")</option>
+                          <option value="if_win">Clause ("Roll for chance. If you win, ...")</option>
+                          <option value="infinitive">Inline ("they roll for chance to deal / heal...")</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Sub-selector for Charge Threshold */}
+                    {effectCondition === 'if_charge_count' && (
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Required Charge Count</label>
+                        <input 
+                          type="number" 
+                          min="1" 
+                          max="20" 
+                          value={condChargeThreshold} 
+                          onChange={e => { setCondChargeThreshold(parseInt(e.target.value) || 5); setIsManualEdit(false); }} 
+                          className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200" 
+                        />
+                      </div>
+                    )}
+
+                    {/* Sub-selector for Target Class */}
+                    {effectCondition === 'if_target_class' && (
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">If Target Is Class</label>
+                        <select 
+                          value={condClass} 
+                          onChange={e => { setCondClass(e.target.value); setIsManualEdit(false); }} 
+                          className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                          {["Mage", "Soldier", "Knight", "Ranger", "Assassin", "Paladin", "Berserker", "Cleric", "Sprite", "Wyrm"].map(c => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Sub-selector for User Equipment */}
+                    {effectCondition === 'if_user_equipped' && (
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Equipped Item / Weapon</label>
+                        <select 
+                          value={condEquipType} 
+                          onChange={e => { setCondEquipType(e.target.value); setIsManualEdit(false); }} 
+                          className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                          <option value="a dagger">A Dagger</option>
+                          <option value="a sword">A Sword</option>
+                          <option value="a bow">A Bow</option>
+                          <option value="a shield">A Shield</option>
+                          <option value="armor">Armor</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Sub-selector for Custom Condition */}
+                    {effectCondition === 'custom' && (
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Custom Condition Text</label>
+                        <input 
+                          type="text" 
+                          value={customConditionText} 
+                          onChange={e => { setCustomConditionText(e.target.value); setIsManualEdit(false); }} 
+                          className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200" 
+                          placeholder="e.g. If that player cannot pay either cost" 
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Then Effect Action & Options */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Effect Action</label>
-                      <select value={effectType} onChange={e => { setEffectType(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                      <label className="text-[10px] uppercase font-bold text-emerald-400 block mb-1">Then Effect Action</label>
+                      <select value={effectType} onChange={e => { setEffectType(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 font-medium">
                         <option value="heal">💚 Heal / Restore Health</option>
                         <option value="draw">🔮 Draw Cards</option>
                         <option value="charge">⚡ Add / Deplete Charge</option>
                         <option value="mana">💎 Gain Mana</option>
                         <option value="damage">💥 Deal Non-Combat Damage</option>
                         <option value="lose_health">🩸 Target Loses Health</option>
-                        <option value="stat_buff">🛡️ Temporary Stat Bonus (+PWR, +DEX, etc.)</option>
-                        <option value="keyword_grant">⚔️ Grant Keyword (Advantage, Critical, etc.)</option>
+                        <option value="stat_buff">🛡️ Stat Modifier (+PWR, +DEX, etc.)</option>
+                        <option value="keyword_grant">⚔️ Gain / Grant Keyword (Advantage, Freeze, etc.)</option>
                         <option value="token">♟️ Summon Token Unit</option>
+                        <option value="look_loot">📜 Look at / Search Loot</option>
+                        <option value="attack_die">🎲 Override Attack Die (D6, D8...)</option>
+                        <option value="re_roll">🔄 Re-roll Die</option>
+                        <option value="repeat_roll">🎯 Repeat Roll Until Failure (Streak / Cascade)</option>
                         <option value="force_chance">🎯 Target Wins Chance Roll</option>
                         <option value="custom">✏️ Custom Freeform Effect</option>
                       </select>
@@ -970,6 +2458,7 @@
                           <option value="targetRangedSkill">Target ranged skill</option>
                           <option value="selfHero">You (Your Hero)</option>
                           <option value="self">This card / self</option>
+                          {effectType === 'charge' && <option value="deplete">Deplete charge from it</option>}
                           {effectType === 'damage' && <option value="allAllies">All allies in play</option>}
                           {effectType === 'stat_buff' && <option value="allFriendlyDefending">Defending allies you control</option>}
                         </select>
@@ -997,6 +2486,8 @@
                             <option value="defense">Defense</option>
                             <option value="rangedAttack">Ranged Attack</option>
                             <option value="maxHealth">Max Health</option>
+                            <option value="health">Temporary Health</option>
+                            <option value="accuracy">Accuracy Rolls</option>
                           </select>
                         </div>
                         <div>
@@ -1010,19 +2501,15 @@
                       </>
                     )}
 
-                    {/* Keyword Grant Sub-options */}
+                    {/* Gain / Grant Keyword Sub-options with Full Official Keywords List */}
                     {effectType === 'keyword_grant' && (
                       <>
                         <div>
                           <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Keyword Granted</label>
-                          <select value={effectKeyword} onChange={e => { setEffectKeyword(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
-                            <option value="chanceForCritical">Chance for Critical</option>
-                            <option value="chanceForEvasion">Chance for Evasion</option>
-                            <option value="advantage">Advantage</option>
-                            <option value="doubleAdvantage">Double Advantage</option>
-                            <option value="knockback">Knockback</option>
-                            <option value="overreach">Overreach</option>
-                            <option value="freeze">Freeze</option>
+                          <select value={effectKeyword} onChange={e => { setEffectKeyword(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 font-bold focus:border-amber-500">
+                            {Object.keys(KEYWORD_DEFINITIONS).map(kw => (
+                              <option key={kw} value={kw}>{kw} — {KEYWORD_DEFINITIONS[kw].shortDesc}</option>
+                            ))}
                           </select>
                         </div>
                         <div>
@@ -1030,6 +2517,7 @@
                           <select value={effectDuration} onChange={e => { setEffectDuration(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
                             <option value="thisTurn">This Turn</option>
                             <option value="thisStrike">This Strike</option>
+                            <option value="permanent">Permanent / Continuous</option>
                           </select>
                         </div>
                       </>
@@ -1052,6 +2540,92 @@
                         </div>
                       </>
                     )}
+
+                    {/* Loot Deck Sub-options */}
+                    {effectType === 'look_loot' && (
+                      <>
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Number of Cards</label>
+                          <input type="number" min="1" max="5" value={lootCardsCount} onChange={e => { setLootCardsCount(parseInt(e.target.value) || 1); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Loot Action</label>
+                          <select value={lootAction} onChange={e => { setLootAction(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="hand">Put that card into your hand</option>
+                            <option value="reveal_skill">Reveal a Skill card and put into hand</option>
+                            <option value="search_level">Search for skill 1 level higher</option>
+                          </select>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Attack Die Override Sub-options */}
+                    {effectType === 'attack_die' && (
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Attack Die</label>
+                        <select value={attackDieValue} onChange={e => { setAttackDieValue(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                          <option value="D4">D4</option>
+                          <option value="D6">D6</option>
+                          <option value="D8">D8</option>
+                          <option value="D10">D10</option>
+                          <option value="D12">D12</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Repeat Roll / Cascade Sub-options */}
+                    {effectType === 'repeat_roll' && (
+                      <>
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Roll Type</label>
+                          <select value={repeatRollType} onChange={e => { setRepeatRollType(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="accuracy">Accuracy Roll (d20 vs AC)</option>
+                            <option value="chance">Chance Roll (d20 vs 11+)</option>
+                            <option value="attack">Attack Die Roll</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Stop Criterion</label>
+                          <select value={repeatStopCondition} onChange={e => { setRepeatStopCondition(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="until_fail_or_max">Until you fail or succeed X times</option>
+                            <option value="until_fail">Until you fail (No cap)</option>
+                            <option value="until_success">Until you succeed X times</option>
+                          </select>
+                        </div>
+                        {repeatStopCondition !== 'until_fail' && (
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Max Successes (Cap)</label>
+                            <input type="number" min="1" max="20" value={repeatMaxCount} onChange={e => { setRepeatMaxCount(parseInt(e.target.value) || 1); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200" />
+                          </div>
+                        )}
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Outcome Per Success</label>
+                          <select value={repeatSuccessOutcome} onChange={e => { setRepeatSuccessOutcome(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="deals_ranged_damage">Deals its ranged attack damage to targeted character</option>
+                            <option value="deals_combat_damage">Deals its combat damage to targeted character</option>
+                            <option value="deal_damage">Deals non-combat damage per hit</option>
+                            <option value="gain_charge">Gain 1 charge per hit</option>
+                            <option value="none">Standard Combat Damage (No extra clause)</option>
+                          </select>
+                        </div>
+                        {repeatSuccessOutcome === 'deal_damage' && (
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Damage Per Hit</label>
+                            <input type="number" min="1" max="20" value={effectAmount} onChange={e => { setEffectAmount(parseInt(e.target.value) || 1); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200" />
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Strike Consequence / Restriction</label>
+                      <select value={strikeConsequence} onChange={e => { setStrikeConsequence(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                        <option value="none">None (Standard combat progression)</option>
+                        <option value="ends_combat_phase">Striking with this card ends your combat phase</option>
+                        <option value="exhausts_hero">Striking with this card exhausts your hero</option>
+                        <option value="sacrifice_strikes">Striking with this card sacrifices remaining strikes</option>
+                      </select>
+                    </div>
 
                     {/* Custom Text */}
                     {effectType === 'custom' && (
@@ -1125,12 +2699,20 @@
                 </div>
 
                 {/* Add to Clauses Stack Button */}
-                <div className="flex justify-end pt-1">
+                <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                  {activeClauseIdx !== null && (
+                    <button 
+                      type="button" 
+                      onClick={handleUpdateActiveClause}
+                      className="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 font-bold rounded-lg text-xs transition shadow flex items-center gap-1.5">
+                      <span>💾</span><span>Update Selected Clause #{activeClauseIdx + 1}</span>
+                    </button>
+                  )}
                   <button 
                     type="button" 
                     onClick={handleAddClauseToStack}
                     className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold transition border border-slate-700 flex items-center gap-1.5">
-                    <span>➕ Add This Ability to Card's Multi-Ability List</span>
+                    <span>➕ Add as New Clause</span>
                   </button>
                 </div>
               </div>
@@ -1141,19 +2723,42 @@
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                       <span>📑</span><span>Active Card Clauses ({stackedClauses.length})</span>
+                      <span className="text-[10px] text-amber-400 font-normal ml-2">Click any clause to load into Builder</span>
                     </span>
-                    <button type="button" onClick={() => setStackedClauses([])} className="text-[10px] text-rose-400 hover:text-rose-300 font-semibold">Clear All</button>
+                    <button type="button" onClick={() => { setStackedClauses([]); setActiveClauseIdx(null); }} className="text-[10px] text-rose-400 hover:text-rose-300 font-semibold">Clear All</button>
                   </div>
                   <div className="space-y-2">
-                    {stackedClauses.map((clause, idx) => (
-                      <div key={idx} className="flex justify-between items-center bg-slate-900 border border-slate-800 rounded-lg p-2.5 gap-2">
-                        <div className="text-xs text-slate-200 leading-snug flex-1">
-                          <span className="font-bold text-amber-500 mr-1.5">#{idx + 1}</span>
-                          {renderAbilityText(clause)}
+                    {stackedClauses.map((clause, idx) => {
+                      const isActive = activeClauseIdx === idx;
+                      return (
+                        <div 
+                          key={idx} 
+                          onClick={() => handleLoadClause(clause, idx)}
+                          className={`flex justify-between items-center border rounded-lg p-2.5 gap-2 cursor-pointer transition group ${isActive ? 'bg-amber-950/40 border-amber-500/80 shadow-md ring-1 ring-amber-500/40' : 'bg-slate-900 border-slate-800 hover:border-amber-500/40 hover:bg-slate-850'}`}
+                          title="Click to load and inspect this clause in the builder">
+                          <div className="text-xs text-slate-200 leading-snug flex-1">
+                            <span className={`font-bold mr-1.5 ${isActive ? 'text-amber-400 font-black' : 'text-slate-400'}`}>#{idx + 1}</span>
+                            {renderAbilityText(clause)}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {isActive ? (
+                              <span className="text-[10px] bg-amber-500 text-slate-950 font-bold px-2 py-0.5 rounded shadow-sm">
+                                Loaded in Builder
+                              </span>
+                            ) : (
+                              <span className="text-[10px] bg-slate-800 text-slate-300 group-hover:bg-amber-600 group-hover:text-white px-2 py-0.5 rounded font-medium transition">
+                                ⚡ Click to Load
+                              </span>
+                            )}
+                            <button 
+                              type="button" 
+                              onClick={(e) => { e.stopPropagation(); handleRemoveClause(idx); }} 
+                              className="text-slate-500 hover:text-rose-400 font-bold px-2 py-1 leading-none rounded hover:bg-slate-800 transition"
+                              title="Delete clause">✕</button>
+                          </div>
                         </div>
-                        <button type="button" onClick={() => handleRemoveClause(idx)} className="text-slate-500 hover:text-rose-400 font-bold px-2 py-1 leading-none rounded hover:bg-slate-800 transition">✕</button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1194,6 +2799,7 @@
     function App() {
       const [showAbilityBuilder, setShowAbilityBuilder] = useState(false);
       const [abilityBuilderTarget, setAbilityBuilderTarget] = useState('forge');
+      const [initialBuilderClause, setInitialBuilderClause] = useState('');
       // Session-wide cache-buster timestamp (prevents infinite network spam when typing)
       const sessionBuster = useMemo(() => Date.now(), []);
 
@@ -2712,8 +4318,30 @@
                             </div>
                             
                             {forgeData.Abilities && (
-                                <div className="mt-2.5 pt-2.5 border-t border-slate-700 text-xs text-slate-200 whitespace-pre-wrap leading-relaxed min-w-0 break-words">
-                                    {renderAbilityText(forgeData.Abilities)}
+                                <div className="mt-2.5 pt-2.5 border-t border-slate-700 text-xs text-slate-200 leading-relaxed min-w-0 break-words space-y-1.5">
+                                    <div className="text-[9px] uppercase tracking-wider font-bold text-amber-400/80 flex items-center justify-between">
+                                        <span>Abilities</span>
+                                        <span className="text-[8px] text-slate-400 font-normal">Click a clause to load in builder</span>
+                                    </div>
+                                    {forgeData.Abilities.split(/\n\s*\n/).map((clause, cIdx) => (
+                                        <div 
+                                            key={cIdx}
+                                            onClick={() => {
+                                                setAbilityBuilderTarget('forge');
+                                                setInitialBuilderClause(clause.trim());
+                                                setShowAbilityBuilder(true);
+                                            }}
+                                            className="p-1 rounded bg-slate-900/60 hover:bg-amber-950/40 border border-slate-800 hover:border-amber-500/50 cursor-pointer transition group"
+                                            title="Click to load this ability into Guided Ability Builder"
+                                        >
+                                            <div className="flex items-start justify-between gap-1">
+                                                <div className="flex-1">{renderAbilityText(clause)}</div>
+                                                <span className="text-[8px] text-amber-400 opacity-0 group-hover:opacity-100 transition whitespace-nowrap bg-amber-950 px-1 py-0.5 rounded border border-amber-600/50">
+                                                    ⚡ Load
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>
@@ -3418,8 +5046,36 @@
                               )}
                             </div>
                           ) : (
-                            <span className="text-left sm:text-right text-slate-200 break-words whitespace-pre-wrap flex-1 leading-relaxed min-w-0">
-                                {key === 'Abilities' ? renderAbilityText(val) : String(val)}
+                            <span className="text-left sm:text-right text-slate-200 break-words flex-1 leading-relaxed min-w-0">
+                                {key === 'Abilities' && val ? (
+                                    <div className="space-y-1.5 text-left">
+                                        <div className="text-[9px] uppercase tracking-wider font-bold text-amber-400/80 flex items-center justify-between">
+                                            <span>Abilities</span>
+                                            <span className="text-[8px] text-slate-400 font-normal">Click a clause to load in builder</span>
+                                        </div>
+                                        {String(val).split(/\n\s*\n/).map((clause, cIdx) => (
+                                            <div 
+                                                key={cIdx}
+                                                onClick={() => {
+                                                    setAbilityBuilderTarget('modal');
+                                                    setInitialBuilderClause(clause.trim());
+                                                    setShowAbilityBuilder(true);
+                                                }}
+                                                className="p-1.5 rounded bg-slate-900/60 hover:bg-amber-950/40 border border-slate-800 hover:border-amber-500/50 cursor-pointer transition group"
+                                                title="Click to load into Guided Ability Builder"
+                                            >
+                                                <div className="flex items-start justify-between gap-1.5">
+                                                    <div className="flex-1">{renderAbilityText(clause)}</div>
+                                                    <span className="text-[9px] text-amber-400 opacity-0 group-hover:opacity-100 transition whitespace-nowrap bg-amber-950 px-1.5 py-0.5 rounded border border-amber-600/50">
+                                                        ⚡ Load in Builder
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    String(val)
+                                )}
                             </span>
                           )}
                         </div>
@@ -3434,10 +5090,11 @@
           {/* GUIDED ABILITY BUILDER MODAL */}
           <AbilityBuilderModal
             isOpen={showAbilityBuilder}
-            onClose={() => setShowAbilityBuilder(false)}
+            onClose={() => { setShowAbilityBuilder(false); setInitialBuilderClause(''); }}
             cardName={abilityBuilderTarget === 'forge' ? (forgeData['Card Name'] || '') : (modalCard ? (modalCard['Card Name'] || modalCard['Hero Name'] || '') : '')}
             cardType={abilityBuilderTarget === 'forge' ? forgeCategory : (modalCard ? modalCard._type : 'Ally')}
             initialAbilities={abilityBuilderTarget === 'forge' ? (forgeData['Abilities'] || '') : (modalCard ? (modalCard['Abilities'] || '') : '')}
+            initialClause={initialBuilderClause}
             onApply={(newAbilities) => {
               if (abilityBuilderTarget === 'forge') {
                 handleForgeChange('Abilities', newAbilities);
