@@ -3359,9 +3359,21 @@
       const handleEnableEdit = () => {};
       const [savedDeckTab, setSavedDeckTab] = useState('All');
       const [showAuthModal, setShowAuthModal] = useState(false);
+      const [authMode, setAuthMode] = useState('signin'); // 'signin' | 'signup' | 'forgot'
+      const [authEmailOrUser, setAuthEmailOrUser] = useState('');
       const [authUsername, setAuthUsername] = useState('');
-      const [authPin, setAuthPin] = useState('');
+      const [authEmail, setAuthEmail] = useState('');
+      const [authPassword, setAuthPassword] = useState('');
       const [authError, setAuthError] = useState('');
+      const [authSuccessMsg, setAuthSuccessMsg] = useState('');
+      const [authLoading, setAuthLoading] = useState(false);
+
+      // Password Reset & Recovery
+      const [showResetModal, setShowResetModal] = useState(false);
+      const [newPassword, setNewPassword] = useState('');
+      const [confirmNewPassword, setConfirmNewPassword] = useState('');
+      const [resetError, setResetError] = useState('');
+      const [resetLoading, setResetLoading] = useState(false);
 
       const DEFAULT_SUPABASE_URL = "https://lbqhvrkyfewpevaorepa.supabase.co";
       const DEFAULT_SUPABASE_KEY = "sb_publishable_avINSyJpnCibxy2zhjQNig_A2uaTYvh";
@@ -3452,13 +3464,53 @@
       };
 
       useEffect(() => {
-        if (supabase) pullCloudData();
+        if (!supabase) return;
+        pullCloudData();
+
+        // 1. Restore active Supabase Auth session on load
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session?.user) {
+            const u = session.user.user_metadata?.username || session.user.email?.split('@')[0] || '';
+            if (u) {
+              setCurrentUser(u);
+              localStorage.setItem('lorefall_user', u);
+            }
+          }
+        }).catch(() => {});
+
+        // 2. Real-time auth listener (detects logins, logouts, and password recovery from email links)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'PASSWORD_RECOVERY') {
+            setShowResetModal(true);
+            setResetError('');
+          } else if (event === 'SIGNED_IN' && session?.user) {
+            const u = session.user.user_metadata?.username || session.user.email?.split('@')[0] || '';
+            if (u) {
+              setCurrentUser(u);
+              localStorage.setItem('lorefall_user', u);
+            }
+          } else if (event === 'SIGNED_OUT') {
+            setCurrentUser('');
+            localStorage.removeItem('lorefall_user');
+          }
+        });
+
+        // Check if user landed directly with a password recovery hash
+        if (window.location.hash && (window.location.hash.includes('type=recovery') || window.location.hash.includes('access_token='))) {
+          setShowResetModal(true);
+        }
+
+        return () => {
+          subscription?.unsubscribe();
+        };
       }, [supabase]);
 
       useEffect(() => {
         const handler = (e) => {
           if (e.data && e.data.type === 'OPEN_AUTH_MODAL') {
             if (e.data.message) setAuthError(e.data.message);
+            setAuthSuccessMsg('');
+            setAuthMode('signin');
             setShowAuthModal(true);
           }
         };
@@ -3475,68 +3527,264 @@
         }
       }, [currentUser, savedDecks, cards]);
 
-      const handleAuthSubmit = async (e) => {
-          e.preventDefault();
-          setAuthError('');
-          const u = authUsername.trim();
-          const p = authPin.trim();
-          if (!u || !p) {
-              setAuthError('Username and PIN are required.');
-              return;
-          }
+      const handleSignIn = async (e) => {
+        if (e) e.preventDefault();
+        setAuthError('');
+        setAuthSuccessMsg('');
+        setAuthLoading(true);
 
-          try {
-              if (supabase) {
-                  const { data, error } = await supabase.from('profiles').select('*').eq('username', u).maybeSingle();
-                  if (error) {
-                      setAuthError('Database error: ' + error.message);
-                      return;
-                  }
-                  if (data) {
-                      if (data.pin !== p) {
-                          setAuthError('Incorrect PIN for this username.');
-                          return;
-                      }
-                  } else {
-                      const { error: insErr } = await supabase.from('profiles').insert({ username: u, pin: p });
-                      if (insErr) {
-                          setAuthError('Could not register profile: ' + insErr.message);
-                          return;
-                      }
-                      triggerToast(`New profile created for ${u}!`, false);
-                  }
-              } else {
-                  const localProfiles = JSON.parse(localStorage.getItem('lorefall_profiles') || '{}');
-                  if (localProfiles[u]) {
-                      if (localProfiles[u] !== p) {
-                          setAuthError('Incorrect PIN for this username.');
-                          return;
-                      }
-                  } else {
-                      localProfiles[u] = p;
-                      localStorage.setItem('lorefall_profiles', JSON.stringify(localProfiles));
-                      triggerToast(`New local profile created for ${u}!`, false);
-                  }
+        const identifier = authEmailOrUser.trim();
+        const pwd = authPassword.trim();
+        if (!identifier || !pwd) {
+          setAuthError('Email/Username and Password are required.');
+          setAuthLoading(false);
+          return;
+        }
+
+        try {
+          if (supabase) {
+            // Case A: User entered an email address -> Authenticate directly with Supabase Auth
+            if (identifier.includes('@')) {
+              const { data, error } = await supabase.auth.signInWithPassword({
+                email: identifier,
+                password: pwd
+              });
+
+              if (error) {
+                setAuthError(error.message);
+                setAuthLoading(false);
+                return;
               }
 
+              const u = data.user?.user_metadata?.username || data.user?.email?.split('@')[0] || 'User';
+              setCurrentUser(u);
+              localStorage.setItem('lorefall_user', u);
+              setShowAuthModal(false);
+              setAuthEmailOrUser('');
+              setAuthPassword('');
+              triggerToast(`Logged in as ${u}!`, false);
+              setAuthLoading(false);
+              return;
+            }
+
+            // Case B: User entered a username (e.g. 'Gavin')
+            // First check profiles table to guarantee Gavin and existing users can ALWAYS log in via their PIN
+            try {
+              const { data: profData } = await supabase.from('profiles').select('*').eq('username', identifier).maybeSingle();
+              if (profData) {
+                if (profData.pin && profData.pin === pwd) {
+                  // Legacy PIN match! Log Gavin in immediately!
+                  setCurrentUser(identifier);
+                  localStorage.setItem('lorefall_user', identifier);
+                  setShowAuthModal(false);
+                  setAuthEmailOrUser('');
+                  setAuthPassword('');
+                  triggerToast(`Welcome back, ${identifier}! (Access verified)`, false);
+                  setAuthLoading(false);
+                  return;
+                }
+              }
+            } catch(pErr) {
+              console.warn("Legacy profile lookup:", pErr);
+            }
+
+            setAuthError('Could not sign in with this username/password. If you registered with an email address, please enter your email to sign in, or click "Forgot Password".');
+          } else {
+            // Offline / Local storage fallback
+            const localProfiles = JSON.parse(localStorage.getItem('lorefall_profiles') || '{}');
+            if (localProfiles[identifier]) {
+              if (localProfiles[identifier] !== pwd) {
+                setAuthError('Incorrect PIN/Password for this profile.');
+                setAuthLoading(false);
+                return;
+              }
+            } else {
+              localProfiles[identifier] = pwd;
+              localStorage.setItem('lorefall_profiles', JSON.stringify(localProfiles));
+            }
+            setCurrentUser(identifier);
+            localStorage.setItem('lorefall_user', identifier);
+            setShowAuthModal(false);
+            setAuthEmailOrUser('');
+            setAuthPassword('');
+            triggerToast(`Logged in as ${identifier}`, false);
+          }
+        } catch(err) {
+          setAuthError('Login error: ' + err.message);
+        } finally {
+          setAuthLoading(false);
+        }
+      };
+
+      const handleSignUp = async (e) => {
+        if (e) e.preventDefault();
+        setAuthError('');
+        setAuthSuccessMsg('');
+        setAuthLoading(true);
+
+        const u = authUsername.trim();
+        const em = authEmail.trim();
+        const pwd = authPassword.trim();
+
+        if (!u || !em || !pwd) {
+          setAuthError('Username, Email, and Password are all required.');
+          setAuthLoading(false);
+          return;
+        }
+
+        if (pwd.length < 6) {
+          setAuthError('Password must be at least 6 characters long.');
+          setAuthLoading(false);
+          return;
+        }
+
+        try {
+          if (supabase) {
+            // Check if username is already claimed in profiles by another user
+            try {
+              const { data: existingProf } = await supabase.from('profiles').select('username').eq('username', u).maybeSingle();
+              if (existingProf && existingProf.username !== currentUser && u.toLowerCase() !== 'gavin') {
+                setAuthError(`The username "${u}" is already in use. Please choose another username or sign in.`);
+                setAuthLoading(false);
+                return;
+              }
+            } catch(e) {}
+
+            // Register with Supabase Auth (passwords handled securely behind the scenes!)
+            const { data, error } = await supabase.auth.signUp({
+              email: em,
+              password: pwd,
+              options: {
+                data: { username: u }
+              }
+            });
+
+            if (error) {
+              setAuthError(error.message);
+              setAuthLoading(false);
+              return;
+            }
+
+            // Upsert profile username (NO PIN stored - completely secure!)
+            try {
+              await supabase.from('profiles').upsert({ username: u });
+            } catch(e) {}
+
+            if (data?.session) {
               setCurrentUser(u);
               localStorage.setItem('lorefall_user', u);
               setShowAuthModal(false);
               setAuthUsername('');
-              setAuthPin('');
-              triggerToast(`Logged in as ${u}`, false);
-          } catch(err) {
-              setAuthError('Login error: ' + err.message);
+              setAuthEmail('');
+              setAuthPassword('');
+              triggerToast(`Welcome to Lorefall, ${u}! Account secured with Supabase Auth.`, false);
+            } else {
+              setAuthSuccessMsg(`Registration link sent to ${em}! Please check your email to verify your account, then sign in.`);
+            }
+          } else {
+            // Local fallback
+            const localProfiles = JSON.parse(localStorage.getItem('lorefall_profiles') || '{}');
+            localProfiles[u] = pwd;
+            localStorage.setItem('lorefall_profiles', JSON.stringify(localProfiles));
+            setCurrentUser(u);
+            localStorage.setItem('lorefall_user', u);
+            setShowAuthModal(false);
+            triggerToast(`Local profile created for ${u}!`, false);
           }
+        } catch(err) {
+          setAuthError('Registration error: ' + err.message);
+        } finally {
+          setAuthLoading(false);
+        }
       };
 
-      const handleLogout = () => {
-          if (confirm("Are you sure you want to log out?")) {
-              setCurrentUser('');
-              localStorage.removeItem('lorefall_user');
-              setSavedDeckTab('All');
-              triggerToast("Logged out successfully.", false);
+      const handleForgotPassword = async (e) => {
+        if (e) e.preventDefault();
+        setAuthError('');
+        setAuthSuccessMsg('');
+        setAuthLoading(true);
+
+        const em = authEmail.trim();
+        if (!em || !em.includes('@')) {
+          setAuthError('Please enter a valid email address.');
+          setAuthLoading(false);
+          return;
+        }
+
+        try {
+          if (supabase) {
+            const redirectUrl = window.location.origin + window.location.pathname;
+            const { data, error } = await supabase.auth.resetPasswordForEmail(em, {
+              redirectTo: redirectUrl
+            });
+
+            if (error) {
+              setAuthError(error.message);
+              setAuthLoading(false);
+              return;
+            }
+
+            setAuthSuccessMsg(`Password reset link sent to ${em}! Please check your email inbox and click the link to reset your password.`);
+          } else {
+            setAuthError('Cloud database is not connected.');
           }
+        } catch(err) {
+          setAuthError('Forgot password error: ' + err.message);
+        } finally {
+          setAuthLoading(false);
+        }
+      };
+
+      const handleUpdatePassword = async (e) => {
+        if (e) e.preventDefault();
+        setResetError('');
+        if (!newPassword || newPassword.length < 6) {
+          setResetError('New password must be at least 6 characters.');
+          return;
+        }
+        if (newPassword !== confirmNewPassword) {
+          setResetError('Passwords do not match.');
+          return;
+        }
+
+        setResetLoading(true);
+        try {
+          if (supabase) {
+            const { data, error } = await supabase.auth.updateUser({
+              password: newPassword
+            });
+
+            if (error) {
+              setResetError(error.message);
+              setResetLoading(false);
+              return;
+            }
+
+            setShowResetModal(false);
+            setNewPassword('');
+            setConfirmNewPassword('');
+            if (window.history && window.history.replaceState) {
+              window.history.replaceState(null, null, window.location.pathname + window.location.search);
+            }
+            triggerToast('Password reset successfully! You are now logged in.', false);
+          }
+        } catch(err) {
+          setResetError('Password update error: ' + err.message);
+        } finally {
+          setResetLoading(false);
+        }
+      };
+
+      const handleLogout = async () => {
+        if (confirm("Are you sure you want to log out?")) {
+          if (supabase) {
+            try { await supabase.auth.signOut(); } catch(e) {}
+          }
+          setCurrentUser('');
+          localStorage.removeItem('lorefall_user');
+          setSavedDeckTab('All');
+          triggerToast("Logged out successfully.", false);
+        }
       };
 
       const [cards, setCards] = useState(() => {
@@ -4299,11 +4547,27 @@
             </div>
             <div className="flex items-center gap-2 md:gap-3 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-hide max-w-full">
               {currentUser ? (
-                <button onClick={handleLogout} className="shrink-0 px-2.5 py-1 md:px-3 md:py-1.5 rounded-md text-xs font-semibold transition border bg-slate-800 text-amber-400 border-slate-700 hover:text-rose-400 flex items-center gap-1" title="Click to logout">
-                  <span>👤</span><span>{currentUser} (Log out)</span>
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button onClick={handleLogout} className="shrink-0 px-2.5 py-1 md:px-3 md:py-1.5 rounded-md text-xs font-semibold transition border bg-slate-800 text-amber-400 border-slate-700 hover:text-rose-400 flex items-center gap-1" title="Click to logout">
+                    <span>👤</span><span>{currentUser} (Log out)</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setAuthError('');
+                      setAuthSuccessMsg('');
+                      setAuthUsername(currentUser);
+                      setAuthEmail('');
+                      setAuthPassword('');
+                      setAuthMode('signup');
+                      setShowAuthModal(true);
+                    }} 
+                    className="shrink-0 px-2 py-1 rounded bg-amber-950/60 border border-amber-600/50 text-amber-300 hover:bg-amber-900/80 text-[10px] md:text-xs font-bold transition flex items-center gap-1" 
+                    title="Link an email address to secure this profile with Supabase Auth & enable password reset">
+                    <span>🛡️</span><span>Link Email</span>
+                  </button>
+                </div>
               ) : (
-                <button onClick={() => { setAuthError(''); setShowAuthModal(true); }} className="shrink-0 px-2.5 py-1 md:px-3 md:py-1.5 rounded-md text-xs font-semibold transition border bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200 flex items-center gap-1">
+                <button onClick={() => { setAuthError(''); setAuthSuccessMsg(''); setAuthMode('signin'); setShowAuthModal(true); }} className="shrink-0 px-2.5 py-1 md:px-3 md:py-1.5 rounded-md text-xs font-semibold transition border bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200 flex items-center gap-1">
                   <span>👤</span><span>Login / Register</span>
                 </button>
               )}
@@ -4792,7 +5056,7 @@
                       {currentUser ? (
                           <button type="submit" form="forgeForm" className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white font-bold uppercase tracking-widest text-xs md:text-sm shadow-md transition">Forge Card to Database</button>
                       ) : (
-                          <button type="button" onClick={() => { setAuthError(''); setShowAuthModal(true); }} className="w-full py-3 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-amber-400 font-bold uppercase tracking-widest text-xs transition">
+                          <button type="button" onClick={() => { setAuthError(''); setAuthSuccessMsg(''); setAuthMode('signin'); setShowAuthModal(true); }} className="w-full py-3 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-amber-400 font-bold uppercase tracking-widest text-xs transition">
                               🔒 Login Required to Forge
                           </button>
                       )}
@@ -5620,29 +5884,241 @@
           {showAuthModal && (
             <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[90]">
               <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-5 shadow-2xl min-w-0">
+                {/* Header */}
                 <div className="flex justify-between items-center mb-3">
-                  <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">👤 Profile Login / Register</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">👤</span>
+                    <h3 className="text-base font-bold text-slate-100">
+                      {authMode === 'signin' && 'Sign In'}
+                      {authMode === 'signup' && 'Create Account'}
+                      {authMode === 'forgot' && 'Reset Password'}
+                    </h3>
+                  </div>
                   <button onClick={() => setShowAuthModal(false)} className="text-slate-400 hover:text-white font-bold text-lg">✕</button>
                 </div>
-                <p className="text-xs text-slate-400 mb-3 leading-relaxed">
-                  Enter your username and a private PIN. If this is your first time using this name, your PIN will be saved to secure your account.
-                </p>
-                {authError && (
-                    <div className="mb-3 p-2 rounded bg-rose-950/80 border border-rose-800 text-rose-300 text-xs font-semibold break-words">
-                        {authError}
-                    </div>
+
+                {/* Subtitle / Mode tabs */}
+                {authMode !== 'forgot' ? (
+                  <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 mb-3.5">
+                    <button
+                      type="button"
+                      onClick={() => { setAuthMode('signin'); setAuthError(''); setAuthSuccessMsg(''); }}
+                      className={`flex-1 py-1.5 rounded-md text-xs font-bold transition ${authMode === 'signin' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
+                      Sign In
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setAuthMode('signup'); setAuthError(''); setAuthSuccessMsg(''); }}
+                      className={`flex-1 py-1.5 rounded-md text-xs font-bold transition ${authMode === 'signup' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
+                      Create Account
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 mb-3 leading-relaxed">
+                    Enter your email address below. We will send you a password reset link to create a new password.
+                  </p>
                 )}
-                <form onSubmit={handleAuthSubmit} className="space-y-3 w-full">
+
+                {/* Error Banner */}
+                {authError && (
+                  <div className="mb-3 p-2.5 rounded-lg bg-rose-950/80 border border-rose-800 text-rose-300 text-xs font-semibold break-words flex items-start gap-2">
+                    <span className="text-sm">⚠️</span>
+                    <div className="flex-1">{authError}</div>
+                  </div>
+                )}
+
+                {/* Success Banner */}
+                {authSuccessMsg && (
+                  <div className="mb-3 p-2.5 rounded-lg bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-xs font-semibold break-words flex items-start gap-2">
+                    <span className="text-sm">✓</span>
+                    <div className="flex-1">{authSuccessMsg}</div>
+                  </div>
+                )}
+
+                {/* FORM: SIGN IN */}
+                {authMode === 'signin' && (
+                  <form onSubmit={handleSignIn} className="space-y-3 w-full">
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">
+                        Email or Username
+                      </label>
+                      <input 
+                        type="text" 
+                        value={authEmailOrUser} 
+                        onChange={e => setAuthEmailOrUser(e.target.value)} 
+                        placeholder="e.g. Gavin or you@email.com" 
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500" 
+                        required 
+                      />
+                    </div>
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
+                          Password / PIN
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => { setAuthMode('forgot'); setAuthError(''); setAuthSuccessMsg(''); }}
+                          className="text-[10px] text-amber-400 hover:text-amber-300 font-semibold">
+                          Forgot Password?
+                        </button>
+                      </div>
+                      <input 
+                        type="password" 
+                        value={authPassword} 
+                        onChange={e => setAuthPassword(e.target.value)} 
+                        placeholder="Enter password or PIN" 
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500" 
+                        required 
+                      />
+                    </div>
+                    <button 
+                      type="submit" 
+                      disabled={authLoading}
+                      className="w-full py-2.5 bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 disabled:opacity-50 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5">
+                      {authLoading ? 'Signing In...' : 'Sign In'}
+                    </button>
+                  </form>
+                )}
+
+                {/* FORM: CREATE ACCOUNT / REGISTER */}
+                {authMode === 'signup' && (
+                  <form onSubmit={handleSignUp} className="space-y-3 w-full">
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">
+                        Username
+                      </label>
+                      <input 
+                        type="text" 
+                        value={authUsername} 
+                        onChange={e => setAuthUsername(e.target.value)} 
+                        placeholder="e.g. Gavin" 
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500" 
+                        required 
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">
+                        Email Address
+                      </label>
+                      <input 
+                        type="email" 
+                        value={authEmail} 
+                        onChange={e => setAuthEmail(e.target.value)} 
+                        placeholder="e.g. gavin@example.com" 
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500" 
+                        required 
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">
+                        Password (min 6 characters)
+                      </label>
+                      <input 
+                        type="password" 
+                        value={authPassword} 
+                        onChange={e => setAuthPassword(e.target.value)} 
+                        placeholder="Create a secure password" 
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500" 
+                        required 
+                        minLength={6}
+                      />
+                    </div>
+                    <button 
+                      type="submit" 
+                      disabled={authLoading}
+                      className="w-full py-2.5 bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 disabled:opacity-50 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5">
+                      {authLoading ? 'Creating Account...' : 'Create Account'}
+                    </button>
+                    <p className="text-[10px] text-slate-500 text-center leading-tight">
+                      Passwords are encrypted and secured behind the scenes by Supabase Auth.
+                    </p>
+                  </form>
+                )}
+
+                {/* FORM: FORGOT PASSWORD */}
+                {authMode === 'forgot' && (
+                  <form onSubmit={handleForgotPassword} className="space-y-3 w-full">
+                    <div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">
+                        Account Email Address
+                      </label>
+                      <input 
+                        type="email" 
+                        value={authEmail} 
+                        onChange={e => setAuthEmail(e.target.value)} 
+                        placeholder="e.g. your@email.com" 
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500" 
+                        required 
+                      />
+                    </div>
+                    <button 
+                      type="submit" 
+                      disabled={authLoading}
+                      className="w-full py-2.5 bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 disabled:opacity-50 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5">
+                      {authLoading ? 'Sending...' : 'Send Password Reset Link'}
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => { setAuthMode('signin'); setAuthError(''); setAuthSuccessMsg(''); }}
+                      className="w-full py-1 text-slate-400 hover:text-white text-xs text-center transition">
+                      ← Back to Sign In
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* PASSWORD RESET RECOVERY MODAL */}
+          {showResetModal && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[95]">
+              <div className="bg-slate-900 border border-amber-600/60 rounded-2xl w-full max-w-sm p-5 shadow-2xl min-w-0">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">🔐 Set New Password</h3>
+                  <button onClick={() => setShowResetModal(false)} className="text-slate-400 hover:text-white font-bold text-lg">✕</button>
+                </div>
+                <p className="text-xs text-slate-400 mb-3 leading-relaxed">
+                  Enter and confirm your new password below. Once saved, your password will be updated securely.
+                </p>
+
+                {resetError && (
+                  <div className="mb-3 p-2.5 rounded-lg bg-rose-950/80 border border-rose-800 text-rose-300 text-xs font-semibold break-words flex items-start gap-2">
+                    <span className="text-sm">⚠️</span>
+                    <div className="flex-1">{resetError}</div>
+                  </div>
+                )}
+
+                <form onSubmit={handleUpdatePassword} className="space-y-3 w-full">
                   <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">Username</label>
-                    <input type="text" value={authUsername} onChange={e => setAuthUsername(e.target.value)} placeholder="e.g. Gavin" className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500" required />
+                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">New Password (min 6 chars)</label>
+                    <input 
+                      type="password" 
+                      value={newPassword} 
+                      onChange={e => setNewPassword(e.target.value)} 
+                      placeholder="Enter new password" 
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500" 
+                      required 
+                      minLength={6}
+                    />
                   </div>
                   <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">Secret PIN / Passcode</label>
-                    <input type="password" value={authPin} onChange={e => setAuthPin(e.target.value)} placeholder="e.g. 1234" className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500" required />
+                    <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1">Confirm New Password</label>
+                    <input 
+                      type="password" 
+                      value={confirmNewPassword} 
+                      onChange={e => setConfirmNewPassword(e.target.value)} 
+                      placeholder="Repeat new password" 
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500" 
+                      required 
+                      minLength={6}
+                    />
                   </div>
-                  <button type="submit" className="w-full py-2.5 bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition shadow-md">
-                    Sign In / Register
+                  <button 
+                    type="submit" 
+                    disabled={resetLoading}
+                    className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:opacity-50 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition shadow-md flex items-center justify-center gap-1.5">
+                    {resetLoading ? 'Updating Password...' : 'Update Password & Sign In'}
                   </button>
                 </form>
               </div>
