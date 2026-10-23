@@ -1523,6 +1523,95 @@
     border-color: var(--gold);
     box-shadow: 0 4px 14px rgba(245, 158, 11, 0.25);
   }
+
+  /* 1 Main Menu & Submenu Navigation Styles */
+  .arena-menu-cards-row {
+    display: flex;
+    gap: 22px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: stretch;
+    max-width: 1040px;
+    width: 100%;
+    margin-top: 10px;
+    padding: 0 10px;
+  }
+  .arena-menu-card {
+    flex: 1 1 270px;
+    max-width: 310px;
+    min-height: 270px;
+    background: linear-gradient(145deg, #151d28, #0e1520);
+    border: 2px solid #2e3e52;
+    border-radius: 16px;
+    padding: 26px 20px 22px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    justify-content: space-between;
+    transition: all 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.6);
+    user-select: none;
+  }
+  .arena-menu-card:hover {
+    transform: translateY(-6px);
+    border-color: var(--mana);
+    box-shadow: 0 16px 40px rgba(56, 189, 248, 0.35);
+    background: linear-gradient(145deg, #1b2636, #111a28);
+  }
+  .arena-menu-card .menu-card-icon {
+    font-size: 3.2rem;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+    transition: transform 0.2s ease;
+  }
+  .arena-menu-card:hover .menu-card-icon {
+    transform: scale(1.1);
+  }
+  .arena-menu-card .menu-card-title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: 0.5px;
+  }
+  .arena-menu-card .menu-card-desc {
+    font-size: 0.84rem;
+    color: #94a3b8;
+    line-height: 1.45;
+    margin: 10px 0 18px;
+    flex-grow: 1;
+  }
+  .arena-menu-card .menu-card-btn {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--gold);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 8px;
+    padding: 8px 16px;
+    width: 100%;
+    transition: all 0.2s ease;
+  }
+  .arena-menu-card:hover .menu-card-btn {
+    background: var(--gold);
+    color: #0c0f14;
+    border-color: var(--gold);
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.5);
+    font-weight: 800;
+  }
+  .submenu-header-bar {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #1e293b;
+    padding-bottom: 10px;
+  }
   .tut-option-card {
     flex: 1;
     min-width: 250px;
@@ -1714,15 +1803,40 @@
     <h2>Realms of Viridian &bull; Tactical Arena</h2>
   </div>
 
-  <!-- Top-Level Category Navigation -->
-  <div class="menu-category-tabs">
-    <button id="cat-tab-single" class="cat-tab-btn active" onclick="selectMenuCategory('SINGLE')">⚔️ Single Player</button>
-    <button id="cat-tab-multi" class="cat-tab-btn" onclick="selectMenuCategory('MULTI')">🌐 Multiplayer</button>
-    <button id="cat-tab-tut" class="cat-tab-btn" onclick="selectMenuCategory('TUTORIAL')">🎓 Tutorial</button>
+  <!-- Top-Level Main Menu (Only 3 Options Shown First) -->
+  <div id="arena-main-menu" class="arena-menu-cards-row">
+    <div class="arena-menu-card" onclick="openMenuSubmenu('SINGLE')">
+      <div class="menu-card-icon">⚔️</div>
+      <div class="menu-card-title">Single Player</div>
+      <div class="menu-card-desc">Battle against AI opponents with adjustable difficulty (Easy, Medium, Hard), or enter Sandbox Mode for free-resource tactical testing.</div>
+      <div class="menu-card-btn">Enter Single Player &rarr;</div>
+    </div>
+
+    <div class="arena-menu-card" onclick="openMenuSubmenu('MULTI')">
+      <div class="menu-card-icon">🌐</div>
+      <div class="menu-card-title">Multiplayer</div>
+      <div class="menu-card-desc">Host or join real-time 2-player tabletop sessions with room codes, password security, synchronized dice rolls, and custom decks.</div>
+      <div class="menu-card-btn">Open Multiplayer Lobby &rarr;</div>
+    </div>
+
+    <div class="arena-menu-card" onclick="openMenuSubmenu('TUTORIAL')">
+      <div class="menu-card-icon">🎓</div>
+      <div class="menu-card-title">Tutorial</div>
+      <div class="menu-card-desc">Master the rules of Viridian with interactive guided battles: Quickstart training or In-Depth tactical mechanics.</div>
+      <div class="menu-card-btn">Start Tutorial &rarr;</div>
+    </div>
   </div>
 
   <!-- CATEGORY 1: SINGLE PLAYER -->
-  <div id="cat-panel-single" style="display:flex; flex-direction:column; align-items:center; gap:12px; width:100%; max-width:1180px;">
+  <div id="cat-panel-single" style="display:none; flex-direction:column; align-items:center; gap:12px; width:100%; max-width:1180px;">
+    <!-- Submenu Top Header with Back Button -->
+    <div class="submenu-header-bar">
+      <button class="btn btn-secondary" onclick="showMainMenu()" style="padding:7px 16px; font-size:0.85rem; display:flex; align-items:center; gap:6px;">
+        <span>←</span><span>Back to Main Menu</span>
+      </button>
+      <div style="font-size:1.15rem; font-weight:800; color:var(--gold); letter-spacing:1px; text-transform:uppercase;">⚔️ Single Player</div>
+      <div style="width:140px;"></div>
+    </div>
     <!-- AI Mode: Difficulty Selection -->
     <div class="mode-select" id="ai-difficulty-row" style="margin-top:0; align-items:center;">
       <span style="font-size:0.82rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-right:4px;">AI Mode:</span>
@@ -1734,7 +1848,7 @@
     <!-- Single Player Mode: Standard vs Sandbox Mode -->
     <div class="mode-select" style="margin-top:0;">
       <button class="btn btn-secondary active" id="btn-sp-standard" onclick="setSinglePlayerMode('AI')">⚔️ Standard Battle (vs AI)</button>
-      <button class="btn btn-secondary" id="btn-sp-sandbox" onclick="setSinglePlayerMode('TEST')">🛠️ Sandbox Mode (Test & Free Resources)</button>
+      <button class="btn btn-secondary" id="btn-sp-sandbox" onclick="setSinglePlayerMode('TEST')">🛠️ Sandbox Mode (Pass & Play)</button>
     </div>
 
     <!-- Deck Selection Area -->
@@ -1761,6 +1875,14 @@
 
   <!-- CATEGORY 2: MULTIPLAYER -->
   <div id="cat-panel-multi" style="display:none; flex-direction:column; align-items:center; gap:12px; width:100%; max-width:840px;">
+    <!-- Submenu Top Header with Back Button -->
+    <div class="submenu-header-bar">
+      <button class="btn btn-secondary" onclick="showMainMenu()" style="padding:7px 16px; font-size:0.85rem; display:flex; align-items:center; gap:6px;">
+        <span>←</span><span>Back to Main Menu</span>
+      </button>
+      <div style="font-size:1.15rem; font-weight:800; color:var(--gold); letter-spacing:1px; text-transform:uppercase;">🌐 Multiplayer</div>
+      <div style="width:140px;"></div>
+    </div>
     <!-- 2P Online Session Panel (Tabletop Simulator Style) -->
     <div id="online-multiplayer-panel" class="online-panel" style="display:flex; width:100%;">
       <!-- Login Required Notice -->
@@ -1871,6 +1993,14 @@
 
   <!-- CATEGORY 3: TUTORIAL (NO DECK SELECTIONS) -->
   <div id="cat-panel-tut" style="display:none; flex-direction:column; align-items:center; gap:16px; width:100%; max-width:760px;">
+    <!-- Submenu Top Header with Back Button -->
+    <div class="submenu-header-bar">
+      <button class="btn btn-secondary" onclick="showMainMenu()" style="padding:7px 16px; font-size:0.85rem; display:flex; align-items:center; gap:6px;">
+        <span>←</span><span>Back to Main Menu</span>
+      </button>
+      <div style="font-size:1.15rem; font-weight:800; color:var(--gold); letter-spacing:1px; text-transform:uppercase;">🎓 Tutorial Modes</div>
+      <div style="width:140px;"></div>
+    </div>
     <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center; width:100%; margin-top:6px;">
       <div id="card-tut-quick" class="tut-option-card active" onclick="setTutorialSelection('TUTORIAL')">
         <div>
@@ -1937,13 +2067,15 @@
     <div style="display:flex; align-items:center; gap:10px;">
       <div id="turn-indicator" style="font-size: 0.85rem; font-weight: 600; color: var(--mana);">Turn 1 &bull; Player 1</div>
       <button id="btn-audio-settings-bar" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem; background:#1e293b; color:#fbbf24; border-color:#d9770666;" onclick="openAudioSettingsModal()" title="Sound & Volume Settings">🔊 Sound</button>
+      <button id="btn-quit-match" class="btn btn-secondary" style="padding:4px 11px; font-size:0.75rem; background:#1e293b; color:#f43f5e; border-color:#f43f5e55; display:flex; align-items:center; gap:4px;" onclick="promptQuitBattle()" title="Forfeit Battle and Return to Menu">🏳️ Forfeit</button>
       <button id="btn-session-exit" class="btn btn-secondary" style="display:none; padding:4px 10px; font-size:0.72rem; background:#1e293b; color:#f43f5e; border-color:#f43f5e55;" onclick="exitOnlineSession()">Surrender</button>
     </div>
   </div>
 
   <!-- Sandbox Mode Quick Controls Toolbar -->
   <div id="sandbox-toolbar" style="display:none; align-items:center; justify-content:center; gap:8px; background:rgba(15,23,42,0.95); border-bottom:1px solid #38bdf8; padding:5px 14px; font-size:0.8rem; z-index:90; flex-wrap:wrap;">
-    <span style="color:#38bdf8; font-weight:800; letter-spacing:0.5px;">🛠️ SANDBOX:</span>
+    <span style="color:#38bdf8; font-weight:800; letter-spacing:0.5px;">🛠️ SANDBOX (PASS & PLAY):</span>
+    <span id="sandbox-target-indicator" style="background:#1e293b; border:1px solid #38bdf8; color:#38bdf8; padding:1px 8px; border-radius:4px; font-weight:bold; font-size:0.75rem;">Player 1</span>
     <span style="color:#cbd5e1; font-weight:700;">Mana:</span>
     <button class="btn btn-secondary" style="padding:2px 7px; font-size:0.75rem;" onclick="adjustSandboxResource(0, 'mana', -1)">-1</button>
     <button class="btn btn-secondary" style="padding:2px 7px; font-size:0.75rem;" onclick="adjustSandboxResource(0, 'mana', 1)">+1</button>
@@ -4062,7 +4194,7 @@ async function executeEffect(effect, sourceCard, context, preResolvedTargets = n
   if (targets.length > 0) await applyEffectAction(effect, targets, sourceCard, context);
 }
 
-async function spawnToken(player, tokenIdOrName, startReady = false) {
+async function spawnToken(player, tokenIdOrName, startReady = false, forcedZone = null, tokenInfo = null) {
     const rawStr = String(tokenIdOrName || "").trim();
     const cleanName = rawStr.replace(/^Token_/, "").trim();
     let tData = CARDS_DATA[rawStr] || 
@@ -4095,24 +4227,63 @@ async function spawnToken(player, tokenIdOrName, startReady = false) {
     token.currentHealth = token.health;
     token.charge = startReady ? (token.chargeReq || 1) : 0;
 
-    const bzSlot = player.battleZone.findIndex(s => s === null);
-    if (bzSlot !== -1) {
-        player.battleZone[bzSlot] = token;
-        addLogEntry(`${player.name} spawned ${token.name}.`);
+    const openBz = player.battleZone.findIndex(s => s === null);
+    const openBench = player.bench.findIndex(s => s === null);
+
+    if (openBz === -1 && openBench === -1) {
+        showToast("Board is completely full! Cannot spawn token.");
+        return null;
+    }
+
+    let chosenZone = forcedZone;
+    if (!chosenZone) {
+        if (openBz !== -1 && openBench !== -1) {
+            if (player.isAI) {
+                chosenZone = "bz";
+            } else {
+                const countBadge = (tokenInfo && tokenInfo.total > 1) ? ` (${tokenInfo.index} of ${tokenInfo.total})` : "";
+                const choice = await showModalAsync(
+                    `Deploy ${token.name}${countBadge}`,
+                    `Choose where to deploy <strong>${token.name}</strong>:`,
+                    [
+                        { text: "⚔️ Battle Zone", value: "bz" },
+                        { text: "🛡️ Bench", value: "bench" }
+                    ]
+                );
+                chosenZone = choice || "bz";
+            }
+        } else if (openBz !== -1) {
+            chosenZone = "bz";
+        } else {
+            chosenZone = "bench";
+        }
+    }
+
+    if (chosenZone === "bz" && openBz !== -1) {
+        player.battleZone[openBz] = token;
+        addLogEntry(`${player.name} spawned <strong>${token.name}</strong> in the Battle Zone.`);
         await executeHook(token, 'onPlay', { triggerPlayer: player });
+        renderAll();
+        if (onlineSession && onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
+        return token;
+    } else if (openBench !== -1) {
+        token.benchLocked = true;
+        player.bench[openBench] = token;
+        addLogEntry(`${player.name} spawned <strong>${token.name}</strong> on the Bench.`);
+        await executeHook(token, 'onPlay', { triggerPlayer: player });
+        renderAll();
+        if (onlineSession && onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
+        return token;
+    } else if (openBz !== -1) {
+        player.battleZone[openBz] = token;
+        addLogEntry(`${player.name} spawned <strong>${token.name}</strong> in the Battle Zone.`);
+        await executeHook(token, 'onPlay', { triggerPlayer: player });
+        renderAll();
+        if (onlineSession && onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
         return token;
     } else {
-        const benchSlot = player.bench.findIndex(s => s === null);
-        if (benchSlot !== -1) {
-            token.benchLocked = true;
-            player.bench[benchSlot] = token;
-            addLogEntry(`${player.name} spawned ${token.name} on the Bench.`);
-            await executeHook(token, 'onPlay', { triggerPlayer: player });
-            return token;
-        } else {
-            showToast("Board is completely full! Cannot spawn token.");
-            return null;
-        }
+        showToast("Board is full! Cannot spawn token.");
+        return null;
     }
 }
 
@@ -4316,7 +4487,7 @@ async function applyEffectAction(effect, targets, sourceCard, context) {
     }
     else if (effect.action === "irithSummonCompanion") {
        const p = context.triggerPlayer;
-       const token = await spawnToken(p, effect.unit || "Elf Companion", true);
+       const token = await spawnToken(p, effect.unit || "Elf Companion", true, "bz");
        if (token) {
            gameState.maxStrikes += 1;
            updateStrikePips();
@@ -4521,7 +4692,10 @@ async function applyEffectAction(effect, targets, sourceCard, context) {
        }
     }
     else if (effect.action === "summonToken") {
-       for (let i=0; i<effect.amount; i++) await spawnToken(context.triggerPlayer, effect.unit);
+       const totalTokens = effect.amount || 1;
+       for (let i = 0; i < totalTokens; i++) {
+           await spawnToken(context.triggerPlayer, effect.unit, false, null, { index: i + 1, total: totalTokens });
+       }
     }
   }
 }
@@ -5022,7 +5196,7 @@ async function startGame() {
   document.getElementById('menu-screen').classList.remove('active'); document.getElementById('game-screen').classList.add('active');
   const sbToolbar = document.getElementById('sandbox-toolbar');
   if (sbToolbar) sbToolbar.style.display = (gameState.gameMode === "TEST") ? 'flex' : 'none';
-  const p1IsAI = false; const p2IsAI = (gameState.gameMode === "AI" || gameState.gameMode === "TEST");
+  const p1IsAI = false; const p2IsAI = (gameState.gameMode === "AI");
   const diffLabel = gameState.aiDifficulty === "EASY" ? "Easy" : (gameState.aiDifficulty === "HARD" ? "Hard" : "Medium");
   const p1Name = currentLoggedInUser ? currentLoggedInUser : "Player 1";
   gameState.players = [
@@ -5416,14 +5590,27 @@ window.addEventListener('storage', (e) => {
 let currentMenuCategory = 'SINGLE';
 let selectedTutorialMode = 'TUTORIAL';
 
-function selectMenuCategory(cat) {
+function showMainMenu() {
+  const mainMenu = document.getElementById('arena-main-menu');
+  const panelSingle = document.getElementById('cat-panel-single');
+  const panelMulti = document.getElementById('cat-panel-multi');
+  const panelTut = document.getElementById('cat-panel-tut');
+
+  if (mainMenu) mainMenu.style.display = 'flex';
+  if (panelSingle) panelSingle.style.display = 'none';
+  if (panelMulti) panelMulti.style.display = 'none';
+  if (panelTut) panelTut.style.display = 'none';
+
+  if (onlineSession.active) {
+    cancelOnlineSession(true);
+  }
+}
+
+function openMenuSubmenu(cat) {
+  const mainMenu = document.getElementById('arena-main-menu');
+  if (mainMenu) mainMenu.style.display = 'none';
+
   currentMenuCategory = cat;
-  const tabSingle = document.getElementById('cat-tab-single');
-  const tabMulti = document.getElementById('cat-tab-multi');
-  const tabTut = document.getElementById('cat-tab-tut');
-  if (tabSingle) tabSingle.classList.toggle('active', cat === 'SINGLE');
-  if (tabMulti) tabMulti.classList.toggle('active', cat === 'MULTI');
-  if (tabTut) tabTut.classList.toggle('active', cat === 'TUTORIAL');
 
   const panelSingle = document.getElementById('cat-panel-single');
   const panelMulti = document.getElementById('cat-panel-multi');
@@ -5442,16 +5629,23 @@ function selectMenuCategory(cat) {
   }
 }
 
+function selectMenuCategory(cat) {
+  openMenuSubmenu(cat);
+}
+
 function setSinglePlayerMode(mode) {
   const btnStd = document.getElementById('btn-sp-standard');
   const btnSbx = document.getElementById('btn-sp-sandbox');
   if (btnStd) btnStd.classList.toggle('active', mode === 'AI');
   if (btnSbx) btnSbx.classList.toggle('active', mode === 'TEST');
 
+  const diffRow = document.getElementById('ai-difficulty-row');
+  if (diffRow) diffRow.style.display = (mode === 'TEST') ? 'none' : 'flex';
+
   const startBtn = document.getElementById('btn-start-battle');
   if (startBtn) {
     if (mode === 'TEST') {
-      startBtn.innerText = "🛠️ Launch Sandbox Mode";
+      startBtn.innerText = "🛠️ Launch Sandbox (Pass & Play)";
       startBtn.style.background = 'linear-gradient(135deg, #0284c7, #0369a1)';
       startBtn.style.borderColor = '#38bdf8';
       startBtn.style.boxShadow = '0 0 16px rgba(56, 189, 248, 0.4)';
@@ -5495,41 +5689,44 @@ function startSelectedTutorial() {
 }
 
 function adjustSandboxResource(pIdx, type, delta) {
-  const p = gameState.players[pIdx];
+  const targetIdx = (gameState.gameMode === "TEST" && pIdx === 0 && gameState.activePlayerIndex === 1) ? 1 : pIdx;
+  const p = gameState.players[targetIdx];
   if (!p) return;
   if (type === 'mana') {
     p.manaPool = Math.max(0, (p.manaPool || 0) + delta);
-    addLogEntry(`[SANDBOX] Mana set to ${p.manaPool}`);
+    addLogEntry(`[SANDBOX] ${p.name} Mana set to ${p.manaPool}`);
   } else if (type === 'gold') {
     p.gold = Math.max(0, (p.gold || 0) + delta);
-    addLogEntry(`[SANDBOX] Gold set to ${p.gold}`);
+    addLogEntry(`[SANDBOX] ${p.name} Gold set to ${p.gold}`);
   }
   renderAll();
 }
 
 function promptSetSandboxResource(pIdx, type) {
-  const p = gameState.players[pIdx];
+  const targetIdx = (gameState.gameMode === "TEST" && pIdx === 0 && gameState.activePlayerIndex === 1) ? 1 : pIdx;
+  const p = gameState.players[targetIdx];
   if (!p) return;
   const current = (type === 'mana') ? p.manaPool : p.gold;
   const label = (type === 'mana') ? "Mana Pool" : "Gold Tokens";
-  const valStr = prompt(`[Sandbox Mode] Enter new ${label} value:`, current);
+  const valStr = prompt(`[Sandbox Mode - ${p.name}] Enter new ${label} value:`, current);
   if (valStr !== null) {
     const parsed = parseInt(valStr, 10);
     if (!isNaN(parsed) && parsed >= 0) {
       if (type === 'mana') p.manaPool = parsed;
       else p.gold = parsed;
-      addLogEntry(`[SANDBOX] ${label} manually set to ${parsed}`);
+      addLogEntry(`[SANDBOX] ${p.name} ${label} manually set to ${parsed}`);
       renderAll();
     }
   }
 }
 
 function refillSandboxResources(pIdx) {
-  const p = gameState.players[pIdx];
+  const targetIdx = (gameState.gameMode === "TEST" && pIdx === 0 && gameState.activePlayerIndex === 1) ? 1 : pIdx;
+  const p = gameState.players[targetIdx];
   if (!p) return;
   p.manaPool = 99;
   p.gold = 99;
-  addLogEntry(`[SANDBOX] Refilled Mana and Gold to 99!`);
+  addLogEntry(`[SANDBOX] Refilled ${p.name} Mana and Gold to 99!`);
   renderAll();
 }
 
@@ -6068,6 +6265,51 @@ function exitOnlineSession(force = false) {
   if (exitBtn) exitBtn.style.display = 'none';
 
   setGameMode('AI');
+  showMainMenu();
+}
+
+async function promptQuitBattle() {
+  if (onlineSession && onlineSession.active) {
+    exitOnlineSession();
+    return;
+  }
+  const isTut = typeof tutorialState !== 'undefined' && tutorialState?.active;
+  const promptTitle = isTut ? "Exit Tutorial?" : "Surrender Battle?";
+  const promptMsg = isTut 
+    ? "Are you sure you want to exit the tutorial and return to the Main Menu?" 
+    : "Are you sure you want to surrender this battle and return to the Main Menu?";
+
+  const confirmed = await showModalAsync(
+    promptTitle, 
+    `<div style="text-align:center; padding:10px 0; color:#cbd5e1; font-size:0.95rem;">${promptMsg}</div>`,
+    [
+      { text: "Surrender & Return to Menu", value: true, color: "#be123c" },
+      { text: "Continue Battle", value: false }
+    ]
+  );
+  if (!confirmed) return;
+
+  quitBattleToMenu();
+}
+
+function quitBattleToMenu() {
+  if (typeof cleanupTutorialEngine === 'function') {
+    cleanupTutorialEngine();
+  }
+  closeModal();
+  closeCardDetail();
+  const clashModal = document.getElementById('clash-modal');
+  if (clashModal) clashModal.style.display = 'none';
+  const showcaseOverlay = document.getElementById('action-showcase-overlay');
+  if (showcaseOverlay) showcaseOverlay.style.display = 'none';
+  if (typeof cancelTargeting === 'function') {
+    cancelTargeting(true);
+  }
+
+  document.getElementById('game-screen').classList.remove('active');
+  document.getElementById('menu-screen').classList.add('active');
+  showMainMenu();
+  addLogEntry("Battle ended. Returned to Main Menu.");
 }
 
 async function launchOnlineMatchAsHost() {
@@ -6797,25 +7039,54 @@ const KNOWN_GITHUB_ART_MAP = {
 
 const missingCardArtSet = new Set();
 
-// Dynamically discover any newly added PNGs in the GitHub repository
+window.__discoveredBgmUrls = window.__discoveredBgmUrls || [];
+
+// Dynamically discover any newly added PNGs and Audio tracks in the GitHub repositories
 async function refreshGitHubArtList() {
-  try {
-    const res = await fetch("https://api.github.com/repos/deviatorgames/Lorefall-Card-Art/contents");
-    if (!res.ok) return;
-    const files = await res.json();
-    if (Array.isArray(files)) {
-      files.forEach(f => {
-        if (f && f.name && f.name.toLowerCase().endsWith('.png') && f.name !== 'Lorefall Cardback.png') {
-          const baseName = f.name.replace(/\.png$/i, '');
-          KNOWN_GITHUB_ART_MAP[baseName] = f.name;
-          if (baseName.endsWith(' copy')) {
-            const trimmed = baseName.replace(/\s+copy$/i, '');
-            if (!KNOWN_GITHUB_ART_MAP[trimmed]) KNOWN_GITHUB_ART_MAP[trimmed] = f.name;
+  const scanRepoForAssets = async (url) => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const files = await res.json();
+      if (Array.isArray(files)) {
+        files.forEach(f => {
+          if (!f || !f.name) return;
+          // Card Art discovery
+          if (f.name.toLowerCase().endsWith('.png') && f.name !== 'Lorefall Cardback.png') {
+            const baseName = f.name.replace(/\.png$/i, '');
+            KNOWN_GITHUB_ART_MAP[baseName] = f.name;
+            if (baseName.endsWith(' copy')) {
+              const trimmed = baseName.replace(/\s+copy$/i, '');
+              if (!KNOWN_GITHUB_ART_MAP[trimmed]) KNOWN_GITHUB_ART_MAP[trimmed] = f.name;
+            }
           }
-        }
-      });
-    }
-  } catch (e) {}
+          // BGM discovery: The Weight of the Draw
+          if ((f.name.toLowerCase().includes('weight') || f.name.toLowerCase().includes('draw')) && /\.(mp3|wav|ogg|m4a)$/i.test(f.name)) {
+            const rawUrl = f.download_url || `https://raw.githubusercontent.com/${f.path}`;
+            if (rawUrl && !window.__discoveredBgmUrls.includes(rawUrl)) {
+              console.log('Dynamically discovered BGM track from GitHub:', rawUrl);
+              window.__discoveredBgmUrls.unshift(rawUrl);
+              if (typeof AUDIO_DATA !== 'undefined' && AUDIO_DATA.bgmFallbacks && !AUDIO_DATA.bgmFallbacks.includes(rawUrl)) {
+                AUDIO_DATA.bgmFallbacks.unshift(rawUrl);
+              }
+              if (typeof AudioManager !== 'undefined' && AudioManager.bgmAudio) {
+                AudioManager.bgmAudio.src = rawUrl;
+                AudioManager.bgmAudio.load();
+                if (AudioManager.bgmWanted && !AudioManager.bgmMuted && AudioManager.bgmVolume > 0) {
+                  AudioManager.bgmAudio.play().catch(() => {});
+                }
+              }
+            }
+          }
+        });
+      }
+    } catch (e) {}
+  };
+
+  await Promise.allSettled([
+    scanRepoForAssets("https://api.github.com/repos/deviatorgames/Lorefall-Card-Art/contents"),
+    scanRepoForAssets("https://api.github.com/repos/deviatorgames/lorefalltcg/contents")
+  ]);
 }
 
 function hasCardArt(card) {
@@ -7036,10 +7307,34 @@ function updateTurnIndicator() {
       text += " (OPPONENT'S TURN)";
       ind.style.color = "#f43f5e";
     }
+  } else if (gameState.gameMode === "TEST") {
+    text += (gameState.activePlayerIndex === 0) ? " (Player 1's Turn)" : " (Player 2's Turn)";
+    ind.style.color = (gameState.activePlayerIndex === 0) ? "#38bdf8" : "#f59e0b";
   } else {
     ind.style.color = "var(--mana)";
   }
   ind.innerText = text;
+}
+
+function updateBottomPiles() {
+  const bottomIdx = (onlineSession.active) 
+    ? onlineSession.myPlayerIndex 
+    : (gameState.gameMode === "TEST" ? gameState.activePlayerIndex : 0);
+  const p = gameState.players[bottomIdx];
+  if (!p) return;
+  const lootEl = document.getElementById("p1-loot-count");
+  if (lootEl) lootEl.innerText = p.deck.length;
+  const handEl = document.getElementById("p1-hand-count");
+  if (handEl) handEl.innerText = p.hand.length;
+  const discEl = document.getElementById("p1-discard-count");
+  if (discEl) discEl.innerText = (p.discard || []).length;
+
+  const sbTargetEl = document.getElementById('sandbox-target-indicator');
+  if (sbTargetEl && gameState.gameMode === "TEST") {
+    sbTargetEl.innerText = p.name;
+    sbTargetEl.style.color = (gameState.activePlayerIndex === 0) ? '#38bdf8' : '#f59e0b';
+    sbTargetEl.style.borderColor = (gameState.activePlayerIndex === 0) ? '#38bdf8' : '#f59e0b';
+  }
 }
 
 function renderAll() { 
@@ -7055,6 +7350,7 @@ function renderAll() {
   updateStrikePips(); 
   updateClashHPBars(); 
   updateTurnIndicator();
+  updateBottomPiles();
   if (typeof updateTutorialUI === 'function' && typeof tutorialState !== 'undefined' && tutorialState && tutorialState.active) {
     updateTutorialUI();
   }
@@ -7106,10 +7402,28 @@ async function onBoardSlotDrop(e, pIdx, toZone, toSlot) {
   if (window.draggedHandCard) {
     const { pIdx: handPIdx, cardIndex } = window.draggedHandCard;
     window.draggedHandCard = null;
+    if (handPIdx !== pIdx) {
+      showToast("Cannot deploy onto opponent's board!");
+      return;
+    }
     const p = gameState.players[handPIdx];
     const card = p?.hand?.[cardIndex];
-    if (card && card.type === "Ally") {
+    if (!card) return;
+
+    if (card.type === "Ally" && (toZone === "bz" || toZone === "bench")) {
       await deployAllyToSlot(p, cardIndex, toZone, toSlot);
+    } else if (card.type === "Skill" && toZone === "skill") {
+      const targetSlot = (card.skillLevel || 1) - 1;
+      if (toSlot !== targetSlot) {
+        showToast(`Level ${card.skillLevel} Skill belongs in Skill Slot ${card.skillLevel}!`);
+        return;
+      }
+      if (p.manaPool < card.manaCost) { showToast("Not enough Mana!"); return; }
+      if (gameState.skillLearnedThisTurn) { showToast("Limit 1 Skill learned per turn!"); return; }
+      await learnSkill(p, cardIndex);
+    } else if (card.type === "Synergy" && toZone === "synergy") {
+      if (p.manaPool < card.manaCost) { showToast("Not enough Mana!"); return; }
+      await playSynergy(p, cardIndex);
     }
     return;
   }
@@ -7357,15 +7671,17 @@ function renderPlayer(pIdx) {
   const p = gameState.players[pIdx]; 
   if (!p) return;
   const prx = getPlayerDomPrefix(pIdx);
+  const nameLabel = document.getElementById(prx + "-name-label");
+  if (nameLabel) nameLabel.innerText = p.name;
   document.getElementById(prx + "-hp-val").innerText = p.hero.currentHealth + " / " + p.hero.maxHealth;
   const manaEl = document.getElementById(prx + "-mana-val");
   const goldEl = document.getElementById(prx + "-gold-val");
   if (manaEl) {
     manaEl.innerText = p.manaPool;
-    if (pIdx === 0 && gameState.gameMode === "TEST") {
+    if (gameState.gameMode === "TEST") {
       manaEl.style.cursor = 'pointer';
-      manaEl.title = 'Click to set Mana (Sandbox Mode)';
-      manaEl.onclick = () => promptSetSandboxResource(0, 'mana');
+      manaEl.title = `Click to set Mana for ${p.name} (Sandbox Mode)`;
+      manaEl.onclick = () => promptSetSandboxResource(pIdx, 'mana');
     } else {
       manaEl.style.cursor = 'default';
       manaEl.title = '';
@@ -7374,10 +7690,10 @@ function renderPlayer(pIdx) {
   }
   if (goldEl) {
     goldEl.innerText = p.gold;
-    if (pIdx === 0 && gameState.gameMode === "TEST") {
+    if (gameState.gameMode === "TEST") {
       goldEl.style.cursor = 'pointer';
-      goldEl.title = 'Click to set Gold (Sandbox Mode)';
-      goldEl.onclick = () => promptSetSandboxResource(0, 'gold');
+      goldEl.title = `Click to set Gold for ${p.name} (Sandbox Mode)`;
+      goldEl.onclick = () => promptSetSandboxResource(pIdx, 'gold');
     } else {
       goldEl.style.cursor = 'default';
       goldEl.title = '';
@@ -7474,18 +7790,36 @@ function renderPlayer(pIdx) {
     elSk.onclick = () => handleCardInteraction(pIdx, 'skill', s);
     elSk.onmouseenter = sk ? (e) => showArenaPreview(e, pIdx, 'skill', s) : null;
     elSk.onmouseleave = sk ? () => hideArenaPreview() : null;
+    if (canDrag) {
+      elSk.ondragover = (e) => onBoardSlotDragOver(e);
+      elSk.ondragleave = (e) => onBoardSlotDragLeave(e);
+      elSk.ondrop = (e) => onBoardSlotDrop(e, pIdx, 'skill', s);
+    } else {
+      elSk.ondragover = null;
+      elSk.ondragleave = null;
+      elSk.ondrop = null;
+    }
     
     const elSyn = document.getElementById(prx + "-synergy-" + s); const syn = p.synergies[s];
     if (syn) { elSyn.innerHTML = createCardHTML(syn, pIdx, 'synergy', s); } else elSyn.innerHTML = "";
     elSyn.onclick = () => handleCardInteraction(pIdx, 'synergy', s);
     elSyn.onmouseenter = syn ? (e) => showArenaPreview(e, pIdx, 'synergy', s) : null;
     elSyn.onmouseleave = syn ? () => hideArenaPreview() : null;
+    if (canDrag) {
+      elSyn.ondragover = (e) => onBoardSlotDragOver(e);
+      elSyn.ondragleave = (e) => onBoardSlotDragLeave(e);
+      elSyn.ondrop = (e) => onBoardSlotDrop(e, pIdx, 'synergy', s);
+    } else {
+      elSyn.ondragover = null;
+      elSyn.ondragleave = null;
+      elSyn.ondrop = null;
+    }
   }
   document.getElementById(prx + "-prof-badge").innerText = "Prof: " + prof;
 }
 
 function renderHand() {
-  const myIdx = (onlineSession.active) ? onlineSession.myPlayerIndex : 0;
+  const myIdx = (onlineSession.active) ? onlineSession.myPlayerIndex : (gameState.gameMode === "TEST" ? gameState.activePlayerIndex : 0);
   const p = gameState.players[myIdx]; 
   const handBox = document.getElementById('player-hand-container');
   if (!p || !handBox) return;
@@ -8359,11 +8693,17 @@ function declareStrikeFromDetail(pIdx, zone, slot) {
   selectCombatAttacker(pIdx, zone === 'bz' ? 'ally' : (zone === 'bench' ? 'bench_ally' : 'skill'), slot); 
 }
 
-window.activateSpecificAbility = async function(pIdx, zone, slot, abilityIndex) {
+window.activateSpecificAbility = async function(pIdx, zone, slot, abilityIndex, eqIdx = null) {
   closeCardDetail();
   const p = gameState.players[pIdx];
   let card = null;
-  if (zone === 'bz') card = p.battleZone[slot]; else if (zone === 'bench') card = p.bench[slot]; else if (zone === 'synergy') card = p.synergies[slot]; else if (zone === 'hero') card = p.hero; else if (zone === 'equip') card = p.hero.equipment[slot]; else if (zone === 'skill') card = p.skills[slot];
+  if (zone === 'bz') card = p.battleZone[slot]; 
+  else if (zone === 'bench') card = p.bench[slot]; 
+  else if (zone === 'synergy') card = p.synergies[slot]; 
+  else if (zone === 'hero') card = p.hero; 
+  else if (zone === 'equip') card = p.hero.equipment[slot]; 
+  else if (zone === 'skill') card = p.skills[slot];
+  else if (zone === 'allyEquip') card = p.battleZone[slot]?.equipment?.[eqIdx];
   if (!card || !card.mechanics || !card.mechanics.activatedAbilities) return;
 
   const ability = card.mechanics.activatedAbilities[abilityIndex]; if (!ability) return;
@@ -8701,7 +9041,7 @@ async function runManaPhase() {
 
 function resolveEndPhase() {
     const activeP = gameState.players[gameState.activePlayerIndex];
-    if (activeP) activeP.manaPool = 0; // Unused mana is cleared in the End Phase
+    // In Lorefall rules, unused mana persists and carries over across turns (mana is NOT reset to 0 in the End Phase)
     gameState.players.forEach(p => {
         if (p.hero.isFrozen) { p.hero.isFrozen = false; } else { p.hero.isExhausted = false; }
         [...p.battleZone, ...p.bench].forEach(ally => { if (ally) { ally.currentHealth = ally.maxHealth || ally.health; if (ally.isFrozen) { ally.isFrozen = false; } else { ally.isExhausted = false; } ally.chargeAddedThisTurn = 0; } });
@@ -8770,9 +9110,9 @@ async function playCardFromHand(cardIndex) {
   if (currentPhase !== "COMMAND") { showToast("You can only play cards during Command Phase!"); return; }
   
   if (card.type === "Ally") { if (p.manaPool < card.manaCost) { showToast("Not enough Mana!"); return; } promptDeployAlly(p, cardIndex); } 
-  else if (card.type === "Skill") { if (p.manaPool < card.manaCost) { showToast("Not enough Mana!"); return; } if (gameState.skillLearnedThisTurn) { showToast("Limit 1 Skill learned per turn!"); return; } learnSkill(p, cardIndex); } 
+  else if (card.type === "Skill") { if (p.manaPool < card.manaCost) { showToast("Not enough Mana!"); return; } if (gameState.skillLearnedThisTurn) { showToast("Limit 1 Skill learned per turn!"); return; } await learnSkill(p, cardIndex); } 
   else if (card.type === "Equipment") { if (p.gold < card.goldCost) { showToast("Not enough Gold!"); return; } promptEquip(p, cardIndex); } 
-  else if (card.type === "Synergy") { if (p.manaPool < card.manaCost) { showToast("Not enough Mana!"); return; } playSynergy(p, cardIndex); }
+  else if (card.type === "Synergy") { if (p.manaPool < card.manaCost) { showToast("Not enough Mana!"); return; } await playSynergy(p, cardIndex); }
 }
 
 async function playFlashCard(player, cardIndex) {
@@ -8851,6 +9191,14 @@ async function learnSkill(player, cardIndex) {
     addLogEntry(`${player.name} discarded <strong>${player.skills[slotIdx].name}</strong> to make room.`);
   }
 
+  const prx = getPlayerDomPrefix(player.index);
+  const handEl = document.getElementById(`p1-hand-card-${cardIndex}`);
+  const destEl = document.getElementById(`${prx}-skill-${slotIdx}`);
+  if (typeof AudioManager !== 'undefined' && AudioManager.playClick) AudioManager.playClick();
+  if (handEl && destEl) {
+    await animateCardGlide(handEl, destEl, { flip: true });
+  }
+
   player.manaPool -= card.manaCost; 
   player.hand.splice(cardIndex, 1); 
   card.charge = 0; 
@@ -8917,10 +9265,23 @@ function promptEquip(player, cardIndex) {
 }
 
 async function playSynergy(player, cardIndex) {
-  const card = player.hand[cardIndex]; const openSlot = player.synergies.findIndex(s => s === null);
+  const card = player.hand[cardIndex]; 
+  const openSlot = player.synergies.findIndex(s => s === null);
   if (openSlot === -1) { showToast("Synergy slots full!"); return; }
-  player.manaPool -= card.manaCost; player.hand.splice(cardIndex, 1); player.synergies[openSlot] = card;
-  await executeHook(card, 'onPlay', { triggerPlayer: player }); renderAll();
+
+  const prx = getPlayerDomPrefix(player.index);
+  const handEl = document.getElementById(`p1-hand-card-${cardIndex}`);
+  const destEl = document.getElementById(`${prx}-synergy-${openSlot}`);
+  if (typeof AudioManager !== 'undefined' && AudioManager.playClick) AudioManager.playClick();
+  if (handEl && destEl) {
+    await animateCardGlide(handEl, destEl, { flip: true });
+  }
+
+  player.manaPool -= card.manaCost; 
+  player.hand.splice(cardIndex, 1); 
+  player.synergies[openSlot] = card;
+  await executeHook(card, 'onPlay', { triggerPlayer: player }); 
+  renderAll();
   if (typeof onTutorialAction === 'function') onTutorialAction('SYNERGY_PLAYED', { card });
   if (onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
 }
@@ -9345,26 +9706,66 @@ async function openFlashStackMenuAsync(player) {
   });
 
   const zones = [
-      { name: 'hero', cards: [player.hero] }, { name: 'bz', cards: player.battleZone },
-      { name: 'bench', cards: player.bench }, { name: 'synergy', cards: player.synergies },
+      { name: 'hero', cards: [player.hero] }, 
+      { name: 'bz', cards: player.battleZone },
+      { name: 'bench', cards: player.bench }, 
+      { name: 'skill', cards: player.skills || [] },
+      { name: 'synergy', cards: player.synergies || [] },
       { name: 'equip', cards: player.hero.equipment || [] }
   ];
 
+  player.battleZone.forEach((ally, bzSlot) => {
+      if (ally && ally.equipment && ally.equipment.length > 0) {
+          ally.equipment.forEach((eq, eqIdx) => {
+              zones.push({ name: 'allyEquip', cards: [eq], parentSlot: bzSlot, eqIdx: eqIdx, parentAlly: ally });
+          });
+      }
+  });
+
   zones.forEach(zone => {
       zone.cards.forEach((c, slotIdx) => {
-          if (c && c.mechanics && c.mechanics.activatedAbilities) {
+          if (!c) return;
+          if ((!c.mechanics || !c.mechanics.activatedAbilities || c.mechanics.activatedAbilities.length === 0) && typeof inferMechanicsFromCardData === 'function') {
+              const inf = inferMechanicsFromCardData(c.type, c, null);
+              if (inf && inf.activatedAbilities && inf.activatedAbilities.length > 0) {
+                  if (!c.mechanics) c.mechanics = {};
+                  c.mechanics.activatedAbilities = inf.activatedAbilities;
+              }
+          }
+          if (c.mechanics && c.mechanics.activatedAbilities) {
               c.mechanics.activatedAbilities.forEach((ab, abIdx) => {
                   let canAfford = true;
                   if (ab.cost.mana && player.manaPool < ab.cost.mana) canAfford = false;
                   if (ab.cost.gold && player.gold < ab.cost.gold) canAfford = false;
-                  if (ab.cost.exhaust && c.isExhausted) canAfford = false;
+                  if (ab.cost.exhaust && (c.type === "Hero" ? player.hero.isExhausted : c.isExhausted)) canAfford = false;
+                  if (ab.cost.exhaustHero && player.hero && player.hero.isExhausted) canAfford = false;
                   if (ab.cost.oncePerTurn && c.usedThisTurn) canAfford = false;
-                  if (ab.cost.phase) canAfford = false; 
+                  if (ab.cost.maxUsesPerTurn && (c.usesThisTurn || 0) >= ab.cost.maxUsesPerTurn) canAfford = false;
+                  if (ab.cost.phase) {
+                      const reqP = ab.cost.phase.toLowerCase();
+                      if (reqP !== "combat" && reqP !== "clash" && reqP !== "any" && reqP !== "anytime") {
+                          canAfford = false;
+                      }
+                  }
                   if (ab.cost.exhaust && c.type !== "Hero" && c.chargeReq !== undefined && (c.charge || 0) < c.chargeReq) canAfford = false;
+                  if (ab.cost.requiresStrikesUsed && (gameState.strikesUsed || 0) < ab.cost.requiresStrikesUsed) canAfford = false;
+                  if (ab.cost.sacrificeStrike && (gameState.strikesUsed || 0) >= gameState.maxStrikes) canAfford = false;
+                  if (ab.cost.maxSpend && player.manaPool < (ab.cost.mana || 1)) canAfford = false;
+                  if (ab.cost.discard) {
+                      const count = player.hand.filter(h => h.type === ab.cost.discard.type).length;
+                      if (count < (ab.cost.discard.count || 1)) canAfford = false;
+                  }
                   
                   if (canAfford) {
                       let costStr = ab.cost.mana ? `${ab.cost.mana}M` : (ab.cost.gold ? `${ab.cost.gold}G` : (ab.cost.exhaust ? `Exhaust` : `Cost`));
-                      acts.push({ text: `[Ability] ${c.name} (${costStr})`, actionType: 'ability', zone: zone.name, slot: slotIdx, abIdx: abIdx });
+                      acts.push({ 
+                          text: `[Ability] ${c.name} (${costStr})`, 
+                          actionType: 'ability', 
+                          zone: zone.name, 
+                          slot: zone.parentSlot !== undefined ? zone.parentSlot : slotIdx, 
+                          abIdx: abIdx,
+                          eqIdx: zone.eqIdx 
+                      });
                   }
               });
           }
@@ -9380,7 +9781,7 @@ async function openFlashStackMenuAsync(player) {
   if (chosenI !== -1) {
       let choice = acts[chosenI];
       if (choice.actionType === 'flash') await playFlashCard(player, choice.idx);
-      else await window.activateSpecificAbility(player.index, choice.zone, choice.slot, choice.abIdx);
+      else await window.activateSpecificAbility(player.index, choice.zone, choice.slot, choice.abIdx, choice.eqIdx);
   }
 }
 
@@ -9516,9 +9917,25 @@ function renderClashScreen() {
   if (currentClash.attacker.attackType === "Ranged") atkDie = "D20";
           
   if (currentClash.attackerPlayer.isAI || (onlineSession.active && currentClash.attackerPlayer.index === 1)) { setTimeout(rollClashAttacker, 1000); } 
-  else { document.getElementById('clash-actions').innerHTML = `<button class="dice-btn" onclick="rollClashAttacker()">🎲 Roll Attack (${atkDie})</button>`; }
+  else { 
+    document.getElementById('clash-actions').innerHTML = `
+      <div style="display:flex; gap:10px; width:100%; justify-content:center; align-items:center;">
+        <button class="btn btn-secondary" style="background:#8b5cf6; color:#fff; font-weight:bold; padding:12px 18px;" onclick="triggerAttackerClashFlash()">⚡ Flash / Ability</button>
+        <button class="dice-btn" onclick="rollClashAttacker()">🎲 Roll Attack (${atkDie})</button>
+      </div>
+    `; 
+  }
   modal.style.display = 'flex';
   if (typeof onTutorialAction === 'function') onTutorialAction('CLASH_OPENED', { currentClash });
+}
+
+async function triggerAttackerClashFlash() {
+  if (!currentClash) return;
+  const modal = document.getElementById('clash-modal');
+  if (modal) modal.style.display = 'none';
+  await openFlashStackMenuAsync(currentClash.attackerPlayer);
+  if (modal) modal.style.display = 'flex';
+  renderClashScreen();
 }
 function checkKeyword(card, player, keyword) {
    if (!card) return false;
@@ -10630,7 +11047,7 @@ async function aiTryActivateAbilities(activeP, phaseName, diff) {
 }
 
 function checkAIAction() {
-  const activeP = gameState.players[gameState.activePlayerIndex]; if (!activeP.isAI) return;
+  const activeP = gameState.players[gameState.activePlayerIndex]; if (!activeP || !activeP.isAI || gameState.gameMode === "TEST") return;
   if (gameState.gameMode === "INDEPTH_TUTORIAL") return;
   const diff = gameState.aiDifficulty || "MEDIUM";
   const opp = gameState.players[1 - activeP.index];
@@ -11263,6 +11680,9 @@ function isLocalPlayer(playerOrIndex) {
         const myIdx = (onlineSession.role === 'HOST') ? 0 : 1;
         return pIdx === myIdx;
     }
+    if (gameState.gameMode === "TEST") {
+        return true;
+    }
     // Local match vs AI: player 0 is human, player 1 is AI
     return pIdx === 0;
 }
@@ -11426,16 +11846,18 @@ window.drawSpecificCard = function(pIdx, cardIdx) {
 
 function showDeckInspect(pIdx) { 
     if (gameState.gameMode !== "TEST") return;
-    const p = gameState.players[pIdx]; 
+    const targetIdx = (gameState.gameMode === "TEST" && pIdx === 0 && gameState.activePlayerIndex === 1) ? 1 : pIdx;
+    const p = gameState.players[targetIdx]; 
     if (!p) return;
     let html = `<ul style="max-height:240px; overflow-y:auto; padding-left:16px;">`;
-    html += p.deck.map((c, i) => `<li style="cursor:pointer; color:var(--mana); margin-bottom:6px; font-weight:bold; border-bottom:1px solid #1e293b; padding-bottom:4px;" onclick="drawSpecificCard(${pIdx}, ${i})">+ Pull: ${c.name}</li>`).join("");
+    html += p.deck.map((c, i) => `<li style="cursor:pointer; color:var(--mana); margin-bottom:6px; font-weight:bold; border-bottom:1px solid #1e293b; padding-bottom:4px;" onclick="drawSpecificCard(${targetIdx}, ${i})">+ Pull: ${c.name}</li>`).join("");
     html += `</ul>`;
-    showModal("Loot Deck (Test Mode)", html, [{ text: "Close", action: closeModal }]); 
+    showModal(`Loot Deck — ${p.name} (Test Mode)`, html, [{ text: "Close", action: closeModal }]); 
 }
 
 function showDiscardInspect(pIdx) {
-  const p = gameState.players[pIdx];
+  const targetIdx = (gameState.gameMode === "TEST" && pIdx === 0 && gameState.activePlayerIndex === 1) ? 1 : pIdx;
+  const p = gameState.players[targetIdx];
   if (!p) return;
   const pile = p.discard || [];
   let html = '';
@@ -11531,6 +11953,7 @@ const TUTORIAL_STEPS = [
   {
     id: "scout",
     title: "🎓 Scout Phase & Starting Hand",
+    preferredDock: "top",
     text: "Welcome to <strong>Lorefall TCG</strong>! Both players draw 8 cards in the Scout Phase.<br><br>You can replace unwanted cards, but our hand is well-balanced — let's keep all 8 cards!",
     taskPrompt: "Click the green '✓ Keep Hand (8 Cards) & Ready' button.",
     getTargetEl: () => {
@@ -12050,6 +12473,7 @@ const INDEPTH_TUTORIAL_STEPS = [
   {
     id: "id_scout",
     title: "🎓 Phase 1: Scout Phase & Mulligan System",
+    preferredDock: "top",
     text: "Welcome to the <strong>In-Depth Battle Tutorial</strong>! You are playing as <strong>Prince Athran of Korvas</strong> (30 HP) against <strong>Scholar Favar Dahv</strong> (26 HP).<br><br>Every battle begins with the <strong>Scout Phase</strong>. You draw 8 cards and may replace any cards you don't need. Our opening hand contains a balanced squad of Allies, Equipment, Skills, and Synergies. Let's keep all 8 cards!",
     taskPrompt: "Click the green '✓ Keep Hand (8 Cards) & Ready' button.",
     getTargetEl: () => document.getElementById('modal-actions')?.querySelector('button.btn-primary'),
@@ -13112,9 +13536,14 @@ function updateTutorialHUDPosition(targetEl, isCardDetailOpen) {
     return;
   }
 
+  const steps = typeof getActiveTutorialSteps === 'function' ? getActiveTutorialSteps() : [];
+  const currentStep = steps[tutorialState.stepIndex];
+  const isScoutStep = Boolean(currentStep && (currentStep.id === 'scout' || currentStep.id === 'id_scout' || currentStep.preferredDock === 'top'));
+
   // Player Hand Region Docking:
   // Modal always fits into the player hand region (docked at the bottom)
   // ONLY when having to click on a card in hand does it move to the top!
+  // Scout phase defaults to the top so it doesn't obstruct cards or buttons in the modal!
   const isTargetInHand = Boolean(
     targetEl && (
       (targetEl.id && targetEl.id.startsWith('p1-hand-card')) ||
@@ -13123,7 +13552,7 @@ function updateTutorialHUDPosition(targetEl, isCardDetailOpen) {
       Boolean(targetEl.closest('.hand-card'))
     )
   );
-  let shouldDockBottom = !isTargetInHand;
+  let shouldDockBottom = !isTargetInHand && !isScoutStep;
 
   if (shouldDockBottom) {
     hud.classList.add('hud-bottom');
@@ -14316,6 +14745,7 @@ function exitTutorialMode() {
   document.getElementById('game-screen').classList.remove('active');
   document.getElementById('menu-screen').classList.add('active');
   setGameMode('AI');
+  showMainMenu();
 }
 
 function showTutorialVictoryModal() {
@@ -14354,6 +14784,121 @@ function showTutorialVictoryModal() {
    AUDIO MANAGER: BGM, CLICK & HOVER SOUND EFFECTS + VOLUME CONTROLS
    ========================================================================= */
 
+// Procedurally generate "The Weight of the Draw" battle BGM track as an embedded Base64 WAV
+// This guarantees BGM always plays offline/online/local without depending on network availability
+function generateWeightOfTheDrawBgmDataUri() {
+  try {
+    const sampleRate = 11025;
+    const duration = 8.0;
+    const numSamples = Math.floor(sampleRate * duration);
+    const buffer = new Uint8Array(44 + numSamples);
+
+    // RIFF WAV Header
+    buffer[0] = 0x52; buffer[1] = 0x49; buffer[2] = 0x46; buffer[3] = 0x46; // "RIFF"
+    const chunkSize = 36 + numSamples;
+    buffer[4] = chunkSize & 0xff; buffer[5] = (chunkSize >> 8) & 0xff; buffer[6] = (chunkSize >> 16) & 0xff; buffer[7] = (chunkSize >> 24) & 0xff;
+    buffer[8] = 0x57; buffer[9] = 0x41; buffer[10] = 0x56; buffer[11] = 0x45; // "WAVE"
+    buffer[12] = 0x66; buffer[13] = 0x6d; buffer[14] = 0x74; buffer[15] = 0x20; // "fmt "
+    buffer[16] = 16; buffer[17] = 0; buffer[18] = 0; buffer[19] = 0; // PCM header size
+    buffer[20] = 1; buffer[21] = 0; // AudioFormat 1 = PCM
+    buffer[22] = 1; buffer[23] = 0; // Mono
+    buffer[24] = sampleRate & 0xff; buffer[25] = (sampleRate >> 8) & 0xff; buffer[26] = 0; buffer[27] = 0;
+    buffer[28] = sampleRate & 0xff; buffer[29] = (sampleRate >> 8) & 0xff; buffer[30] = 0; buffer[31] = 0;
+    buffer[32] = 1; buffer[33] = 0; // BlockAlign
+    buffer[34] = 8; buffer[35] = 0; // 8-bit
+    buffer[36] = 0x64; buffer[37] = 0x61; buffer[38] = 0x74; buffer[39] = 0x61; // "data"
+    buffer[40] = numSamples & 0xff; buffer[41] = (numSamples >> 8) & 0xff; buffer[42] = (numSamples >> 16) & 0xff; buffer[43] = (numSamples >> 24) & 0xff;
+
+    // Chord progression in D minor: Dm (0-2s), Bb (2-4s), C (4-6s), Dm (6-8s)
+    const chords = [
+      { start: 0.0, end: 2.0, root: 73.42, third: 87.31, fifth: 110.0 }, // D2, F2, A2
+      { start: 2.0, end: 4.0, root: 58.27, third: 73.42, fifth: 87.31 },  // Bb1, D2, F2
+      { start: 4.0, end: 6.0, root: 65.41, third: 82.41, fifth: 98.00 },  // C2, E2, G2
+      { start: 6.0, end: 8.0, root: 73.42, third: 87.31, fifth: 110.0 }  // D2, F2, A2
+    ];
+
+    // Heroic lead melody notes for "The Weight of the Draw"
+    const melody = [
+      { t: 0.0, d: 0.75, f: 293.66 }, // D4
+      { t: 0.75, d: 0.25, f: 329.63 }, // E4
+      { t: 1.0, d: 1.0, f: 349.23 },  // F4
+      { t: 2.0, d: 0.75, f: 466.16 }, // Bb4
+      { t: 2.75, d: 0.25, f: 440.00 }, // A4
+      { t: 3.0, d: 1.0, f: 349.23 },  // F4
+      { t: 4.0, d: 0.5, f: 392.00 },  // G4
+      { t: 4.5, d: 0.5, f: 440.00 },  // A4
+      { t: 5.0, d: 1.0, f: 523.25 },  // C5
+      { t: 6.0, d: 1.0, f: 587.33 },  // D5
+      { t: 7.0, d: 1.0, f: 440.00 }   // A4
+    ];
+
+    for (let i = 0; i < numSamples; i++) {
+      const t = i / sampleRate;
+      let mix = 0;
+
+      // 1. War Drum (hits on beat 0, 0.75, 1.0, 1.5 of every 2-second measure)
+      const mTime = t % 2.0;
+      const drumHits = [0, 0.75, 1.0, 1.5];
+      for (let h = 0; h < drumHits.length; h++) {
+        const dt = mTime - drumHits[h];
+        if (dt >= 0 && dt < 0.28) {
+          const drumPitch = 90 * Math.exp(-dt * 18) + 38;
+          const drumEnv = Math.exp(-dt * 12);
+          const noise = ((i * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff * 2 - 1;
+          mix += (Math.sin(2 * Math.PI * drumPitch * dt) * 0.7 + noise * 0.3) * drumEnv * 0.38;
+        }
+      }
+
+      // 2. Bass Strings
+      const chord = chords[Math.min(3, Math.floor(t / 2.0))];
+      if (chord) {
+        const cTime = t - chord.start;
+        const bassEnv = Math.min(1, cTime * 4) * Math.min(1, (2.0 - cTime) * 4);
+        const bassWave = Math.sin(2 * Math.PI * chord.root * t) * 0.6 +
+                         Math.sin(2 * Math.PI * chord.third * t) * 0.25 +
+                         Math.sin(2 * Math.PI * chord.fifth * t) * 0.25;
+        mix += bassWave * bassEnv * 0.22;
+      }
+
+      // 3. Lead Horn / Brass
+      for (let m = 0; m < melody.length; m++) {
+        const note = melody[m];
+        if (t >= note.t && t < note.t + note.d) {
+          const nt = t - note.t;
+          const env = Math.min(1, nt * 15) * Math.min(1, (note.d - nt) * 8);
+          const vib = Math.sin(2 * Math.PI * 5.0 * nt) * 1.5;
+          const freq = note.f + vib;
+          const hornWave = Math.sin(2 * Math.PI * freq * nt) * 0.7 +
+                           Math.sin(2 * Math.PI * freq * 2 * nt) * 0.2 +
+                           Math.sin(2 * Math.PI * freq * 3 * nt) * 0.1;
+          mix += hornWave * env * 0.28;
+        }
+      }
+
+      // 4. Subtle marching hi-hat / shaker on every 8th note
+      const eighth = t % 0.25;
+      if (eighth < 0.06) {
+        const shEnv = Math.exp(-eighth * 50);
+        const rand = ((i * 1664525 + 1013904223) & 0x7fffffff) / 0x7fffffff * 2 - 1;
+        mix += rand * shEnv * 0.08;
+      }
+
+      const clamped = Math.max(-1, Math.min(1, mix));
+      buffer[44 + i] = Math.max(0, Math.min(255, Math.floor(128 + clamped * 126)));
+    }
+
+    let binary = '';
+    const chunkSizeBtoa = 8192;
+    for (let c = 0; c < buffer.length; c += chunkSizeBtoa) {
+      const sub = buffer.subarray(c, Math.min(buffer.length, c + chunkSizeBtoa));
+      binary += String.fromCharCode.apply(null, sub);
+    }
+    return 'data:audio/wav;base64,' + btoa(binary);
+  } catch(e) {
+    return '';
+  }
+}
+
 const AUDIO_DATA = {
   click: 'data:audio/wav;base64,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MwAyABQAFAA/AD8AWgBYAGQAZABWAFYAYgBjAHwAfAD5APkA8gDzAKwArACiAKIAowChAAgBCAE/AUABegF6AWwBbAF5AXkB9QH2ASYCJwInAigCvwG/AT4CPgKUApICZwJnAjwCPALiAeIBmwGcAWwBawFBAUEBCgEKAcQAxACDAIIAgwCCAD0APQBUAFQA2//b/4P/gv+u/67/jv+O/6b/pv9p/2n/Nf81/yP/JP/o/uj+6/7q/uT+5P4g/yD/iv+K/1X/Vf84/zf/Pf8+/3L/c/9x/3L/nP+d/9z/3f/2//b/TwBPAFEAUABvAG4AiwCLAKAAoAC0ALUAzgDOAPcA+AArASsB/wD+AAEBAQEKAQkB5gDmAOMA4wDaANsA1QDVAPwA/AD+AP4A/gD+AOUA5QC+AL4AwAC/AKkAqgCJAIoAdwB2AG4AbgB9AHwAkgCTAIwAjACOAI8ArQCsALYAtgCpAKoApwCmALEAsQDPANAA1wDXAPIA8QARAREBIwEjATQBNAFWAVUBWQFaAVgBWAE8ATwBSgFLAVQBUwFyAXEBZwFnAXcBdwGTAZMBgAGAAXABcAGJAYkBfQF+AVcBWAE9AT0BIQEhAeYA5QD6APsA0QDSAIIAggDmAOYAxQDEAHkAeQCJAIkAvgC+ADMAMwBuAG8AlQCVAGAAYAA6ADsATwBOAND/0P+e/57/6P/o/5X/lf95/3n/mv+b/27/bv8O/w3/cv9y/zH/Mf9G/0X/Q/9C/2L/Y/8e/x7/a/9r/0P/Q/9x/3H/kf+R/6T/pP+n/6j/7//w/+X/5v/1//X/SQBKAAkACQAeAB8AZgBmAI0AjQB8AHwAGAEXATwBPAEHAQcBUgFSAZQBkwFgAWABcAFvAZcBlgEvAS8BWwFbAW4BbgFPAU4BagFrAW4BbwFtAW0BRwFHAdwB2wFLAUwB7AHtAdwB3AHBAcAB7QHtASQCJQLqAeoBvQG9ASsCLAJoAWgBygHKAWoBaQGLAYwB2wDaAHIBcQECAQIB6ADoAB0BHAE1ATUBywDLAB4BHQGZAZsBHQEeAbwBvAGeAZ8B8gHzAawBqwEjAiMC5wHmAdkB2QEHAgYC0wHTAbQBtAHGAcUBUAFQARUBFAHbANsAyADHAFIAUgCDAIIAJwAmAC8ALgAnACcAsf+x/w8ADwDj/+P/6//s/6v/qv9aAFoA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6f/p/77/vv8FAAMAvQC9AHEAcgB2/3X/EgASAMAAwQDx//H/YQBhAJIAkgDG/8T/UwBUALMAswBWAFYAEQAQAE4ATgArACsAaQBpAMQAxAADAAMAwf/B/6H/of8sACsAsgCxAAUABQDo/+j/HgAeAKH/of9HAEcA6wDsAG0AbQArACwAKwAsADIAMgBOAE4AvgC+AD0APQA3ADcATgBOAMf/xv/S/9P/VABWAGcAZgA+AD4ACAAJAMr/y/9hAGIANgA1ADQANABnAGcAIQAhACoAKQCiAKMAYgBiAOL/4/8qACkAVQBVAKIAowBWAFYA1f/U/9T/1P9KAEsAaABnAEMAQwAmACYAJgAmACkAKAD5//r/HAAcAJoAmQB5AHoAQwBCAEgASAAEAAQARQBFAMkAyQAgACEAKAAoACgAJwD6//v/WgBbAE0ATQAUABQAHQAeAFcAVgAzADMAMwAzABEAEgBQAFAAfgB9AGsAawAQABAAZwBnAEEAQQA1ADYAeAB4AD8AQABPAE4AVQBVAB8AHwAKAAoAXABcAE4ATwBGAEQANwA4ACUAJAAXABgAPgA+AFwAXQCEAIMAbwBwADgAOQBgAGAAQgBDAD0APQCMAIwApACjADYANgAgACAAIAAhAFMAUwB+AH8ANwA3AE8ATgBnAGcACQAJABIAEgBDAEMAYgBiAJAAkACQAI8ACgAKAA8AEAB5AHoAnACbAIUAhABlAGMAMgAyAD0APgBqAGoAPAA8AFAAUAA0ADUAWABYAEAAPwBIAEcANwA2AFYAVgBAAEAATwBPAIUAhAB8AHsARQBGACAAIABpAGgAdwB4AKsAqwCFAIQAFgAWAOX/5f83ADcAdgB2AIEAgQBcAFwA8//0/9v/2/9AAEIAhwCHAGcAaABtAG0ALAAsADMAMwBwAG8AjgCOAGYAZQA9ADwAJgAmAEwATACNAI4AewB7ADkAOQAJAAgAIQAhAFoAWQCpAKkAUgBTAKX/pP/2//b/jgCPAIYAhgBbAFwABQAFAAQAAwBYAFgAfwB/AF0AXQBvAHAAKQApABAAEABhAGIAYQBiAGEAYQBSAFMAEgASAPj/9/9HAEgAUABQAHsAewBWAFYABAAEAPv/+/8sAC4AlgCWAJMAkgAmACYAEQARAFgAWABzAHMAXABcAFIAUgBGAEUANwA2AEsASwBNAE0AAAD//z0APgBRAFAAXABbAJgAmQC2ALYAnACcAEQARQDr/+v/rf+t/8r/y//r/+v/y//K/9P/1P+X/5f/q/+s/wwADABMAEsANwA4AAQABADr/+v/mwCbAEwBTQHPAM8AjACLAAgBCAFlAWUB8ADwAAEBAAERARABggCBAOv/6//7//z/+P/3/7j/uf9y/3L/yf/H/4P/gv+u/67/BgAGABAADwDm/+X/MwAzAHIAcgByAHEAtAC1ANcA1wDAAMEAoACgALYAtgCSAJMAPgA+AEsASgAxADAAFQAVADcANwBaAFoAOQA5ANb/1v8NAAwAIwAkAJIAkQDMAMwAnACdAF8AYABeAF4AqACnAI4AjgB0AHQAFQAVAPr/+f8VABYA6P/o/8//zv+//8D/wP/A/8D/wf/x//L//f/9/38AfgC3ALgAlwCXANIA0QAJAQkB+gD7AAYBBQGWAJYATABMAEkASgA7ADsAz//Q/77/v/91/3T/TP9M/6f/p/+x/7H/8//z/yYAJQBKAEoAhACEAKoAqgCzALEA4QDhAP4A/gDDAMMAmQCYAI8AjgCiAKIARQBEAL//v//i/+L/yv/J/6X/pf/P/8////8AAMn/yf/G/8f/5//o/0oASgByAHIAZABkAI0AjQCZAJgAyQDIAL4AvgCzALMAfQB9ACoAKQA3ADcAggCCAFUAVQD8//z/kf+Q/5z/nf+T/5P/of+h/73/vf/6//r//f/8/yMAJACRAJEAzADMAN8A3wCTAJQASQBKAEsASwBiAGMASQBJAFEAUQBkAGUAFwAXAOj/6P8WABcAEwATANj/2P/f/97/NgA2AF0AXQCJAIgAVwBXAGsAbAA8ADsAZQBlAIcAhwByAHEAIAAgAAQAAwBDAEMAbgBsAI8AjwBJAEgAHwAeAP3//f8UABQAIgAiAGIAYgA9AD4AUABPADQANABJAEkAcABwAEkARwBtAG0AOAA5AO7/7v8iACMAjQCOAEQAQwBgAGEAfwB/AI4AjwBWAFUATgBNAC0ALQAKAAsA+f/5//f/+P8SABIAIgAiAC0ALQBIAEgAhQCGAEMAQwAkACQARQBFACQAIwDy//P/FgAXAE8AUACjAKMAigCLAEwATQA4ADcANgA2AD0APgBiAGIAZQBmAEMAQwArACwAUgBSAKcApgCNAI0AcABxAFIAUgA4ADkASgBKAI0AjQBfAF8ASgBLABsAHQAnACcANwA2AFYAVQBIAEgAOgA5AEwATAA0ADQAOgA7AEYARgA9ADwAHwAeAEcARwBeAF8AeQB5AHoAewBOAE4AFQAVADAAMgApACgANwA4ABsAHAAGAAYAPAA9AJEAkQB8AH0AYABgAEAAPwB5AHkAdQB2AF8AXwCkAKQAjACMAF8AXwArACsAMgAyAEEAQQBMAE0ALwAwADwAPAAoACcAMwAyAEoASwBfAGAASQBIADEAMQBOAE4AUABQAEwATABKAEoAWQBaAFMAUwBjAGIADgANABkAGQBWAFYARgBHABYAFQA5ADkARABEAF4AXQBUAFQAKAAnAD0APABjAGMAfQB8AHcAdwBiAGEAMQAwAGUAZgB4AHgATgBPAEwASwBWAFYAQQBBAFkAWQBNAE0ARQBFAFgAVwBKAEoAJAAkADsAOwB5AHkAdgB2AFQAUgArACsASwBMAFEAUgBRAFAASABJAEgASQAgAB8AXwBeAIAAgAA5ADoALgAuADwAPABNAEwAewB8AHsAegBNAE0AbQBtAEoASgBVAFUAaABoAGgAaQA4ADgAYgBhAHEAcABzAHMAhQCEAFUAVQA7ADsATgBOAFoAWQBPAFAAYgBjAEEAQABBAEEAUQBRAFQAVABXAFYAYwBjAD0APQBHAEgAXwBhAG4AbwCHAIcARwBHAAUABQAyADMAYQBiAE8ATwBPAE8AKQApACsAKwBIAEkAcgBzAHYAdgBlAGUAJwAoAEYARgCGAIYAkwCUAHsAewBWAFUARgBGAFMAUwBKAEoAUwBTAHUAdgBiAGEAVwBWAFwAXAB8AH0AXABcAEwATABGAEQAYwBiAF4AXQBbAFoAWwBaAHYAdQBXAFcAOgA6AGQAYwByAHMAggCCAFQAVQA8ADwAYgBjAJkAmABjAGMARABDABsAGgA+AD0AbABtAJAAkACHAIcAQwBBADUANABtAG4AogCiAH4AfQBjAGMAZABjAGMAYwBcAFsAZABkAHQAdABnAGcAMAAwABgAFwBAAEAAiQCJAGsAawAxADEAKgApAGkAaQCjAKMAqgCpAIQAgwBPAE4AMwAzAHYAdgCvAK4AbABtAC0ALgAmACUAQwBDAG4AbQBmAGYAWwBaADgAOAAjACMASgBKAGcAaABwAG8ARgBFACIAIgBDAEMAggCDAH0AfQBeAF4ASwBKAEYARgBjAGMAgQCBAIcAiABDAEIALwAvADoAOwBtAG0AfAB7AGUAZAA2ADYAKQAqAG0AbACbAJwArgCuAIUAhAA/AEAAQgBDAJAAkACfAJ8AgQCCADkAOQAcABwAZQBlAFcAVwAyADIANwA3ABUAFgARABAAUQBQAHsAfABeAF0ARABEAFkAWgB3AHcAZwBnAH0AfQCLAIsAfQB+AHEAcQBjAGMAcABvAHUAdAAyADIAIgAiADcANwAnACcAVwBYAFwAXABFAEYAJQAlADcANwBsAG0AgACAAG8AbwBBAEEAcQBxAJoAmQBxAHEARABEAE0ATgBOAE4APgA/ADsAOwBRAFEASwBKACEAIgAmACYASwBMAFwAXAA5ADoAPwA9AGsAawBgAGEAWQBZAEgASABsAGwAXQBdADwAPQA9AD0AWgBaAF4AXwAtACwAJQAkAEcARwAoACkAEQAQADkAOAA5ADkAMQAyAEsATABXAFYASABIAEsASwA7ADsAVwBYAHMAcgBiAGIAVwBWAFwAXQBdAF4AZgBnAFUAVgA7ADwANAA0ACEAIQAkACQAOAA3AC4ALQAZABgAIAAgAEMAQwA2ADYARQBGAFgAWABfAF4ATwBOAEoASgBSAFIAXwBfAD8AQAAJAAkAKgAqAC0ALAAvADAAKQAqABcAFwAmACUAMwAzADQANAA0ADMAIAAhABoAGgBIAEgAZgBmAEgASAAjACIAKgApAEAAPwBTAFMAQgBBADQANABHAEcAOQA5AAIAAgAPABAAGQAaABsAGgAkACUAGAAYAAUABAALAAsALQAuADAAMQA/AEAAHwAeACwALABgAGAAbQBsADMAMwAdAB0AKgArAEAAQAAzADQAHAAcAP7///8kACQAKAAoABAAEAApACkAGwAaABMAFAAjACIANgA2ACYAJgA7ADsAMwA0ACYAJwAhACEAHQAdAB8AHwAyADEAJQAmAPv/+/8QABEAFwAVAB8AHgAEAAQACwAKAAoACgAZABkANgA2ADAAMAA1ADUAKQApACAAIAAtAC8AOwA6ACsAKwAvAC8AGwAaAB8AIAAmACUAMQAwACMAIgANAA4ABwAHABcAFwAjACMAKwAqABQAFAAVABYAIwAjACUAJAAYABgAJgAlACEAIgAqACkALgAuAAMAAwALAAoAJwAnACUAJgAjACQADwAOAPn/+P8tAC0AKAApAA0ADQADAAMAEAAQABsAGgAkACMAHwAfABcAFwAkACMAJAAkADgANwBDAEMAKwArABAADwAxADEAMwA0ACcAJwAUABQAIQAiABIAEgAEAAMAFAAVABEAEgAhACEAFwAXAAYABwARABAAIgAjACgAKAAeAB4A9//3/xsAGwAlACYAOAA3AC8AMAAVABUABQAFABYAFgAwADEAJwAoAAMAAwALAAsAGQAZABkAGQAVABUADAANABEAEQAXABcAGQAZABcAGAAmACYAIQAgACQAJQAvAC8AJgAmABsAGwAbABoAEwATACAAIAAHAAcA+P/4//n/+f/x//H/AgABAOb/5v8IAAcAKAAoABAAEQD+//7/CgAMABQAFQAlACUAMAAvACwALAAdAB0AJQAkAC8ALwAuACwALgAuAAgABwAMAAsACwALABQAFQD8//7/8//z/xkAGQA+AD4AFwAXAAQABAAZABkALwAuACsAKwAuAC4AIgAiABgAGAAZABkAFwAXACgAKAAqACoAFgAXACEAIQAuAC0AAgABAPj/+P8QABAAKgAqAA0ADgD8//z//f/9/ycAJwAlACYAEwAUACMAIwAhACEAHgAeAB8AHgAhACEALQAtACQAJAASABIAIQAgABUAFQATABIAFwAXABUAFQAPABAAEAAQABQAFAAZABgAKQAoAAcABwAPAA8AOAA3ACwALAATABMALwAwACYAJQAYABkAHQAdABoAHAAvAC4AGwAcAPr/+v8NAA0AMQAwABoAGgAXABgACwAKAA8ADwAsACwALwAuAA4ADgAQABAAFgAWACYAJgAnACcAHAAdAAYABgARABEAOwA8ADoAOQAVABQAAQACACAAHwArACsAKwArABwAHAArACkAJwAoACAAIAAZABkAIwAkAD4APwAXABcAAAAAABAAEAAtAC0AKQApABkAGgASABMACgAKAB0AHQAoACgAIAAfAAcABwAFAAUAKAApAEAAQAAkACQACgAKAAcABwAmACUANgA2ACcAKAAHAAgABQAFABQAFQAeAB0AJgAmAD4APQAkACMABgAGABcAFwA9AD4ANwA4ABwAHQATABMACgAJABEAEAAaABsAIQAiAB8AHwAFAAUABAAFABoAGgAqACkAIwAjABkAGQArACwAJgAmACUAJgAqACwANgA3ABkAGQACAAIAGQAZAEYARgAzADIABgAGAPX/9v8RABEALgAuACgAJwAdABwACAAHAAYABgAeAB8ANQA1ADMAMwAdAB4ADAAMAAoACgAzADQAOAA3ACAAIAAVABUAFAATAB4AHgAkACMALgAtACQAJQAEAAQA+//6/yIAIQAxADEAIAAgAAMABAAOAA0AJAAkADEAMQBDAEMAKwAsABwAHQAdABwAJAAlAC8ALwA1ADUAEwATAAMAAgAtAC0AMQAxABUAFQARABEAEgARABwAHAAlACQAHwAeACsAKwAiACAAEAAQAAwADAAoACcAMQAwACQAJAAuAC4AIQAhABEAEgAdAB4AJQAmAC0ALgAaABsA9f/1/wgABwAwADEAJgAmAAcACAAWABYAHwAfACEAIQAlACQAFgAWAB0AHQAjACMAIQAhACkAKQAWABcAEAAQABkAGQAfAB8ADQANABAAEAAXABcAFAATAA8ADgANAA0AEAAQACMAIwAuAC4AGAAYAPz//f8PAA4AMAAvAB8AHgAdAB0AFAATAAkACQAUABQAKAAnABcAGAAMAAsADwAQAAwADQASABEAIwAjABcAFgAOAA8AGAAYABYAFQAfACAAHwAgABMAEgAZABkAGgAaABkAGQAZABkAEgATAA0ADQAXABcAEQASABQAFAAWABcAEgASABAAEAAZABgAIQAhAB8AHwAoACcAFwAXAAIAAgAPAA8AIAAhAA4ADQAOAA8ADgAOAAcABgAmACcALAAsAAkACgADAAMAHgAeACMAIwAcABsADAAMAA0ADQAZABkAJgAmACMAIgAUABMAGQAaAB0AHQAZABoAIAAgACUAJAAZABgAHQAdABsAGwAaABoAFwAXABQAFAAkACMAJQAlACAAIAAjACMAPwA/ADkAOQALAAsAFwAXADsAOgAyADEAFAAUAA4ADgASABIAJwAnADAAMQAaABoAGQAZACAAIQAfAB8ALwAwACsAKwAXABYAFQAUACYAJwAzADMAJQAmACIAIwAtAC4AMQAxACcAJwAbABsAJgAmACkAKQAPAA8ACAAHABgAGAAqACkALwAvABwAHAAdAB4AKwApADMAMwAwADEAPAA9ADEAMAAaABoAJQAlADoAOgA1ADUAHQAdACQAJAAvAC8ALAAsADEAMAAxADAAMQAwADEAMQAeAB4AKgArADwAOwAhACIAEAAQADEAMAA6ADkALAAsACcAJgAnACcAJQAmADQANAAyADEAMAAvAC4ALQAlACQAHwAeACkAKgA1ADUAJAAkAB8AHgAoACgALQAtACQAJAAhACIAKgAqACsAKwAYABgAIwAjADYANQAuAC0AGgAZACEAIQAyADEALwAvACQAJAAeAB8AKwArACwALAAmACYAJgAmACEAIQAWABcAHAAcACUAJQAzADIAJQAlABYAFwAdAB4AJgAnACgAKAAgAB8AHgAdACIAIgAeAB8AJAAjACoAKQAhACEAGgAaAB4AHQAsACwAMQAxACgAKAAYABgAGQAaAB8AHgAmACYAIgAiABwAHAAbABoAGwAcACIAIwAyADIANgA1ACgAKAAhACIAJgAlACkAKAAqACoALAArAC4ALgAiACEAGgAZACQAIwApACkAHwAeABwAHAApACkANAA0ACYAJgAdAB4AJQAlACYAJwAuAC0AJgAnACEAIgAnACcAJgAnACIAIgAoACcAMAAvACkAKQAgACAAIgAjACoAKgAuAC8AKgAqADEAMQAkACQAFQAVACEAIQAwAC8AMgAxACMAIgAdAB0AKAAnACsAKwAnACcAJgAlACUAJgAjACMAGwAaABwAHQAjACMAHAAcABwAHQAgACEAIgAiACEAIgAiACIAJgAlAB8AIAAhACAAJwAnAC0ALQAlACUAIQAhAB8AHwAhACEAMAAvACYAJgAfAB4AHAAbABYAFwAWABYAJwAoACcAJgAfAB8AHgAeABwAHAAkACQAKgAqACYAJwAYABgAGwAbACEAIgAsACwAKwArACMAIgAaABoAGQAaACAAIAApACkAJgAnABQAFAARABEAHAAcACEAIQAjACIAHgAeAA0ADAAQAA8AHQAeACEAIQAeAB4AGgAaABAAEAAaABkAJwAnACgAKAAdAB0AFwAXABwAHAAfACAAHgAeACAAHwAXABgADAAMAA4ADgAdAB0AIQAiABsAGwAQABAAEwASABwAGwAZABgAFwAXABQAEwASABEAFQAWABwAHAAXABcAFgAVABIAEgAQAA8AGQAZACEAIgAWABUAEgARABQAFQAVABUAIAAgACMAIgAcABsAEwASABYAFgAcABwAHwAeABsAHAARABEADwAPABYAFwAWABcAFQAWABIAEwARABIAFwAYABIAEgARABIAEQARABEAEQATABQAGgAaABcAFwASABIAFwAWABYAFwAUABQAFgAWABUAFAANAAwABgAHAAMAAwASABIAGAAZABAADwAEAAMABgAGAA4ADgAZABkAGQAZAAwACwAJAAkAEAAQABUAFQAYABgAEwATAAkACgAPAA8AEQASAA4ADgANAA0ADQANAA0ADQAMAA0ADQAOAA0ADgAOAA8ADwAPAA0ADgARABEAFgAVABgAFwAUABUADQAOAA0ADQAUABUAGQAaABMAEgALAAsACAAIAAsACwAOAA0AFAAUAAsADAAIAAgACAAJAA4ADgAUABQAEgARAA4ADwAOAA4ADQAMAA0ADAARABEAEQAQAAsACwAJAAgADQAMABAAEAAOAA8ABAAEAAgACAAOAA4AEQARAA8ADwASABIADQAOAA4ADgATABMAEwAUABEAEAAPAA4ACgALAA4ADgAOAA4ACwALAA8ADwAOAA0ADQAMAAoACQAJAAgADQANABEAEQAIAAcACwALAA8ADgAQABAADgAOABEAEQAPAA8ADwAOABEAEQAQAA8ADwAQAA4ADgAQABAADwAPAA8ADwAJAAoACwAMAA0ADQAOAA4ACwALAAgACAALAAwAEAARAA8AEAAMAAwADAANAAwADAAOAA4ADwAPAA4ADgALAAsACwALAAcABwAOAA4ACwALAAgABwAHAAYABAAEAAUABgAKAAoACwALAAgABwAKAAkACAAHAAcACAANAAwADQAOAAkACQAFAAYACwAMAA4ADgALAAsACgAKAAoACgAIAAkACAAIAA0ADAAMAAwABAACAAMAAgAIAAgADAAMAAsACwAHAAcABAAEAAUABQAFAAUABQAFAAcABwAHAAcABQAFAAMABAALAAwACgAKAAkACQAFAAYABgAGAAUABAAHAAcACAAHAAUABQAGAAUABQAGAAcABwAKAAoACAAIAAIAAgAEAAMABwAHAAoACgAJAAkABwAIAAQAAwACAAIABgAGAAoACQAJAAkABwAGAAMAAwAFAAUABwAIAAcABgAEAAQACQAIAAUABQABAAMACAAIAAYABwADAAQABAAFAAYABgAHAAcACAAIAAYABQAGAAcACAAIAAcABwAFAAYABQAFAAUABQAGAAQABwAIAAUABQAHAAgABgAHAAUABQAEAAUABAAEAAMAAwAEAAMABQAFAAEAAQADAAMABwAGAAYABgAHAAcACAAHAAcABwAIAAgABgAGAAcABwAFAAYABgAFAAcABwAHAAcABAAEAAYABgAGAAUABQAGAAoACwAHAAgABAADAAQABAAFAAYABwAGAAcABwAFAAUAAwADAAIAAQAFAAYABwAHAAUABgACAAEABQAFAAgACAAGAAUABwAIAAgABwAGAAYABwAHAAcABwAFAAQABwAHAAYABgAFAAUABgAFAAUABQACAAIABQAFAAYABQAFAAQABQAFAAYABQAFAAUABgAFAAMAAwAEAAQABwAIAAgABwADAAIABQAEAAYABgAEAAQABwAGAAYABgAFAAQABAACAAQABAAEAAUABAAEAAMABAAGAAUABwAFAAQABQACAAMAAwAEAAQABQAEAAQABAADAAQAAwAEAAUABgAGAAcABwADAAMABAAEAAQABAAFAAYABgAGAAcABwADAAMABAADAAYABQAHAAcABgAGAAYABQADAAIABAADAAcABwAGAAUABwAGAAQABQADAAMAAwACAAYABQAHAAcABgAFAAQAAwADAAMABAAFAAUABgACAAIABAADAAQABAACAAEAAwADAAYABgACAAIAAAAAAAMABAAGAAYABwAHAAUABQABAAIABAAEAAcABwAEAAUABAAEAAQABQACAAIAAQACAAUABgAGAAYABAAEAAEAAQACAAIABAAEAAYABQAEAAMABQAFAAQABAACAAMABAAEAAUABgAGAAYAAQABAAIAAQADAAMAAwAFAAIAAgACAAEAAQAAAAIAAgADAAIAAwACAAQABAAEAAQAAQABAAMAAwAEAAUABAAEAAEAAQABAAEAAQABAAMAAgADAAMAAgACAAIAAgABAAEAAQABAAIAAgAEAAMAAQABAAAAAAACAAIAAwADAAMABAADAAMAAQABAAIAAwACAAIAAQABAAMAAwADAAIAAAACAAIAAQACAAMAAgACAAIAAgABAAEA/////wAAAQACAAIAAgACAAMAAwACAAMAAQABAAIAAwAEAAMAAwADAAIAAgABAAIAAAAAAAIAAgACAAEAAAABAAEAAQAAAAAAAQAAAAEAAQABAAIAAQABAAAA//8BAAAAAgABAAIAAgACAAIAAgACAAAAAQACAAIAAgACAAIAAwAAAAIAAAAAAAAAAQAAAAAAAQABAAEAAAAAAP//AAAAAAAAAAABAAAAAQABAAEAAgABAAEAAQABAAEAAQACAAEAAgACAAAAAAAAAAEAAAABAAAAAAABAAEAAQABAAAAAQAAAAAAAAD//wAAAAABAAAAAAD/////AAAAAAAAAAD//wAAAAAAAAAAAAABAP//AAD//wEAAQAAAAAAAQAAAAAA//8AAAEAAAAAAAEAAAABAAAAAAAAAAAA////////AAAAAAEAAAD//wAA/////wAA/////wAAAAAAAP//////////AAD///7///////////////////8AAP//////////AAD/////AAAAAP////////7///////////8AAAAAAAAAAP7/////////////////AAD//////////////////////v/+////AAAAAP/////+////////////AAD///////8AAP//////////AAD/////AAD//////////wAA/////wAA///////////+////////////AAD//wAA////////////////////////AAAAAP///////wAA////////////////AAD//wAA////////AAD/////AAAAAP////8AAP//AAD/////////////////////////////////////////////////////AAD/////AAD/////AAAAAP///////wAAAAD/////////////AAD//wAA/////////////////////wAAAAD//wAAAAAAAAAA//8AAAAAAAD//wAAAAD//wAA////////AAAAAP//AAAAAAAA////////AAAAAP////8AAP//AAAAAAAA////////AAD//wAAAAAAAAAAAAABAAAAAAD//wAAAAAAAAAAAQAAAP//AAD/////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//wAAAAAAAAAAAAAAAP////8AAAAAAAD//wAAAAAAAAAAAAAAAAAAAAAAAP//AAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAA//8BAP//AQD//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//wAAAAAAAAAAAAAAAAAA//8AAAAAAAABAP//AAD//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAA==',
   hover: 'data:audio/wav;base64,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Wv9z/2L/ef9p/37/cP+F/3f/iP9+/4z/hv+T/4//l/+Z/53/pP+l/6z/rv+5/7j/xv/D/9b/zf/k/93/9f/r/wcA+v8aAAsALwAfAEEAMgBWAEYAawBbAIEAbgCUAIIApwCWALwAqwDNALoA3QDLAOoA2QD3AOYAAQHwAAgB9wAPAfwAEgEBARQBAwERAQEBDwEAAQgB+gABAfMA+ADrAOwA4QDfANYA0gDLAMIAvgCyALIAogCiAJAAlAB/AIYAbgB6AF0AbQBLAGAAOQBSACgARQAXADkABQAtAPb/IgDl/xUA1f8KAMT///+0//L/pv/m/5f/2v+I/8//ef/A/2n/tf9b/6f/S/+a/z3/jv8y/4H/Jf90/xr/af8O/1z/Bf9S//z+R//0/kD/7f42/+r+Mv/l/i3/5P4r/+b+Kv/q/iv/7f4t//X+M//+/jr/B/9C/xP/Tv8h/1n/MP9o/0H/d/9T/4f/Zv+Z/3r/qv+M/7z/of/O/7b/4f/L//X/4f8IAPX/GwAIACwAGwA9AC0ATAA+AFwAUABqAF8AeABuAIUAewCQAIkAmwCWAKUAnwCxAKsAuQC1AMAAvQDJAMcA0QDOANgA1QDdANsA5QDiAOsA5QDwAOkA9ADtAPgA8AD7APIA/gDyAAEB8gABAe8AAQHtAAAB6AD7AOIA9wDaAPEA0ADrAMUA4QC5ANUAqgDKAJsAvACKAKwAeACdAGQAjQBRAHoAOwBmACUAUwAQAD4A+f8rAOL/FgDL/wIAtv/v/6H/3P+N/8n/ev+4/2f/p/9X/5r/Sv+O/zz/gf8v/3b/Jv9t/x3/ZP8Y/2H/Ev9a/xD/V/8N/1f/Df9V/w//Vf8R/1X/Ff9Z/xn/W/8h/1//KP9j/y7/af83/2z/Q/9z/03/ev9Y/4H/Zv+K/3P/kv9//57/j/+n/57/sv+w/8D/wv/N/9P/2//l/+n/+P/5/wsACgAfABwAMQAtAEUAPgBXAE8AawBjAH8AdACQAIUAoQCVALAApQDAALUAzQDDANgAzwDkANsA7ADlAPQA7AD5APIA/QD2AP4A+QD+APoA/QD5APsA9wD2APUA8QDwAOkA6QDiAOMA2ADcANEA1ADHAMsAvADAAK8AtwCmAK4AmQCiAIwAmAB/AI0AcQCCAGQAdwBWAGwASwBgADwAUwAsAEgAHwA7ABAALwADACEA9f8VAOX/CADV//v/yP/w/7z/5P+t/9j/ov/K/5X/v/+G/7T/e/+q/3D/nv9m/5P/XP+L/1b/gv9O/3v/SP9z/0H/b/89/2n/Ov9k/zr/Yv86/2P/O/9i/z//Yv9D/2X/Sv9q/1H/b/9Z/3b/Y/99/2z/hf95/4//hP+a/5L/pP+g/7H/rP+8/73/yf/M/9b/2v/i/+j/7//4//r/BAAHABEAEwAfAB4ALAApADgAMwBEAD4ATABIAFgAUABgAFkAagBiAHMAaQB7AHEAggB4AIoAgQCQAIYAlgCNAJ0AlACjAJkApwCfAKwApgCtAKgAsgCsALUArgC1ALAAtQCzALMAswC0ALIArwCwAKwArACnAKgAoACiAJcAmwCQAJMAhQCKAHwAgABxAHUAYwBqAFYAXQBJAFEAOwBDACwAMwAeACUADgAXAP//BwDw//n/4f/r/9T/3f/G/9D/uP/D/6v/tv+e/6v/kv+f/4j/lf99/4z/df+E/2z/ef9l/3H/XP9r/1f/Zv9S/2L/T/9f/0v/W/9K/1n/SP9W/0j/WP9K/1r/Tf9Z/1H/XP9V/2D/W/9j/2D/av9p/3D/cf92/3v/gP+E/4j/j/+S/5z/nP+o/6f/tf+0/8P/v//R/83/4f/a//H/6P8BAPf/EQAGACIAFwAxACUAQwA0AFIAQwBiAFEAcABdAH8AawCKAHYAlwCDAKIAjACsAJYAtQCeAL0ApQDDAKsAyQCvAM0AtADPALgA0gC4ANMAuQDSALcA0wC4ANEAtgDOALMAzACxAMYArgDDAKoAuwClALYAoACvAJoAqACUAKEAjwCWAIUAiwB+AIAAdQB4AGsAagBhAF8AWABSAEwARABDADYANgAoACoAGQAcAAoAEQD9/wQA7f/4/97/7P/S/9//w//U/7X/x/+o/77/nf+y/5L/qP+I/6D/fv+X/3b/kv9u/4z/af+G/2X/hP9h/4H/Xv9//1z/f/9c/4H/Xf+B/1//hf9i/4f/Zf+L/2r/kP9w/5f/d/+d/33/pv+F/63/jv+0/5X/u/+g/8P/qv/O/7L/1v++/+D/yf/o/9P/8v/e//v/6P8EAPX/EAACABgADAAiABkALQAlADYAMABBAD0ASwBJAFUAVQBfAGEAaQBrAG8AdwB5AIIAggCLAIkAlQCRAJsAlwChAJwAqACiAKwApACvAKcAsQCqALEAqACyAKcArwCkAKwAoQCnAJ4AoQCXAJsAkACTAIoAiwCDAIIAeAB2AHAAawBmAGAAXABWAFEASgBHAD0APAAxADEAJQAlABkAGwALABEAAAAFAPX//f/o//P/3v/o/9T/3v/I/9f/v//N/7f/xv+t/77/pv+2/53/r/+W/6j/j/+j/4n/nf+F/5f/gf+V/3z/kP95/4z/dv+J/3T/h/9z/4X/cf+F/3H/hf9z/4X/dv+G/3r/iP98/4z/gP+R/4f/lv+M/5r/k/+g/5z/qP+j/67/rv+4/7f/wf/B/8n/zP/S/9f/3P/h/+b/7P/w//f//P8GAAUAEAAPABwAGQAoACQAMwAwAD4AOQBLAEIAVQBLAGAAVQBqAF4AdABoAH4AcACFAHcAjQB+AJYAhACbAIkAowCPAKgAlQCtAJcAsACbALIAnQCzAJ4AtACeALIAngCxAJoArACXAKgAkwChAI0AmgCGAJMAfgCKAHcAgQBtAHUAZABqAFkAXQBMAFIAQABFADQAOQAoACsAGwAfAA4AEQAAAAQA9P/2/+f/6f/b/97/zf/T/8L/xv+4/7z/rv+0/6P/qP+b/6D/kP+Y/4n/kf+C/4n/fP+E/3T/fv9w/3j/af90/2b/cf9j/2//X/9t/17/bP9c/2r/Wf9q/1n/av9Z/23/W/9t/1v/cP9e/3b/X/95/2T/ff9p/4X/bf+M/3T/k/97/5r/gv+j/4n/rv+T/7j/m//C/6X/y/+v/9f/u//i/8b/7v/Q//n/2/8DAOf/DgDy/xgA/P8jAAYALQAOADUAGABAAB8ASAAmAE8ALQBWADMAXAA4AGMAPQBnAEEAagBEAG4ARwBxAEgAcwBJAHQASwB1AEkAdABIAHQARwBxAEUAcQBBAG4APgBqADsAZwA3AGMANABeADAAWwAqAFUAJABPAB8ASAAYAEEAEgA5AAsAMQAGACkA/v8gAPj/GQDx/xAA6P8GAN///f/X//P/0P/p/8n/4f/B/9f/uv/P/7H/xv+r/7//pP+6/57/sf+Z/6z/lf+n/5H/o/+O/6H/i/+g/4r/nf+J/5z/if+d/4n/n/+L/6H/jP+k/4//qP+V/63/mP+y/53/uP+j/7//qf/F/6//zf+3/9b/v//e/8X/5v/O/+//1v/5/+D/AwDo/w0A8v8WAPr/IQAEACoADQA0ABcAPgAhAEgAKQBSADMAXQA7AGQARABtAE0AdQBWAH0AXQCGAGQAjABrAJEAcQCXAHcAnQB9AJ8AfwCjAIIApwCFAKcAhgCoAIgAqQCIAKgAhgCoAIUApQCDAKMAfwCeAHsAmgB3AJYAcwCOAG4AigBmAIQAYgB9AFkAdQBQAGwASQBmAEIAXwA7AFcAMgBPACkARAAgADsAGAAzABAAKgAHACEA/f8XAPP/DgDt/wYA4//8/9j/9P/R/+j/x//g/7//1/+2/87/rv/I/6f/wP+g/7r/mf+x/5L/rf+O/6j/iP+l/4P/oP+B/57/fv+d/33/nP98/5z/e/+d/3z/oP+B/6T/hP+n/4b/rP+N/7L/kP+5/5f/v/+d/8j/pv/Q/6z/1/+1/+H/vv/p/8b/9P/Q//7/1/8JAOH/EgDr/x4A8/8nAP//MwAHAD4AEQBIABsAUwAjAFwALABnADMAcQA7AHoARACDAEsAjABTAJQAWQCcAGAAogBkAKkAagCvAG8AswBzALkAdQC7AHgAvgB5AL4AeQC/AHoAvwB4ALsAeAC5AHMAtQBvALAAagCpAGQApABeAJwAVgCTAE4AiwBEAH8AOwB2ADEAagAnAF8AHgBTABEARwAHADoA+v8uAO//IgDk/xUA2v8JAM///f/F//L/uP/l/67/3P+m/9D/nP/G/5L/vP+L/7T/gv+r/3v/pf92/57/cP+Z/2r/lf9n/5H/Zf+M/2L/i/9i/4v/Yf+K/2L/i/9l/4//Zv+S/2r/lv9v/5z/dP+h/3v/p/+C/67/if+3/5L/v/+a/8n/o//R/6v/2v+1/+T/v//t/8j/+P/R/wEA3P8KAOb/FADv/x8A9/8mAAAAMAAKADgAEQBCABsASQAiAFEAKQBaADAAYQA3AGcAPQBvAEQAdQBIAHwATgCCAFIAhQBXAIsAWQCOAFoAkgBdAJMAXQCUAF8AlABfAJQAXQCTAFsAkwBZAJEAVQCNAFIAiQBNAIYASQCBAEMAewA9AHUANgBuAC8AaQAnAGIAIABZABgAUAARAEgACQA/AAAANwD4/y0A7v8lAOf/GwDe/xMA1v8KAM3/AADF//b/vv/u/7X/5P+t/9z/p//U/6D/yv+Z/8P/k/++/47/tv+J/7H/hf+s/4H/p/+A/6T/e/+i/3v/oP96/5//ef+d/3j/n/98/6D/ff+h/37/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9f/p//b/6//4/+3/+//x//7/8v8AAPb/AwD4/wYA+f8IAPz/CwD9/w0A//8QAAIAEwAEABMABgAVAAcAFQAIABgACAAYAAsAGgANABkADQAbAA0AGwALABsADQAaAAsAGQAMABgACwAYAAwAGAAKABUABwAUAAYAEQAEABEABAAQAAAADQD//woA//8HAPz/BQD5/wQA9v8AAPX////y//z/7//6/+7/+P/s//b/6v/z/+f/8v/n//D/5P/u/+L/7f/f/+v/4P/q/97/6//e/+j/2//o/9v/5//b/+j/3P/q/9v/6P/b/+j/3v/o/93/6f/e/+n/4P/r/+H/7P/h/+z/5P/v/+T/8P/m//L/6P/z/+v/8//r//b/7P/5/+//+f/y//v/8//7//X//f/2/wAA9/8BAPn/AQD8/wMA/f8EAP3/BgD//wcAAAAGAAEABwABAAkAAwAKAAMACQADAAgABAAJAAMACgAEAAcAAwAJAAIABwADAAYAAgAHAAEABgACAAQA/v8DAAAAAwD9/wMA/P8AAPz/AAD7////+f/9//n//f/2//r/9P/5//T/9//0//j/8v/1//D/9f/v//X/7//0/+3/8v/u//L/7f/w/+z/7//r/+//6//v/+v/7//p/+//6v/v/+v/8P/p/+//6//v/+v/8f/r/+//7P/w/+z/8P/u//P/7v/z//D/8//v//T/8P/1//L/9v/0//X/9f/3//b/+P/3//n/9//5//n/+v/5//z//P/9//3//f/9//////8AAAAAAAACAAIAAQABAAMAAQADAAMAAwADAAMAAwAEAAMABAAEAAYABAAGAAQABgAEAAYABQAFAAYABAAGAAQABAAEAAYAAwAEAAQAAwAEAAQABAADAAMAAwACAAEAAgAAAP//AQD//wAA/f/////////9//3//f/8//z//P/8//z/+f/6//r/+v/5//r/+f/4//f/+f/4//f/9//4//n/+P/4//j/9//3//f/+P/4//f/9//2//f/+P/3//n/+f/5//n/+f/6//n/+v/6//v/+v/+//v//P/8//3//f/+//3/AAD9/wAAAAACAAAAAgAAAAMAAQADAAEABgADAAYABAAFAAUABwAFAAcABgAHAAYACAAGAAoABgAKAAcACgAHAAkABwAKAAcACgAHAAoABwAKAAcACwAGAAwABwAMAAcACgAEAAoABgAJAAYACgAEAAkABAAHAAQABwADAAcAAQAGAAAABgAAAAUAAAAFAAAAAwD9/wMA/f8BAP7/AgD9/wAA/P8AAPr/AAD6/wAA/P8AAPr////7////+v/9//v//f/6////+v/9//n////5////+v/+//n////5////+f////n////6//3/+v/9//v/AAD6/////P8AAPz////8/wAA/P8AAPz/AgD9/wIA/v8BAP3/AQD//wMA//8BAP7/AwAAAAMAAAADAP//BAACAAMAAAACAAIABAACAAMAAAAEAAAABAABAAQAAQAEAAAABAAAAAQAAgADAAAAAwAAAAMA//8DAAAAAwD//wMAAAACAAAAAQAAAAEA//8CAP//AAD9/wEA/f8AAP3/AAD8/wAA+/////3////9/wAA/f/9//z////8////+//9//z//f/8//3/+//9//r//f/7//3//P/8//r//f/6//3/+//9//r//f/8/////P/9//3////8//3/+/////3//v/8//7//f////3////9/////f////3//////wAA/v8AAAAAAAD//wEA//8AAAAAAAAAAAAAAAABAP//AQAAAAIAAAABAAEAAQABAAMAAAACAAAAAgAAAAMAAQADAAAAAgABAAEAAQABAAEAAwAAAAAAAAADAAAAAQAAAAIAAAADAAAAAgAAAAAAAAABAP//AAAAAAEA//8AAAAAAAD+/wAA/v8AAP7//////wAA//8BAP7//////wAAAAD//////////////v8AAP//AAD9/////f////////////////8AAP///v/+/wAA////////AAD//////v/+/wAAAAD//wAAAAD//wAAAAD+/wAAAAAAAP//AAAAAAAAAAAAAAIAAAAAAAEAAQABAAAAAgACAAAAAAABAAAAAQACAAIAAQAAAAAAAAABAAIAAQAAAAEAAQAAAAIAAQABAAEAAQAAAAAAAgAAAAEAAQAAAAEAAAAAAAAAAgAAAAEAAAAAAAEAAQAAAAEAAAAAAAAAAQAAAAAAAAABAAEA//8AAAAA/v8AAAAAAQAAAAAAAAAAAAAA/v8AAAAAAAAAAP//AQAAAAAAAAAAAAAAAAAAAAEAAAABAAAAAAAAAP//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////AQAAAP//////////AAD//wAAAAAAAAAAAAD///7//v8AAAAAAAAAAAAA',
@@ -14367,25 +14912,54 @@ const AUDIO_DATA = {
     'https://raw.githubusercontent.com/deviatorgames/Lorefall-Card-Art/main/Hover.wav',
     'https://raw.githubusercontent.com/deviatorgames/lorefalltcg/main/Hover.wav'
   ],
-  bgmUrls: [
+  bgm: generateWeightOfTheDrawBgmDataUri(),
+  bgmFallbacks: [
+    ...(window.__discoveredBgmUrls || []),
+    'The Weight of the Draw.mp3',
+    'The%20Weight%20of%20the%20Draw.mp3',
     'The_Weight_of_the_Draw.mp3',
+    'The-Weight-of-the-Draw.mp3',
+    'the weight of the draw.mp3',
+    'the_weight_of_the_draw.mp3',
+    'The Weight of the Draw.wav',
+    'The_Weight_of_the_Draw.wav',
+    'https://raw.githubusercontent.com/deviatorgames/Lorefall-Card-Art/main/The%20Weight%20of%20the%20Draw.mp3',
     'https://raw.githubusercontent.com/deviatorgames/Lorefall-Card-Art/main/The_Weight_of_the_Draw.mp3',
-    'https://raw.githubusercontent.com/deviatorgames/lorefalltcg/main/The_Weight_of_the_Draw.mp3'
-  ]
+    'https://raw.githubusercontent.com/deviatorgames/Lorefall-Card-Art/main/The-Weight-of-the-Draw.mp3',
+    'https://raw.githubusercontent.com/deviatorgames/lorefalltcg/main/The%20Weight%20of%20the%20Draw.mp3',
+    'https://raw.githubusercontent.com/deviatorgames/lorefalltcg/main/The_Weight_of_the_Draw.mp3',
+    'https://raw.githubusercontent.com/deviatorgames/lorefalltcg/main/The-Weight-of-the-Draw.mp3',
+    'https://raw.githubusercontent.com/deviatorgames/Lorefall-Card-Art/main/The%20Weight%20of%20the%20Draw.wav',
+    'https://raw.githubusercontent.com/deviatorgames/lorefalltcg/main/The%20Weight%20of%20the%20Draw.wav'
+  ],
+  get bgmUrls() { return this.bgmFallbacks; }
 };
 
 function createSoundInstance(type) {
-  const primaryUri = type === 'click' ? AUDIO_DATA.click : AUDIO_DATA.hover;
+  let primaryUri = AUDIO_DATA.click;
+  let list = AUDIO_DATA.clickFallbacks;
+  if (type === 'hover') {
+    primaryUri = AUDIO_DATA.hover;
+    list = AUDIO_DATA.hoverFallbacks;
+  } else if (type === 'bgm') {
+    primaryUri = AUDIO_DATA.bgm;
+    list = AUDIO_DATA.bgmFallbacks;
+  }
   const a = new Audio(primaryUri);
+  if (type === 'bgm') {
+    a.loop = true;
+  }
   a.preload = 'auto';
   a.onerror = () => {
-    const list = type === 'click' ? AUDIO_DATA.clickFallbacks : AUDIO_DATA.hoverFallbacks;
     let i = 0;
     const tryNext = () => {
       if (i < list.length) {
         a.onerror = tryNext;
         a.src = list[i++];
         a.load();
+        if (type === 'bgm' && AudioManager.bgmWanted && !AudioManager.bgmMuted && a.paused) {
+          a.play().catch(() => {});
+        }
       }
     };
     tryNext();
@@ -14402,6 +14976,7 @@ const AudioManager = {
   hoverMuted: false,
 
   bgmAudio: null,
+  bgmWanted: false,
   clicks: [],
   hovers: [],
   lastHover: 0,
@@ -14435,26 +15010,12 @@ const AudioManager = {
       this.hoverMuted = mHover === 'true';
     } catch(e) {}
 
-    // BGM Audio track
+    // Initialize BGM audio instance using the exact same createSoundInstance function
     try {
-            let bgmIndex = 0;
-      this.bgmAudio = new Audio(AUDIO_DATA.bgmUrls[bgmIndex]);
-      this.bgmAudio.addEventListener('error', () => {
-        bgmIndex++;
-        if (bgmIndex < AUDIO_DATA.bgmUrls.length) {
-          console.log('BGM load error, trying fallback:', AUDIO_DATA.bgmUrls[bgmIndex]);
-          this.bgmAudio.src = AUDIO_DATA.bgmUrls[bgmIndex];
-          this.bgmAudio.load();
-          if (this.hasStartedBGM && !this.bgmMuted) {
-            this.bgmAudio.play().catch(() => {});
-          }
-        }
-      });
+      this.bgmAudio = createSoundInstance('bgm');
       this.bgmAudio.loop = true;
       this.updateBGMVolume();
-    } catch(e) {
-      console.warn('BGM notice:', e);
-    }
+    } catch(e) {}
 
     // Audio pool for click & hover sounds (exact same simple system that worked in index.html)
     for (let i = 0; i < 6; i++) {
@@ -14472,6 +15033,14 @@ const AudioManager = {
     // Global click sound on ANY clickable item across the entire arena (only pointerdown, debounced to prevent double sound)
     let lastClickTime = 0;
     const handleClick = (e) => {
+      // Also unlock / resume BGM on any user pointer interaction if requested but blocked by browser policy
+      if (this.bgmWanted && !this.bgmMuted && this.bgmAudio && this.bgmAudio.paused && this.bgmVolume > 0) {
+        const p = this.bgmAudio.play();
+        if (p !== undefined) {
+          p.then(() => { this.hasStartedBGM = true; }).catch(() => {});
+        }
+      }
+
       if (e && e.target && e.target.tagName === 'INPUT' && (e.target.type === 'range' || e.target.type === 'number')) return;
       const now = performance.now();
       if (now - lastClickTime < 120) return;
@@ -14544,38 +15113,32 @@ const AudioManager = {
   },
 
   playBGM(forceRestart) {
+    this.bgmWanted = true;
     if (this.bgmMuted || this.bgmVolume <= 0) return;
     try {
       if (!this.bgmAudio) {
-              let bgmIndex = 0;
-      this.bgmAudio = new Audio(AUDIO_DATA.bgmUrls[bgmIndex]);
-      this.bgmAudio.addEventListener('error', () => {
-        bgmIndex++;
-        if (bgmIndex < AUDIO_DATA.bgmUrls.length) {
-          console.log('BGM load error, trying fallback:', AUDIO_DATA.bgmUrls[bgmIndex]);
-          this.bgmAudio.src = AUDIO_DATA.bgmUrls[bgmIndex];
-          this.bgmAudio.load();
-          if (this.hasStartedBGM && !this.bgmMuted) {
-            this.bgmAudio.play().catch(() => {});
-          }
-        }
-      });
+        this.bgmAudio = createSoundInstance('bgm');
         this.bgmAudio.loop = true;
       }
-      this.bgmAudio.loop = true;
       this.updateBGMVolume();
-      if (forceRestart) {
+
+      if (forceRestart && this.bgmAudio && this.bgmAudio.readyState >= 1) {
         try { this.bgmAudio.currentTime = 0; } catch(_) {}
       }
-      if (this.bgmAudio.paused) {
+
+      if (this.bgmAudio && this.bgmAudio.paused) {
         const p = this.bgmAudio.play();
         if (p !== undefined) {
           p.then(() => {
             this.hasStartedBGM = true;
-          }).catch(() => {});
+          }).catch(err => {
+            console.log('BGM play waiting for user gesture:', err?.message || err);
+          });
         }
       }
-    } catch(e) {}
+    } catch(e) {
+      console.warn('playBGM error:', e);
+    }
   },
 
   startBGM() {
@@ -14705,6 +15268,10 @@ function closeAudioSettingsModal() {
 window.AudioManager = AudioManager;
 window.openAudioSettingsModal = openAudioSettingsModal;
 window.closeAudioSettingsModal = closeAudioSettingsModal;
+window.showMainMenu = typeof showMainMenu === 'function' ? showMainMenu : () => {};
+window.openMenuSubmenu = typeof openMenuSubmenu === 'function' ? openMenuSubmenu : () => {};
+window.promptQuitBattle = typeof promptQuitBattle === 'function' ? promptQuitBattle : () => {};
+window.quitBattleToMenu = typeof quitBattleToMenu === 'function' ? quitBattleToMenu : () => {};
 window.selectMenuCategory = typeof selectMenuCategory === 'function' ? selectMenuCategory : () => {};
 window.setSinglePlayerMode = typeof setSinglePlayerMode === 'function' ? setSinglePlayerMode : () => {};
 window.setTutorialSelection = typeof setTutorialSelection === 'function' ? setTutorialSelection : () => {};
@@ -14720,9 +15287,54 @@ window.exitTutorialMode = typeof exitTutorialMode === 'function' ? exitTutorialM
 window.switchOnlineTab = typeof switchOnlineTab === 'function' ? switchOnlineTab : () => {};
 window.requestParentAuthModal = typeof requestParentAuthModal === 'function' ? requestParentAuthModal : () => {};
 
+function probeAndUpgradeBgmTrack() {
+  if (typeof AUDIO_DATA === 'undefined' || !AUDIO_DATA.bgmFallbacks || !AUDIO_DATA.bgmFallbacks.length) return;
+  const candidates = AUDIO_DATA.bgmFallbacks.slice();
+  let found = false;
+
+  const tryProbe = (index) => {
+    if (found || index >= candidates.length) return;
+    const testUrl = candidates[index];
+    if (!testUrl || typeof testUrl !== 'string' || testUrl.startsWith('data:')) {
+      tryProbe(index + 1);
+      return;
+    }
+    const probe = new Audio();
+    probe.preload = 'metadata';
+    let timeout = setTimeout(() => {
+      probe.src = '';
+      tryProbe(index + 1);
+    }, 4500);
+
+    probe.oncanplay = () => {
+      clearTimeout(timeout);
+      if (found) return;
+      found = true;
+      console.log('Discovered accessible battle track:', testUrl);
+      if (typeof AudioManager !== 'undefined' && AudioManager.bgmAudio) {
+        const wasPlaying = !AudioManager.bgmAudio.paused;
+        AudioManager.bgmAudio.src = testUrl;
+        AudioManager.bgmAudio.loop = true;
+        AudioManager.updateBGMVolume();
+        if (wasPlaying && AudioManager.bgmWanted && !AudioManager.bgmMuted && AudioManager.bgmVolume > 0) {
+          AudioManager.bgmAudio.play().catch(() => {});
+        }
+      }
+    };
+    probe.onerror = () => {
+      clearTimeout(timeout);
+      tryProbe(index + 1);
+    };
+    probe.src = testUrl;
+  };
+
+  tryProbe(0);
+}
+
 // Initial startup: Ensure clean menu state and populate decks
 function initArenaStartup() {
   try {
+    if (typeof showMainMenu === 'function') showMainMenu();
     if (typeof cleanupTutorialEngine === 'function') cleanupTutorialEngine();
     if (typeof tutorialState !== 'undefined') tutorialState.active = false;
     const gameModal = document.getElementById('game-modal');
@@ -14735,7 +15347,10 @@ function initArenaStartup() {
     if (tutHUD) tutHUD.style.display = 'none';
 
     if (typeof AudioManager !== 'undefined' && typeof AudioManager.init === 'function') {
-      try { AudioManager.init(); } catch (e) { console.warn("AudioManager.init:", e); }
+      try { 
+        AudioManager.init(); 
+        probeAndUpgradeBgmTrack();
+      } catch (e) { console.warn("AudioManager.init:", e); }
     }
 
     if (typeof preloadAllDeckImages === 'function') {
