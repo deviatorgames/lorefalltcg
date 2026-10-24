@@ -3790,7 +3790,9 @@ async function showPassivePopup(card, text) {
    ========================================================================= */
 
 async function dispatchGlobalHook(eventType, context) {
-  for (const p of gameState.players) {
+  const targetPlayers = (context && context.triggerPlayer) ? [context.triggerPlayer] : gameState.players;
+  for (const p of targetPlayers) {
+    if (!p) continue;
     const cards = [p.hero, ...p.battleZone, ...p.bench, ...p.skills, ...p.synergies];
     for (const card of cards) {
       if (card) {
@@ -4264,7 +4266,7 @@ async function spawnToken(player, tokenIdOrName, startReady = false, forcedZone 
         addLogEntry(`${player.name} spawned <strong>${token.name}</strong> in the Battle Zone.`);
         await executeHook(token, 'onPlay', { triggerPlayer: player });
         renderAll();
-        if (onlineSession && onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
+        if (onlineSession && onlineSession.active) broadcastOnlineState();
         return token;
     } else if (openBench !== -1) {
         token.benchLocked = true;
@@ -4272,14 +4274,14 @@ async function spawnToken(player, tokenIdOrName, startReady = false, forcedZone 
         addLogEntry(`${player.name} spawned <strong>${token.name}</strong> on the Bench.`);
         await executeHook(token, 'onPlay', { triggerPlayer: player });
         renderAll();
-        if (onlineSession && onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
+        if (onlineSession && onlineSession.active) broadcastOnlineState();
         return token;
     } else if (openBz !== -1) {
         player.battleZone[openBz] = token;
         addLogEntry(`${player.name} spawned <strong>${token.name}</strong> in the Battle Zone.`);
         await executeHook(token, 'onPlay', { triggerPlayer: player });
         renderAll();
-        if (onlineSession && onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
+        if (onlineSession && onlineSession.active) broadcastOnlineState();
         return token;
     } else {
         showToast("Board is full! Cannot spawn token.");
@@ -6129,6 +6131,25 @@ function handleHostNetworkEvent(payload) {
     applyOnlineTurnOrderChoice(payload.firstPlayerIndex);
   } else if (payload.type === 'ONLINE_CHALLENGER_SCOUT_DONE') {
     handleOnlineChallengerScoutDone(payload);
+  } else if (payload.type === 'STATE_SYNC') {
+    gameState = payload.gameState;
+    if (payload.lastLog) addLogEntry(payload.lastLog, true);
+    renderAll();
+  } else if (payload.type === 'START_TURN_MANA') {
+    if (payload.gameState) gameState = payload.gameState;
+    renderAll();
+    runManaPhase();
+  } else if (payload.type === 'UI_LOG') {
+    if (payload.text) {
+      const p = document.getElementById('log-entries');
+      const d = document.createElement('div');
+      d.className = 'log-entry';
+      d.innerHTML = payload.text;
+      p.appendChild(d);
+      document.getElementById('combat-log-box').scrollTop = p.scrollHeight;
+    }
+  } else if (payload.type === 'UI_ROLL_ANIMATION') {
+    performAnimatedRoll(payload.title, payload.text, payload.finalRoll, payload.modifier, payload.targetVal, payload.forceWin, payload.rollDetails, payload.rollerIndex, true);
   } else if (payload.type === 'SURRENDER') {
     showModal("Victory!", `<div style="text-align:center; font-size:1.1rem; color:#10b981; font-weight:bold;">${onlineSession.challengerInfo?.username || 'Opponent'} surrendered!<br>Victory is yours!</div>`, [
       { text: "Return to Menu", action: () => exitOnlineSession(true) }
@@ -6182,8 +6203,12 @@ function handleChallengerNetworkEvent(payload) {
     handleOnlineScoutAllComplete(payload);
   } else if (payload.type === 'STATE_SYNC') {
     gameState = payload.gameState;
-    if (payload.lastLog) addLogEntry(payload.lastLog);
+    if (payload.lastLog) addLogEntry(payload.lastLog, true);
     renderAll();
+  } else if (payload.type === 'START_TURN_MANA') {
+    if (payload.gameState) gameState = payload.gameState;
+    renderAll();
+    runManaPhase();
   } else if (payload.type === 'UI_LOG') {
     if (payload.text) {
       const p = document.getElementById('log-entries');
@@ -6194,7 +6219,7 @@ function handleChallengerNetworkEvent(payload) {
       document.getElementById('combat-log-box').scrollTop = p.scrollHeight;
     }
   } else if (payload.type === 'UI_ROLL_ANIMATION') {
-    performAnimatedRoll(payload.title, payload.text, payload.finalRoll, payload.modifier, payload.targetVal, payload.forceWin, payload.rollDetails, payload.rollerIndex);
+    performAnimatedRoll(payload.title, payload.text, payload.finalRoll, payload.modifier, payload.targetVal, payload.forceWin, payload.rollDetails, payload.rollerIndex, true);
   } else if (payload.type === 'SURRENDER') {
     showModal("Victory!", `<div style="text-align:center; font-size:1.1rem; color:#10b981; font-weight:bold;">${onlineSession.hostInfo?.username || 'Host'} surrendered!<br>Victory is yours!</div>`, [
       { text: "Return to Menu", action: () => exitOnlineSession(true) }
@@ -6326,6 +6351,11 @@ async function launchOnlineMatchAsHost() {
   gameState.turnNumber = 1;
   gameState.firstPlayerIndex = null;
   gameState.activePlayerIndex = null;
+  gameState.currentPhaseIndex = 0;
+  gameState.strikesUsed = 0;
+  gameState.maxStrikes = 3;
+  gameState.skillLearnedThisTurn = false;
+  gameState.tradedThisTurn = false;
 
   for (let p = 0; p < 2; p++) {
     drawCardsRaw(gameState.players[p], 8);
@@ -6822,7 +6852,7 @@ function handleOnlineChallengerScoutDone(payload) {
   }
 }
 
-function finalizeOnlineScoutAndStart() {
+async function finalizeOnlineScoutAndStart() {
   const p1 = gameState.players[0];
   const p2 = gameState.players[1];
 
@@ -6835,25 +6865,31 @@ function finalizeOnlineScoutAndStart() {
   if (modal) modal.classList.remove('active');
   if (modalContent) modalContent.classList.remove('wide-modal');
 
+  gameState.currentPhaseIndex = 0;
+
   sendOnlineBroadcast({
     type: 'ONLINE_SCOUT_ALL_COMPLETE',
     gameState: JSON.parse(JSON.stringify(gameState))
   });
 
-  runManaPhase();
+  if (gameState.activePlayerIndex === 0) {
+    await runManaPhase();
+  }
   renderAll();
-  broadcastOnlineState();
 }
 
-function handleOnlineScoutAllComplete(payload) {
+async function handleOnlineScoutAllComplete(payload) {
   gameState = payload.gameState;
   const modal = document.getElementById('game-modal');
   const modalContent = document.getElementById('modal-content');
   if (modal) modal.classList.remove('active');
   if (modalContent) modalContent.classList.remove('wide-modal');
 
-  addLogEntry(`Both players ready! <strong>Turn 1 Begins!</strong>`);
+  addLogEntry(`Both players ready! <strong>Turn 1 Begins!</strong>`, true);
   renderAll();
+  if (gameState.activePlayerIndex === 1) {
+    await runManaPhase();
+  }
 }
 
 async function handleChallengerAction(payload) {
@@ -6864,22 +6900,32 @@ async function handleChallengerAction(payload) {
   const action = payload.action;
   if (action === 'advancePhase') {
     if (gameState.activePlayerIndex === 1) {
-      advancePhase();
+      await advancePhase();
       broadcastOnlineState();
     }
   } else if (action === 'playAlly') {
     const card = p1.hand[payload.cardIndex];
     if (card && p1.manaPool >= card.manaCost) {
       let targetArr = payload.choice === "bz" ? p1.battleZone : p1.bench;
-      const openSlot = targetArr.findIndex(s => s === null);
+      const openSlot = (payload.targetSlot !== undefined && targetArr[payload.targetSlot] === null)
+        ? payload.targetSlot
+        : targetArr.findIndex(s => s === null);
       if (openSlot !== -1) {
         p1.manaPool -= card.manaCost;
         p1.hand.splice(payload.cardIndex, 1);
-        targetArr[openSlot] = card;
+        card.currentHealth = card.health;
+        card.charge = 0;
+        card.chargeAddedThisTurn = 0;
         card.isExhausted = false;
         card.hasAttackedThisTurn = false;
-        card.currentHealth = card.health;
+        card.benchLocked = (payload.choice === "bench");
+        if (payload.choice === "bz" && p1.nextAllyBonusDex) {
+          card.dexterity = (card.dexterity || 0) + p1.nextAllyBonusDex;
+          p1.nextAllyBonusDex = 0;
+        }
+        targetArr[openSlot] = card;
         addLogEntry(`${p1.name} deployed <strong>${card.name}</strong> to ${payload.choice === "bz" ? "Battle Zone" : "Bench"}.`);
+        await executeHook(card, 'onPlay', { triggerPlayer: p1 });
         await dispatchGlobalHook('onAllyEnterPlay', { triggerPlayer: p1, targetAlly: card });
         renderAll();
         broadcastOnlineState();
@@ -6888,17 +6934,39 @@ async function handleChallengerAction(payload) {
   } else if (action === 'playSkill') {
     const card = p1.hand[payload.cardIndex];
     if (card && p1.manaPool >= card.manaCost && !gameState.skillLearnedThisTurn) {
-      learnSkill(p1, payload.cardIndex);
+      await learnSkill(p1, payload.cardIndex);
       broadcastOnlineState();
     }
   } else if (action === 'playSynergy') {
     const card = p1.hand[payload.cardIndex];
     if (card && p1.manaPool >= card.manaCost) {
-      playSynergy(p1, payload.cardIndex);
+      await playSynergy(p1, payload.cardIndex);
       broadcastOnlineState();
     }
   } else if (action === 'playFlash') {
-    playFlashCard(p1, payload.cardIndex);
+    await playFlashCard(p1, payload.cardIndex);
+    broadcastOnlineState();
+  } else if (action === 'modifyCharge') {
+    modifyCharge(1, payload.zone, payload.slotIndex, payload.delta);
+    broadcastOnlineState();
+  } else if (action === 'modifyEquipCharge') {
+    let owner = (payload.ownerZone === 'hero') ? p1.hero : (payload.ownerZone === 'bz' ? p1.battleZone[payload.ownerSlot] : p1.bench[payload.ownerSlot]);
+    let eqCard = owner?.equipment?.[payload.equipIdx];
+    if (eqCard) {
+      if (payload.delta > 0 && p1.manaPool >= 1) {
+        p1.manaPool -= 1;
+        eqCard.charge = (eqCard.charge || 0) + 1;
+        eqCard.chargeAddedThisTurn = (eqCard.chargeAddedThisTurn || 0) + 1;
+      } else if (payload.delta < 0 && (eqCard.chargeAddedThisTurn || 0) > 0) {
+        p1.manaPool += 1;
+        eqCard.charge -= 1;
+        eqCard.chargeAddedThisTurn -= 1;
+      }
+      renderAll();
+      broadcastOnlineState();
+    }
+  } else if (action === 'swapSlots') {
+    await swapPlayerSlots(1, payload.fromZone, payload.fromSlot, payload.toZone, payload.toSlot);
     broadcastOnlineState();
   } else if (action === 'playEquip') {
     const card = p1.hand[payload.cardIndex];
@@ -6907,6 +6975,8 @@ async function handleChallengerAction(payload) {
       if (targetUnit) {
         p1.gold -= card.goldCost;
         p1.hand.splice(payload.cardIndex, 1);
+        card.charge = 0;
+        card.chargeAddedThisTurn = 0;
         if (!targetUnit.equipment) targetUnit.equipment = [];
         targetUnit.equipment.push(card);
         addLogEntry(`${p1.name} equipped <strong>${card.name}</strong> to ${targetUnit.name}.`);
@@ -6964,7 +7034,7 @@ function promptOnlineEquip(pIdx, cardIndex) {
 }
 
 function broadcastOnlineState(lastLogMsg) {
-  if (!onlineSession.active || onlineSession.role !== 'HOST') return;
+  if (!onlineSession.active) return;
   sendOnlineBroadcast({
     type: 'STATE_SYNC',
     gameState: JSON.parse(JSON.stringify(gameState)),
@@ -7533,12 +7603,10 @@ async function deployAllyToSlot(player, cardIndex, choice, targetSlot) {
     return;
   }
 
-  // Formation rule: You cannot have an empty slot to your left
-  const simArr = [...targetArr];
-  simArr[targetSlot] = card;
-  if (hasEmptySlotToLeft(simArr)) {
-    showToast("Cannot have an empty slot to your left!");
-    return;
+  // Formation rule: Automatically snap to the leftmost empty slot so there is no empty slot to the left
+  const firstEmpty = targetArr.findIndex(s => s === null);
+  if (firstEmpty !== -1 && firstEmpty < targetSlot) {
+    targetSlot = firstEmpty;
   }
 
   const prx = getPlayerDomPrefix(player.index);
@@ -7570,8 +7638,9 @@ async function deployAllyToSlot(player, cardIndex, choice, targetSlot) {
   addLogEntry(`${player.name} deployed <strong>${card.name}</strong> to ${slotName}.`);
   if (typeof onTutorialAction === 'function') onTutorialAction('DEPLOY_DONE', { card, choice });
   await executeHook(card, 'onPlay', { triggerPlayer: player });
+  await dispatchGlobalHook('onAllyEnterPlay', { triggerPlayer: player, targetAlly: card });
   renderAll();
-  if (onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
+  if (onlineSession.active) broadcastOnlineState();
 }
 
 async function swapPlayerSlots(pIdx, fromZone, fromSlot, toZone, toSlot) {
@@ -7604,27 +7673,24 @@ async function swapPlayerSlots(pIdx, fromZone, fromSlot, toZone, toSlot) {
     return;
   }
 
-  // Formation rule: You cannot have an empty slot to your left
-  const simBz = [...p.battleZone];
-  const simBench = [...p.bench];
-  const simFromArr = (fromZone === 'bz') ? simBz : simBench;
-  const simToArr = (toZone === 'bz') ? simBz : simBench;
-
-  simFromArr[fromSlot] = targetUnit;
-  simToArr[toSlot] = sourceUnit;
-
-  if (hasEmptySlotToLeft(simBz)) {
-    showToast("Cannot have an empty slot to your left!");
-    return;
+  // If moving into an empty slot in a different zone, snap destination to the leftmost open slot
+  let effectiveToSlot = toSlot;
+  if (!targetUnit && fromZone !== toZone) {
+    const firstEmptyDest = toArr.findIndex(s => s === null);
+    if (firstEmptyDest !== -1) effectiveToSlot = firstEmptyDest;
   }
-  if (hasEmptySlotToLeft(simBench)) {
-    showToast("Cannot have an empty slot to your left!");
-    return;
+
+  // If moving to an empty slot in the same zone where nothing is between fromSlot and toSlot, nothing changes
+  if (!targetUnit && fromZone === toZone) {
+    const otherUnits = fromArr.filter((u, idx) => u !== null && idx !== fromSlot);
+    if (otherUnits.length === 0) return;
+    effectiveToSlot = Math.min(toSlot, otherUnits.length);
+    if (effectiveToSlot === fromSlot) return;
   }
 
   const prx = getPlayerDomPrefix(pIdx);
   const fromElId = `${prx}-${fromZone}-${fromSlot}`;
-  const toElId = `${prx}-${toZone}-${toSlot}`;
+  const toElId = `${prx}-${toZone}-${effectiveToSlot}`;
   const fromEl = document.getElementById(fromElId);
   const toEl = document.getElementById(toElId);
 
@@ -7632,7 +7698,7 @@ async function swapPlayerSlots(pIdx, fromZone, fromSlot, toZone, toSlot) {
     AudioManager.playClick();
   }
 
-  // Animate physical glide/hover across the board
+  // Animate physical glide/hover across the board (including any units shifting left to fill an empty gap)
   const glides = [];
   if (fromEl && toEl) {
     glides.push(animateCardGlide(fromEl, toEl));
@@ -7640,13 +7706,39 @@ async function swapPlayerSlots(pIdx, fromZone, fromSlot, toZone, toSlot) {
       glides.push(animateCardGlide(toEl, fromEl));
     }
   }
+  if (!targetUnit) {
+    if (fromZone !== toZone) {
+      // Units to the right of fromSlot in fromZone shift 1 slot left
+      for (let i = fromSlot + 1; i < fromArr.length; i++) {
+        if (fromArr[i]) {
+          const shiftFromEl = document.getElementById(`${prx}-${fromZone}-${i}`);
+          const shiftToEl = document.getElementById(`${prx}-${fromZone}-${i - 1}`);
+          if (shiftFromEl && shiftToEl) glides.push(animateCardGlide(shiftFromEl, shiftToEl));
+        }
+      }
+    } else if (fromZone === toZone && effectiveToSlot > fromSlot) {
+      for (let i = fromSlot + 1; i <= effectiveToSlot; i++) {
+        if (fromArr[i]) {
+          const shiftFromEl = document.getElementById(`${prx}-${fromZone}-${i}`);
+          const shiftToEl = document.getElementById(`${prx}-${fromZone}-${i - 1}`);
+          if (shiftFromEl && shiftToEl) glides.push(animateCardGlide(shiftFromEl, shiftToEl));
+        }
+      }
+    }
+  }
   if (glides.length > 0) {
     await Promise.all(glides);
   }
 
-  // Swap units in array
-  fromArr[fromSlot] = targetUnit;
-  toArr[toSlot] = sourceUnit;
+  // Swap units in array and compact left so there is never an empty slot to the left
+  if (!targetUnit && fromZone === toZone) {
+    fromArr[fromSlot] = null;
+    fromArr[toSlot] = sourceUnit;
+  } else {
+    fromArr[fromSlot] = targetUnit;
+    toArr[effectiveToSlot] = sourceUnit;
+  }
+  shiftSlotsLeft(p);
 
   if (fromZone === 'bench' && toZone === 'bz') {
     sourceUnit.benchLocked = false;
@@ -7655,13 +7747,15 @@ async function swapPlayerSlots(pIdx, fromZone, fromSlot, toZone, toSlot) {
   if (targetUnit) {
     addLogEntry(`${p.name} swapped <strong>${sourceUnit.name}</strong> with <strong>${targetUnit.name}</strong>.`);
   } else {
-    const destName = toZone === 'bz' ? (toSlot === 0 ? 'Vanguard' : toSlot === 1 ? 'Flank' : 'Rear') : `Bench Slot ${toSlot + 1}`;
+    const finalSlot = ((toZone === 'bz') ? p.battleZone : p.bench).indexOf(sourceUnit);
+    const slotIdxForLog = finalSlot !== -1 ? finalSlot : effectiveToSlot;
+    const destName = toZone === 'bz' ? (slotIdxForLog === 0 ? 'Vanguard' : slotIdxForLog === 1 ? 'Flank' : 'Rear') : `Bench Slot ${slotIdxForLog + 1}`;
     addLogEntry(`${p.name} moved <strong>${sourceUnit.name}</strong> to ${destName}.`);
   }
 
   renderAll();
 
-  if (typeof onTutorialAction === 'function') onTutorialAction('SLOT_SWAPPED', { fromZone, fromSlot, toZone, toSlot });
+  if (typeof onTutorialAction === 'function') onTutorialAction('SLOT_SWAPPED', { fromZone, fromSlot, toZone, toSlot: effectiveToSlot });
   if (onlineSession.active) {
     broadcastOnlineState();
   }
@@ -8673,9 +8767,14 @@ function modifyChargeFromDetail(pIdx, zone, slot, delta) {
           p.manaPool += 1;
           eqCard.charge -= 1;
           eqCard.chargeAddedThisTurn -= 1;
+        } else {
+          return;
         }
         renderAll();
         openEquipmentDetail(currentEquipContext.pIdx, currentEquipContext.ownerZone, currentEquipContext.ownerSlot, currentEquipContext.equipIdx);
+        if (onlineSession.active) {
+          broadcastOnlineState();
+        }
         if (typeof onTutorialAction === 'function') onTutorialAction('CHARGE_MODIFIED', { pIdx, zone: 'equip', slot: currentEquipContext.equipIdx, delta });
         return;
       }
@@ -8782,6 +8881,7 @@ window.activateSpecificAbility = async function(pIdx, zone, slot, abilityIndex, 
       addLogEntry(`<strong>${p.name}</strong> spent ${costMana * spent} Mana on <strong>${card.name}</strong>!`);
       await executeEffect(clonedEffect, card, { triggerPlayer: p });
       renderAll();
+      if (onlineSession.active) broadcastOnlineState();
       return;
   }
 
@@ -8818,6 +8918,7 @@ window.activateSpecificAbility = async function(pIdx, zone, slot, abilityIndex, 
       addLogEntry(`<strong>${p.name}</strong> activated <strong>${card.name}'s</strong> ability!`);
       await executeEffect(ability.effect, card, contextData);
       renderAll();
+      if (onlineSession.active) broadcastOnlineState();
   }
 };
 
@@ -8840,10 +8941,14 @@ function promptForBoardTarget(player, titleMsg, onSelectCallback, sourceCard, ta
     // Highlight only legal targets according to targetType (literal MTG-style wording)
     const mark = (id) => { const el = document.getElementById(id); if (el) el.classList.add('valid-target'); };
     const markAllies = (pl) => {
-        pl.battleZone.forEach((u, i) => { if (u) mark(`p${pl.index + 1}-bz-${i}`); });
-        pl.bench.forEach((u, i) => { if (u) mark(`p${pl.index + 1}-bench-${i}`); });
+        const prx = getPlayerDomPrefix(pl.index);
+        pl.battleZone.forEach((u, i) => { if (u) mark(`${prx}-bz-${i}`); });
+        pl.bench.forEach((u, i) => { if (u) mark(`${prx}-bench-${i}`); });
     };
-    const markSkills = (pl) => pl.skills.forEach((s, i) => { if (s) mark(`p${pl.index + 1}-skill-${i}`); });
+    const markSkills = (pl) => {
+        const prx = getPlayerDomPrefix(pl.index);
+        pl.skills.forEach((s, i) => { if (s) mark(`${prx}-skill-${i}`); });
+    };
 
     if (targetType === "targetEnemyAlly") {
         markAllies(opp);
@@ -8858,7 +8963,7 @@ function promptForBoardTarget(player, titleMsg, onSelectCallback, sourceCard, ta
         markAllies(player); markAllies(opp); markSkills(player); markSkills(opp);
     } else {
         // targetCharacter: any Hero or Ally
-        [player, opp].forEach(pl => { mark(`p${pl.index + 1}-hero-slot`); markAllies(pl); });
+        [player, opp].forEach(pl => { const prx = getPlayerDomPrefix(pl.index); mark(`${prx}-hero-slot`); markAllies(pl); });
     }
 
     if (typeof updateTutorialUI === 'function' && typeof tutorialState !== 'undefined' && tutorialState?.active) {
@@ -8949,47 +9054,48 @@ async function setPhase(phaseName) {
       }
     }
   }
-  renderAll(); checkAIAction();
+  renderAll();
+  if (onlineSession.active) {
+    broadcastOnlineState();
+  }
+  checkAIAction();
 }
 
-function advancePhase() {
+async function advancePhase() {
   if (onlineSession.active) {
     if (gameState.activePlayerIndex !== onlineSession.myPlayerIndex) {
       showToast("It is not your turn!");
       return;
     }
-    if (onlineSession.myPlayerIndex === 1) {
-      sendOnlineBroadcast({ type: 'CLIENT_ACTION', action: 'advancePhase' });
-      return;
-    }
   }
 
   const current = PHASES[gameState.currentPhaseIndex];
-  if (current === "MANA") setPhase("COMMAND");
+  if (current === "MANA") await setPhase("COMMAND");
   else if (current === "COMMAND") {
     if (gameState.turnNumber === 1 && gameState.activePlayerIndex === gameState.firstPlayerIndex && gameState.gameMode !== "TUTORIAL") {
       addLogEntry(`First Turn Rule: <strong>${gameState.players[gameState.activePlayerIndex].name}</strong> skips the Combat Phase.`);
-      setPhase("END");
-    } else setPhase("COMBAT");
+      await setPhase("END");
+    } else await setPhase("COMBAT");
   } else if (current === "COMBAT") {
     if (gameState.irithMandatoryStrike) {
       showToast("Irith Goldenthorn must strike after if able!", true);
       return;
     }
-    setPhase("END");
+    await setPhase("END");
   }
-  else if (current === "END") resolveEndPhase();
+  else if (current === "END") await resolveEndPhase();
 
   if (typeof onTutorialAction === 'function') {
     onTutorialAction('PHASE_ADVANCED', { phase: PHASES[gameState.currentPhaseIndex] });
   }
 
-  if (onlineSession.active && onlineSession.role === 'HOST') {
+  if (onlineSession.active && gameState.activePlayerIndex === onlineSession.myPlayerIndex) {
     broadcastOnlineState();
   }
 }
 
 async function runManaPhase() {
+  gameState.currentPhaseIndex = 0;
   const activeP = gameState.players[gameState.activePlayerIndex];
   const oppP = gameState.players[1 - gameState.activePlayerIndex];
   gameState.strikesUsed = 0; gameState.maxStrikes = 3; gameState.skillLearnedThisTurn = false; gameState.tradedThisTurn = false; updateStrikePips();
@@ -9036,10 +9142,18 @@ async function runManaPhase() {
   await dispatchGlobalHook('onTurnStart', { triggerPlayer: activeP });
 
   if (activeP.hand.length > 10) { const discarded = activeP.hand.pop(); activeP.discard.push(discarded); addLogEntry("Hand limit exceeded! Discarded " + discarded.name + "."); }
-  updatePhaseTracker(); renderAll(); setTimeout(() => { if (PHASES[gameState.currentPhaseIndex] === "MANA") setPhase("COMMAND"); }, 600);
+  updatePhaseTracker(); renderAll();
+  if (onlineSession.active) {
+    broadcastOnlineState();
+  }
+  setTimeout(async () => {
+    if (PHASES[gameState.currentPhaseIndex] === "MANA") {
+      await setPhase("COMMAND");
+    }
+  }, 600);
 }
 
-function resolveEndPhase() {
+async function resolveEndPhase() {
     const activeP = gameState.players[gameState.activePlayerIndex];
     // In Lorefall rules, unused mana persists and carries over across turns (mana is NOT reset to 0 in the End Phase)
     gameState.players.forEach(p => {
@@ -9055,50 +9169,21 @@ function resolveEndPhase() {
   gameState.activePlayerIndex = 1 - gameState.activePlayerIndex;
   if (gameState.activePlayerIndex === gameState.firstPlayerIndex) gameState.turnNumber += 1;
   gameState.currentPhaseIndex = 0; document.getElementById('turn-indicator').innerText = "Turn " + gameState.turnNumber + " • " + gameState.players[gameState.activePlayerIndex].name;
-  runManaPhase();
+  if (onlineSession.active && gameState.activePlayerIndex !== onlineSession.myPlayerIndex) {
+    renderAll();
+    sendOnlineBroadcast({
+      type: 'START_TURN_MANA',
+      gameState: JSON.parse(JSON.stringify(gameState))
+    });
+    return;
+  }
+  await runManaPhase();
 }
 
 async function playCardFromHand(cardIndex) {
   if (onlineSession.active) {
     if (gameState.activePlayerIndex !== onlineSession.myPlayerIndex) {
       showToast("It is not your turn!");
-      return;
-    }
-    if (onlineSession.myPlayerIndex === 1) {
-      const p = gameState.players[1];
-      const card = p.hand[cardIndex];
-      if (!card) return;
-      const currentPhase = PHASES[gameState.currentPhaseIndex];
-      if (card.type !== "Flash" && currentPhase !== "COMMAND") {
-        showToast("You can only play cards during Command Phase!");
-        return;
-      }
-      if (card.type === "Ally") {
-        if (p.manaPool < card.manaCost) { showToast("Not enough Mana!"); return; }
-        showModalAsync("Deploy " + card.name, "Choose where to deploy:", [
-          { text: "Battle Zone", value: "bz" }, { text: "Bench", value: "bench" }, { text: "Cancel", value: null }
-        ]).then(choice => {
-          if (!choice) return;
-          sendOnlineBroadcast({ type: 'CLIENT_ACTION', action: 'playAlly', cardIndex, choice });
-        });
-        return;
-      } else if (card.type === "Skill") {
-        if (p.manaPool < card.manaCost) { showToast("Not enough Mana!"); return; }
-        if (gameState.skillLearnedThisTurn) { showToast("Limit 1 Skill learned per turn!"); return; }
-        sendOnlineBroadcast({ type: 'CLIENT_ACTION', action: 'playSkill', cardIndex });
-        return;
-      } else if (card.type === "Equipment") {
-        if (p.gold < card.goldCost) { showToast("Not enough Gold!"); return; }
-        promptOnlineEquip(1, cardIndex);
-        return;
-      } else if (card.type === "Synergy") {
-        if (p.manaPool < card.manaCost) { showToast("Not enough Mana!"); return; }
-        sendOnlineBroadcast({ type: 'CLIENT_ACTION', action: 'playSynergy', cardIndex });
-        return;
-      } else if (card.type === "Flash") {
-        sendOnlineBroadcast({ type: 'CLIENT_ACTION', action: 'playFlash', cardIndex });
-        return;
-      }
       return;
     }
   }
@@ -9126,7 +9211,7 @@ async function playFlashCard(player, cardIndex) {
   await executeHook(card, 'onPlay', { triggerPlayer: player });
   renderAll();
   if (typeof onTutorialAction === 'function') onTutorialAction('FLASH_PLAYED', { card });
-  if (onlineSession.active && onlineSession.role === 'HOST') {
+  if (onlineSession.active) {
     broadcastOnlineState();
   }
 }
@@ -9158,8 +9243,10 @@ function promptDeployAlly(player, cardIndex) {
       }
       targetArr[openSlot] = card; addLogEntry(player.name + " deployed " + card.name + ".");
       if (typeof onTutorialAction === 'function') onTutorialAction('DEPLOY_DONE', { card, choice });
-      await executeHook(card, 'onPlay', { triggerPlayer: player }); renderAll();
-      if (onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
+      await executeHook(card, 'onPlay', { triggerPlayer: player });
+      await dispatchGlobalHook('onAllyEnterPlay', { triggerPlayer: player, targetAlly: card });
+      renderAll();
+      if (onlineSession.active) broadcastOnlineState();
   });
   if (typeof onTutorialAction === 'function') onTutorialAction('PROMPT_DEPLOY_OPENED', { card });
 }
@@ -9207,7 +9294,7 @@ async function learnSkill(player, cardIndex) {
   addLogEntry(player.name + " learned Skill: <strong>" + card.name + "</strong>!"); 
   renderAll();
   if (typeof onTutorialAction === 'function') onTutorialAction('SKILL_LEARNED', { card });
-  if (onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
+  if (onlineSession.active) broadcastOnlineState();
 }
 
 function canUnitEquipCard(unit, equipCard) {
@@ -9248,7 +9335,7 @@ function promptEquip(player, cardIndex) {
       addLogEntry(`${player.name} equipped <strong>${card.name}</strong> to <strong>${t.isHero ? player.hero.name : player.battleZone[t.slot].name}</strong>.`);
       renderAll();
       if (typeof onTutorialAction === 'function') onTutorialAction('EQUIP_DONE', { card, target: t });
-      if (onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
+      if (onlineSession.active) broadcastOnlineState();
     }
   }));
   actions.push({ text: "Cancel", action: closeModal }); 
@@ -9283,7 +9370,7 @@ async function playSynergy(player, cardIndex) {
   await executeHook(card, 'onPlay', { triggerPlayer: player }); 
   renderAll();
   if (typeof onTutorialAction === 'function') onTutorialAction('SYNERGY_PLAYED', { card });
-  if (onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
+  if (onlineSession.active) broadcastOnlineState();
 }
 
 function modifyCharge(playerIndex, zone, slotIndex, delta) {
@@ -9341,6 +9428,9 @@ function modifyCharge(playerIndex, zone, slotIndex, delta) {
     unit.charge -= 1; unit.chargeAddedThisTurn -= 1; p.manaPool += 1;
   }
   renderAll();
+  if (onlineSession.active) {
+    broadcastOnlineState();
+  }
 }
 
 async function retreatToBench(playerIndex, bzSlot) {
@@ -11636,13 +11726,11 @@ function triggerTradeAction() {
     const val = item.c.tradeValue || item.c.goldCost || 2;
     return { text: item.c.name + " (Gain " + val + " Gold)", action: () => {
         closeModal(); 
-        if (onlineSession.active && onlineSession.myPlayerIndex === 1) {
-          sendOnlineBroadcast({ type: 'CLIENT_ACTION', action: 'tradeCard', cardIndex: item.idx });
-          return;
-        }
-        p.hand.splice(item.idx, 1); p.discard.push(item.c); p.gold += val; gameState.tradedThisTurn = true; renderAll();
+        p.hand.splice(item.idx, 1); p.discard.push(item.c); p.gold += val; gameState.tradedThisTurn = true;
+        addLogEntry(`${p.name} traded <strong>${item.c.name}</strong> for ${val} Gold.`);
+        renderAll();
         if (typeof onTutorialAction === 'function') onTutorialAction('CARD_TRADED', { card: item.c, gold: val });
-        if (onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
+        if (onlineSession.active) broadcastOnlineState();
       }
     };
   });
@@ -11689,8 +11777,8 @@ function isLocalPlayer(playerOrIndex) {
     return pIdx === 0;
 }
 
-async function performAnimatedRoll(title, text, finalRoll, modifier, targetVal, forceWin, rollDetails = null, rollerIndex = null) {
-    if (onlineSession.active && onlineSession.role === 'HOST') {
+async function performAnimatedRoll(title, text, finalRoll, modifier, targetVal, forceWin, rollDetails = null, rollerIndex = null, fromNetwork = false) {
+    if (onlineSession.active && !fromNetwork) {
         sendOnlineBroadcast({
             type: 'UI_ROLL_ANIMATION',
             title, text, finalRoll, modifier, targetVal, forceWin, rollDetails, rollerIndex
@@ -11907,7 +11995,7 @@ function showDiscardInspect(pIdx) {
   showModal(`${p.name}'s Discard Pile (${pile.length} Cards)`, html, [{ text: "Close", action: closeModal }]);
 }
 
-function addLogEntry(text) { 
+function addLogEntry(text, fromNetwork = false) { 
   const p = document.getElementById('log-entries'); 
   const d = document.createElement('div'); 
   d.className = 'log-entry'; 
@@ -11915,7 +12003,7 @@ function addLogEntry(text) {
   p.appendChild(d); 
   document.getElementById('combat-log-box').scrollTop = p.scrollHeight; 
 
-  if (onlineSession.active && onlineSession.role === 'HOST') {
+  if (onlineSession.active && !fromNetwork) {
     sendOnlineBroadcast({ type: 'UI_LOG', text });
   }
 }
