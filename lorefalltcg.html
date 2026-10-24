@@ -9411,6 +9411,7 @@ async function selectCombatAttacker(playerIndex, type, slot) {
 
   gameState.selectedAttacker = { playerIndex, type, slot, card: attacker, activeWeapons };
   addLogEntry("Selected attacker: <strong>" + attacker.name + "</strong>."); highlightCombatTargets(); renderAll();
+  if (typeof updateTutorialUI === 'function' && typeof tutorialState !== 'undefined' && tutorialState?.active) setTimeout(updateTutorialUI, 40);
 }
 
 function highlightCombatTargets() {
@@ -9818,7 +9819,7 @@ async function executeStrikeResolution(aInfo, defenderPlayer, tType, tSlot, tUni
                   </ul>
                   <div style="background:rgba(255,255,255,0.07); border-left:3px solid var(--accent); padding:8px 12px; margin-bottom:10px; border-radius:4px; font-size:0.9rem;">
                       <strong style="color:var(--accent);">⚡ Golden Rule of Charge Depletion:</strong><br>
-                      • <strong>Striking on your turn does NOT deplete Charge!</strong> (Bastion Defender keeps his 1 Charge⚡).<br>
+                      • <strong>Striking on your turn does NOT deplete Charge!</strong> (Bastion Defender keeps her 1 Charge⚡).<br>
                       • <strong>Counterstriking DOES deplete Charge!</strong> (Gladeweaver spends her 1 Charge⚡ to retaliate, dropping to 0⚡).
                   </div>
                   <p style="margin:0; font-weight:bold; color:var(--mana);">Enemy Gladeweaver has elected to Counterstrike!</p>
@@ -10322,6 +10323,7 @@ async function rollClashAttacker() {
       if (currentClash.defenderPlayer.isAI || gameState.gameMode === "TUTORIAL" || (onlineSession.active && currentClash.defenderPlayer.index === 1)) { acts.innerHTML = `<p style="color:#cbd5e1; font-style:italic;">Opponent counterstrikes...</p>`; setTimeout(rollClashDefender, 1200); } 
       else { acts.innerHTML = `<button class="dice-btn dice-btn-counter" onclick="rollClashDefender()">🎲 Roll Counter</button>`; }
   } else { acts.innerHTML = `<button class="btn btn-primary" onclick="resolveClashDamage()">Resolve Strike</button>`; }
+  if (typeof dockTutorialHUDTopAfterClashRoll === 'function') dockTutorialHUDTopAfterClashRoll();
 }
 
 async function rollClashDefender() {
@@ -10519,7 +10521,7 @@ async function rollClashDefender() {
 
   document.getElementById('clash-log').innerHTML += `<div style="margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #334155;"><strong>Defender Roll:</strong><br>${logMsg}<br>Counter Damage Output: <strong style="color:#10b981; font-size:1.1rem;">${currentClash.defDamage}</strong></div>`;
   document.getElementById('clash-actions').innerHTML = `<button class="btn btn-primary" onclick="resolveClashDamage()">Resolve Strike</button>`;
-  if (typeof updateTutorialUI === 'function' && typeof tutorialState !== 'undefined' && tutorialState?.active) setTimeout(updateTutorialUI, 40);
+  if (typeof dockTutorialHUDTopAfterClashRoll === 'function') dockTutorialHUDTopAfterClashRoll();
 }
 
 async function resolveClashDamage() {
@@ -10642,7 +10644,7 @@ async function resolveClashDamage() {
   }
 
   document.getElementById('clash-actions').innerHTML = `<button class="btn btn-primary" onclick="closeClashAndApply()">Complete Strike</button>`;
-  if (typeof updateTutorialUI === 'function' && typeof tutorialState !== 'undefined' && tutorialState?.active) setTimeout(updateTutorialUI, 40);
+  if (typeof dockTutorialHUDTopAfterClashRoll === 'function') dockTutorialHUDTopAfterClashRoll();
 }
 
 async function closeClashAndApply() {
@@ -11713,7 +11715,12 @@ async function performAnimatedRoll(title, text, finalRoll, modifier, targetVal, 
             hasResolved = true;
             if (autoDismissTimer) clearTimeout(autoDismissTimer);
             modal.classList.remove('active');
-            if (typeof updateTutorialUI === 'function') setTimeout(updateTutorialUI, 40);
+            const clashModal = document.getElementById('clash-modal');
+            if (clashModal && clashModal.style.display && clashModal.style.display !== 'none' && typeof dockTutorialHUDTopAfterClashRoll === 'function') {
+                dockTutorialHUDTopAfterClashRoll();
+            } else if (typeof updateTutorialUI === 'function') {
+                setTimeout(updateTutorialUI, 40);
+            }
             resolve();
         }
 
@@ -11949,6 +11956,48 @@ function getActiveTutorialSteps() {
   return TUTORIAL_STEPS;
 }
 
+function getTutorialClashTargetBtn() {
+  const activeGameModal = document.getElementById('game-modal');
+  if (activeGameModal && activeGameModal.classList.contains('active')) {
+    const modalBtn = activeGameModal.querySelector('#modal-actions button');
+    if (modalBtn) return modalBtn;
+  }
+  const clashModal = document.getElementById('clash-modal');
+  if (clashModal && clashModal.style.display && clashModal.style.display !== 'none') {
+    return document.querySelector('#clash-actions .dice-btn, #clash-actions .btn-primary, #clash-actions button:not([onclick*="triggerAttackerClashFlash"])');
+  }
+  return document.querySelector('#clash-actions .dice-btn, #clash-actions .btn-primary, #clash-actions button:not([onclick*="triggerAttackerClashFlash"])') || document.querySelector('#modal-actions button');
+}
+
+function getTutorialClashPrompt(defaultPrompt = "Click '🎲 Roll Attack' to roll dice and resolve damage!") {
+  const btn = getTutorialClashTargetBtn();
+  if (btn) {
+    const txt = (btn.textContent || '').replace(/\s+/g, ' ').trim();
+    if (txt.includes('Roll Counter')) return `Click '${txt}' to roll your counterstrike!`;
+    if (txt.includes('Roll Attack')) return `Click '${txt}' to roll dice and resolve damage!`;
+    if (txt.includes('Roll')) return `Click '${txt}' to roll the dice!`;
+    if (txt.includes('Continue')) return `Click 'Continue' to finish the roll!`;
+    if (txt.includes('Resolve Strike')) return `Click 'Resolve Strike' to calculate and resolve clash damage!`;
+    if (txt.includes('Complete Strike')) return `Click 'Complete Strike' to apply damage and finish the clash!`;
+    if (txt.includes('Acknowledge') || txt.includes('Enter Clash Arena')) return `Click '${txt}' to enter the Clash Arena!`;
+    return `Click '${txt}' to proceed!`;
+  }
+  return defaultPrompt;
+}
+
+function dockTutorialHUDTopAfterClashRoll() {
+  if (typeof tutorialState !== 'undefined' && tutorialState && tutorialState.active) {
+    tutorialState.manualDockOverride = 'top';
+    const hud = document.getElementById('tutorial-hud');
+    if (hud) hud.classList.remove('hud-bottom');
+    if (typeof updateDockButtonText === 'function') updateDockButtonText(false);
+    if (typeof updateTutorialUI === 'function') {
+      updateTutorialUI();
+      setTimeout(updateTutorialUI, 50);
+    }
+  }
+}
+
 const TUTORIAL_STEPS = [
   {
     id: "scout",
@@ -12013,8 +12062,8 @@ const TUTORIAL_STEPS = [
   {
     id: "hero_overview",
     title: "🛡️ Inspect Frontline Defender",
-    text: "Click on <strong>Bastion Defender</strong> in your hand to preview his stats before deploying him to the battlefield.",
-    taskPrompt: "Click on 'Bastion Defender' in your hand to inspect his card.",
+    text: "Click on <strong>Bastion Defender</strong> in your hand to preview her stats before deploying him to the battlefield.",
+    taskPrompt: "Click on 'Bastion Defender' in your hand to inspect the card.",
     getTargetEl: () => document.getElementById('p1-hand-card-0'),
     canClick: (target) => {
       const cardEl = document.getElementById('p1-hand-card-0');
@@ -12182,25 +12231,11 @@ const TUTORIAL_STEPS = [
     title: "🎲 The Clash Arena",
     text: "Melee Damage equals <strong>Attack Die + Power</strong> (D4 + 0 = D4 damage).<br><br>Defense reduces damage flatly: <code>Damage - Defense = Final Damage</code>.<br><br>Counterstriking is optional: striking on your turn keeps Charge, but counterstriking expends Charge.<br><br>Both combatants strike simultaneously — click '🎲 Roll Attack' to clash!",
     taskPrompt: "Click '🎲 Roll Attack' (or '🎲 Roll D4') to clash!",
-    getTaskPrompt: () => {
-      const clashBtn = document.querySelector('#clash-actions button');
-      if (clashBtn) {
-        const txt = (clashBtn.textContent || '').trim();
-        if (txt.includes('Roll')) return `Click '${txt}' to clash!`;
-        if (txt.includes('Resolve')) return `Click 'Resolve Strike' to calculate clash damage!`;
-        if (txt.includes('Complete')) return `Click 'Complete Strike' to apply damage!`;
-        return `Click '${txt}' to proceed!`;
-      }
-      return "Click '🎲 Roll Attack' to clash!";
-    },
-    getTargetEl: () => {
-      const modalBtn = document.querySelector('#game-modal.active #modal-actions button');
-      if (modalBtn) return modalBtn;
-      return document.querySelector('#clash-actions .dice-btn') || document.querySelector('#clash-actions button');
-    },
+    getTaskPrompt: () => getTutorialClashPrompt("Click '🎲 Roll Attack' to clash!"),
+    getTargetEl: () => getTutorialClashTargetBtn(),
     canClick: (target) => {
       if (target.closest('#game-modal #modal-actions button')) return true;
-      const btn = document.querySelector('#clash-actions .dice-btn') || document.querySelector('#clash-actions button');
+      const btn = getTutorialClashTargetBtn();
       return Boolean(btn && (target === btn || btn.contains(target)));
     }
   },
@@ -12369,25 +12404,11 @@ const TUTORIAL_STEPS = [
     title: "🏹 Ranged Accuracy Roll",
     text: "Roll Accuracy (D20 + Dex, 11+ succeeds). Deals 6 fixed damage directly to Favar Dahv!<br><br>Defenders cannot counterstrike Ranged attacks, and attacking on your turn does not deplete Charge.<br><br>Click '🎲 Roll Attack' to fire your first shot!",
     taskPrompt: "Click '🎲 Roll Attack' (or '🎲 Roll D20') to fire your first shot!",
-    getTaskPrompt: () => {
-      const clashBtn = document.querySelector('#clash-actions button');
-      if (clashBtn) {
-        const txt = (clashBtn.textContent || '').trim();
-        if (txt.includes('Roll')) return `Click '${txt}' to fire your shot!`;
-        if (txt.includes('Resolve')) return `Click 'Resolve Strike' to calculate damage!`;
-        if (txt.includes('Complete')) return `Click 'Complete Strike' to apply damage!`;
-        return `Click '${txt}' to proceed!`;
-      }
-      return "Click '🎲 Roll Attack' to fire your first shot!";
-    },
-    getTargetEl: () => {
-      const modalBtn = document.querySelector('#game-modal.active #modal-actions button');
-      if (modalBtn) return modalBtn;
-      return document.querySelector('#clash-actions .dice-btn') || document.querySelector('#clash-actions button');
-    },
+    getTaskPrompt: () => getTutorialClashPrompt("Click '🎲 Roll Attack' to fire your first shot!"),
+    getTargetEl: () => getTutorialClashTargetBtn(),
     canClick: (target) => {
       if (target.closest('#game-modal #modal-actions button')) return true;
-      const btn = document.querySelector('#clash-actions .dice-btn') || document.querySelector('#clash-actions button');
+      const btn = getTutorialClashTargetBtn();
       return Boolean(btn && (target === btn || btn.contains(target)));
     }
   },
@@ -12444,25 +12465,11 @@ const TUTORIAL_STEPS = [
     title: "💥 The Finishing Blow!",
     text: "Roll your final <strong>Accuracy Chance roll (D20 + Dex, 11+)</strong> to deliver lethal damage and claim victory!",
     taskPrompt: "Click '🎲 Roll Attack' (or '🎲 Roll D20') to win the battle!",
-    getTaskPrompt: () => {
-      const clashBtn = document.querySelector('#clash-actions button');
-      if (clashBtn) {
-        const txt = (clashBtn.textContent || '').trim();
-        if (txt.includes('Roll')) return `Click '${txt}' to deliver the final strike!`;
-        if (txt.includes('Resolve')) return `Click 'Resolve Strike' to calculate final damage!`;
-        if (txt.includes('Complete')) return `Click 'Complete Strike' to win!`;
-        return `Click '${txt}' to proceed!`;
-      }
-      return "Click '🎲 Roll Attack' to win the battle!";
-    },
-    getTargetEl: () => {
-      const modalBtn = document.querySelector('#game-modal.active #modal-actions button');
-      if (modalBtn) return modalBtn;
-      return document.querySelector('#clash-actions .dice-btn') || document.querySelector('#clash-actions button');
-    },
+    getTaskPrompt: () => getTutorialClashPrompt("Click '🎲 Roll Attack' to win the battle!"),
+    getTargetEl: () => getTutorialClashTargetBtn(),
     canClick: (target) => {
       if (target.closest('#game-modal #modal-actions button')) return true;
-      const btn = document.querySelector('#clash-actions .dice-btn') || document.querySelector('#clash-actions button');
+      const btn = getTutorialClashTargetBtn();
       return Boolean(btn && (target === btn || btn.contains(target)));
     }
   }
@@ -12511,7 +12518,7 @@ const INDEPTH_TUTORIAL_STEPS = [
   {
     id: "id_bastion_play_btn",
     title: "🛡️ Deploying Bastion Defender",
-    text: "Bastion Defender costs 1 Mana (you have 4 Mana). Let's deploy him to the frontline!",
+    text: "Bastion Defender costs 1 Mana (you have 4 Mana). Let's deploy her to the bench!",
     taskPrompt: "Click '▶ Play / Equip to Field'.",
     getTargetEl: () => document.querySelector('#card-detail-modal button[onclick*="playFromHandDetail"]'),
     canClick: (t) => {
@@ -12643,8 +12650,25 @@ const INDEPTH_TUTORIAL_STEPS = [
     text: "Lorefall Targeting Rule: <strong>Direct Assault!</strong><br><br>Because Bastion Defender is garrisoned safely on the Bench, your Battle Zone is empty!<br><br>Under Lorefall combat rules: <em>If the defender's Battle Zone is empty, Melee strikes target the opposing Hero directly!</em><br><br>Gladeweaver strikes Prince Athran directly. Athran has 30 HP and chooses <strong>Option A: Hold the Line (Defend Only)</strong> (0 Charge). Athran absorbs the 2 damage (30 -> 28 HP), conserving his power!",
     taskPrompt: "Click 'Hold the Line ▶' to absorb the attack.",
     actionButtonText: "Hold the Line ▶",
-    getTargetEl: () => null,
-    canClick: (t) => Boolean(t.closest('#tut-action-text button') || t.closest('#tutorial-hud'))
+    getTaskPrompt: () => {
+      const clashModal = document.getElementById('clash-modal');
+      const isClashOpen = Boolean(clashModal && clashModal.style.display && clashModal.style.display !== 'none');
+      const activeGameModal = document.getElementById('game-modal');
+      const isModalOpen = Boolean(activeGameModal && activeGameModal.classList.contains('active'));
+      if (isClashOpen || isModalOpen) {
+        return getTutorialClashPrompt("Wait for opponent roll, then click 'Resolve Strike'!");
+      }
+      return "Click 'Hold the Line ▶' to absorb the attack.";
+    },
+    getTargetEl: () => {
+      const clashModal = document.getElementById('clash-modal');
+      const isClashOpen = Boolean(clashModal && clashModal.style.display && clashModal.style.display !== 'none');
+      const activeGameModal = document.getElementById('game-modal');
+      const isModalOpen = Boolean(activeGameModal && activeGameModal.classList.contains('active'));
+      if (isClashOpen || isModalOpen) return getTutorialClashTargetBtn();
+      return null;
+    },
+    canClick: (t) => Boolean(t.closest('#tut-action-text button') || t.closest('#tutorial-hud') || t.closest('#clash-actions button') || t.closest('#modal-actions button'))
   },
   {
     id: "id_opp_turn1_charge_end",
@@ -12782,17 +12806,9 @@ const INDEPTH_TUTORIAL_STEPS = [
     id: "id_sniper_roll_chance",
     title: "🎲 Accuracy Chance Roll (D20 + Dex, 11+)",
     text: "Roll your D20 Accuracy check! With Athran's Archer accuracy, a roll of <strong>11 or higher</strong> scores a direct hit for 6 non-combat damage, instantly eliminating Gladeweaver!",
-    taskPrompt: "Click '🎲 Roll Attack' (or '🎲 Roll D20') to fire!",
-    getTaskPrompt: () => {
-      const clashBtn = document.querySelector('#clash-actions button') || document.querySelector('#modal-actions button');
-      if (clashBtn) {
-        const txt = (clashBtn.textContent || '').trim();
-        if (txt.includes('Roll')) return `Click '${txt}' to roll accuracy!`;
-        return `Click '${txt}' to proceed!`;
-      }
-      return "Click '🎲 Roll Attack' to fire!";
-    },
-    getTargetEl: () => document.querySelector('#modal-actions button') || document.querySelector('#clash-actions button'),
+    taskPrompt: "Click '🎲 Roll D20' to fire!",
+    getTaskPrompt: () => getTutorialClashPrompt("Click '🎲 Roll D20' to fire!"),
+    getTargetEl: () => getTutorialClashTargetBtn(),
     canClick: () => true
   },
   {
@@ -12892,17 +12908,10 @@ const INDEPTH_TUTORIAL_STEPS = [
   {
     id: "id_turn2_clash_bastion",
     title: "💥 Bastion Strikes Favar Dahv!",
-    text: "Bastion Defender charges in! Roll to resolve physical damage (D4 + Power). Deals 3 damage (26 -> 23 HP)!",
-    taskPrompt: "Click '🎲 Roll Attack' to resolve strike.",
-    getTaskPrompt: () => {
-      const clashBtn = document.querySelector('#clash-actions button') || document.querySelector('#modal-actions button');
-      if (clashBtn) {
-        const txt = (clashBtn.textContent || '').trim();
-        return `Click '${txt}' to proceed!`;
-      }
-      return "Click '🎲 Roll Attack' to resolve strike.";
-    },
-    getTargetEl: () => document.querySelector('#clash-actions button') || document.querySelector('#modal-actions button'),
+    text: "Bastion Defender charges in! Click <strong>'🎲 Roll Attack (D4)'</strong> to roll your attack die and resolve physical damage (D4 + Power = 3 damage, 26 -> 23 HP)!",
+    taskPrompt: "Click '🎲 Roll Attack (D4)' to roll dice and resolve damage!",
+    getTaskPrompt: () => getTutorialClashPrompt("Click '🎲 Roll Attack (D4)' to roll dice and resolve damage!"),
+    getTargetEl: () => getTutorialClashTargetBtn(),
     canClick: () => true
   },
   {
@@ -12953,8 +12962,31 @@ const INDEPTH_TUTORIAL_STEPS = [
     text: "Favar spends 2 Mana to summon <strong>Indignant Water Sprite</strong> (2 Mana, 2 HP) and 1 Mana to charge it (⚡ 1/1), then enters Combat Phase!<br><br>Water Sprite attacks your <strong>Bastion Defender</strong> (3 HP). Enter the Clash Arena to witness both frontlines clash: Water Sprite deals 3 damage to defeat Bastion, and Bastion counterstrikes for 2 damage to defeat Water Sprite!<br><br><strong>Bastion Defender's defeat ability</strong> activates: granting Prince Athran a guaranteed Critical hit chance for his upcoming strike!",
     taskPrompt: "Click 'Launch Frontline Clash ▶' to enter Clash Arena.",
     actionButtonText: "Launch Frontline Clash ▶",
-    getTargetEl: () => null,
-    canClick: (t) => Boolean(t.closest('#tut-action-text button') || t.closest('#tutorial-hud'))
+    getTaskPrompt: () => {
+      if (gameState.targetingState) {
+        return "Click Prince Athran to grant Critical Hit Chance from Bastion Defender's defeat ability!";
+      }
+      const clashModal = document.getElementById('clash-modal');
+      const isClashOpen = Boolean(clashModal && clashModal.style.display && clashModal.style.display !== 'none');
+      const activeGameModal = document.getElementById('game-modal');
+      const isModalOpen = Boolean(activeGameModal && activeGameModal.classList.contains('active'));
+      if (isClashOpen || isModalOpen) {
+        return getTutorialClashPrompt("Wait for opponent roll, then click '🎲 Roll Counter'!");
+      }
+      return "Click 'Launch Frontline Clash ▶' to enter Clash Arena.";
+    },
+    getTargetEl: () => {
+      if (gameState.targetingState) {
+        return document.getElementById('p1-hero-slot') || document.querySelector('.card-slot.valid-target');
+      }
+      const clashModal = document.getElementById('clash-modal');
+      const isClashOpen = Boolean(clashModal && clashModal.style.display && clashModal.style.display !== 'none');
+      const activeGameModal = document.getElementById('game-modal');
+      const isModalOpen = Boolean(activeGameModal && activeGameModal.classList.contains('active'));
+      if (isClashOpen || isModalOpen) return getTutorialClashTargetBtn();
+      return null;
+    },
+    canClick: (t) => Boolean(t.closest('#tut-action-text button') || t.closest('#tutorial-hud') || t.closest('#clash-actions button') || t.closest('#modal-actions button') || t.closest('.card-slot.valid-target') || t.closest('#p1-hero-slot'))
   },
   {
     id: "id_opp_turn2_charge_end",
@@ -13154,17 +13186,10 @@ const INDEPTH_TUTORIAL_STEPS = [
   {
     id: "id_turn3_clash_sniper",
     title: "💥 Sniper Fires on Favar Dahv",
-    text: "Windrider Sniper fires! Deals 6 fixed Ranged damage to Favar Dahv (26 HP -> 20 HP)!",
-    taskPrompt: "Click '🎲 Roll Attack' to resolve strike.",
-    getTaskPrompt: () => {
-      const clashBtn = document.querySelector('#clash-actions button') || document.querySelector('#modal-actions button');
-      if (clashBtn) {
-        const txt = (clashBtn.textContent || '').trim();
-        return `Click '${txt}' to proceed!`;
-      }
-      return "Click '🎲 Roll Attack' to resolve strike.";
-    },
-    getTargetEl: () => document.querySelector('#clash-actions button') || document.querySelector('#modal-actions button'),
+    text: "Windrider Sniper fires! Click <strong>'🎲 Roll Attack (D20)'</strong> to roll accuracy and deal 6 fixed Ranged damage to Favar Dahv (26 HP -> 20 HP)!",
+    taskPrompt: "Click '🎲 Roll Attack (D20)' to roll dice and resolve damage!",
+    getTaskPrompt: () => getTutorialClashPrompt("Click '🎲 Roll Attack (D20)' to roll dice and resolve damage!"),
+    getTargetEl: () => getTutorialClashTargetBtn(),
     canClick: () => true
   },
   {
@@ -13356,16 +13381,9 @@ const INDEPTH_TUTORIAL_STEPS = [
     id: "id_turn4_clash_sniper_1",
     title: "💥 Sniper Eliminates Neophyte Seeress",
     text: "Windrider Sniper releases a 6 fixed Ranged damage volley, obliterating the 6 HP Seeress! Favar Dahv's frontline is blown wide open!",
-    taskPrompt: "Click '🎲 Roll Attack' to resolve strike.",
-    getTaskPrompt: () => {
-      const clashBtn = document.querySelector('#clash-actions button') || document.querySelector('#modal-actions button');
-      if (clashBtn) {
-        const txt = (clashBtn.textContent || '').trim();
-        return `Click '${txt}' to proceed!`;
-      }
-      return "Click '🎲 Roll Attack' to resolve strike.";
-    },
-    getTargetEl: () => document.querySelector('#clash-actions button') || document.querySelector('#modal-actions button'),
+    taskPrompt: "Click '🎲 Roll Attack (D20)' to roll dice and resolve damage!",
+    getTaskPrompt: () => getTutorialClashPrompt("Click '🎲 Roll Attack (D20)' to roll dice and resolve damage!"),
+    getTargetEl: () => getTutorialClashTargetBtn(),
     canClick: () => true
   },
   {
@@ -13413,11 +13431,28 @@ const INDEPTH_TUTORIAL_STEPS = [
   },
   {
     id: "id_turn4_target_favar_bash",
-    title: "🎯 Target Scholar Favar Dahv",
-    text: "Target enemy Hero <strong>Scholar Favar Dahv</strong> (`#p2-hero-slot`) to deliver Athran's crushing blow!",
-    taskPrompt: "Click enemy Hero Favar Dahv.",
-    getTargetEl: () => document.getElementById('p2-hero-slot'),
+    title: "🗡️ Activate Broadsword Bonus & Target Favar Dahv",
+    text: "Click <strong>'Yes, Use Bonus'</strong> in the Weapon Charged prompt to add Sharpened Broadsword's +D4 Attack Die to Bash, then target enemy Hero <strong>Scholar Favar Dahv</strong> (`#p2-hero-slot`) to deliver Athran's crushing blow!",
+    taskPrompt: "Click 'Yes, Use Bonus' -> Click enemy Hero Favar Dahv.",
+    getTaskPrompt: () => {
+      const modal = document.getElementById('game-modal');
+      if (modal && modal.classList.contains('active')) {
+        const useBonusBtn = Array.from(document.querySelectorAll('#modal-actions button')).find(b => (b.textContent || '').includes("Use Bonus"));
+        if (useBonusBtn) return "Click 'Yes, Use Bonus' to activate Sharpened Broadsword (+D4 Attack Die)!";
+      }
+      return "Click enemy Hero Favar Dahv.";
+    },
+    getTargetEl: () => {
+      const modal = document.getElementById('game-modal');
+      if (modal && modal.classList.contains('active')) {
+        const useBonusBtn = Array.from(document.querySelectorAll('#modal-actions button')).find(b => (b.textContent || '').includes("Use Bonus"));
+        if (useBonusBtn) return useBonusBtn;
+      }
+      return document.getElementById('p2-hero-slot');
+    },
     canClick: (t) => {
+      const modalBtn = t.closest('#modal-actions button');
+      if (modalBtn) return (modalBtn.textContent || '').includes("Use Bonus");
       const el = document.getElementById('p2-hero-slot');
       return Boolean(el && (t === el || el.contains(t)));
     }
@@ -13426,22 +13461,15 @@ const INDEPTH_TUTORIAL_STEPS = [
     id: "id_turn4_clash_bash",
     title: "💥 Athran's Brutal Strike with Bash & Broadsword!",
     text: "Prince Athran charges in! Bash rolls a <strong>5</strong>, Sharpened Broadsword rolls a <strong>3</strong>, plus <strong>6 Power</strong> (+4 Base + 2 Tavern Draught) = <strong>14 massive damage!</strong> Favar Dahv is reduced from 20 HP to 6 HP!",
-    taskPrompt: "Click '🎲 Roll Attack' to resolve strike.",
-    getTaskPrompt: () => {
-      const clashBtn = document.querySelector('#clash-actions button') || document.querySelector('#modal-actions button');
-      if (clashBtn) {
-        const txt = (clashBtn.textContent || '').trim();
-        return `Click '${txt}' to proceed!`;
-      }
-      return "Click '🎲 Roll Attack' to resolve strike.";
-    },
-    getTargetEl: () => document.querySelector('#clash-actions button') || document.querySelector('#modal-actions button'),
+    taskPrompt: "Click '🎲 Roll Attack (D4)' to roll dice and resolve damage!",
+    getTaskPrompt: () => getTutorialClashPrompt("Click '🎲 Roll Attack (D4)' to roll dice and resolve damage!"),
+    getTargetEl: () => getTutorialClashTargetBtn(),
     canClick: () => true
   },
   {
     id: "id_turn4_select_sniper_2",
     title: "🏹 Strike 3: Multi-Strike Finishing Shot",
-    text: "Scholar Favar Dahv is staggering at <strong>6 HP</strong>!<br><br>Because Windrider Sniper has <strong>Multi-Strike</strong>, she is NOT exhausted and can strike again in the same Combat Phase!<br><br>Click <strong>Windrider Sniper</strong> in your Battle Zone.",
+    text: "Scholar Favar Dahv is staggering at <strong>3 HP</strong>!<br><br>Because Windrider Sniper has <strong>Multi-Strike</strong>, she is NOT exhausted and can strike again in the same Combat Phase!<br><br>Click <strong>Windrider Sniper</strong> in your Battle Zone.",
     taskPrompt: "Click Windrider Sniper in Battle Zone.",
     getTargetEl: () => {
       const p = gameState.players[0];
@@ -13481,16 +13509,9 @@ const INDEPTH_TUTORIAL_STEPS = [
     id: "id_turn4_clash_sniper_2",
     title: "👑 The Lethal Knockout Blow!",
     text: "Windrider Sniper releases her final arrow for 6 fixed Ranged damage, reducing Favar Dahv from 6 HP to <strong>0 HP evenly!</strong>",
-    taskPrompt: "Click '🎲 Roll Attack' to win the battle!",
-    getTaskPrompt: () => {
-      const clashBtn = document.querySelector('#clash-actions button') || document.querySelector('#modal-actions button');
-      if (clashBtn) {
-        const txt = (clashBtn.textContent || '').trim();
-        return `Click '${txt}' to proceed!`;
-      }
-      return "Click '🎲 Roll Attack' to win the battle!";
-    },
-    getTargetEl: () => document.querySelector('#clash-actions button') || document.querySelector('#modal-actions button'),
+    taskPrompt: "Click '🎲 Roll Attack (D20)' to win the battle!",
+    getTaskPrompt: () => getTutorialClashPrompt("Click '🎲 Roll Attack (D20)' to win the battle!"),
+    getTargetEl: () => getTutorialClashTargetBtn(),
     canClick: () => true
   }
 ];
@@ -13552,7 +13573,13 @@ function updateTutorialHUDPosition(targetEl, isCardDetailOpen) {
       Boolean(targetEl.closest('.hand-card'))
     )
   );
-  let shouldDockBottom = !isTargetInHand && !isScoutStep;
+  const clashModal = document.getElementById('clash-modal');
+  const isClashOpen = Boolean(clashModal && clashModal.style.display && clashModal.style.display !== 'none');
+  const clashActionBtn = isClashOpen ? document.querySelector('#clash-actions button:not([onclick*="triggerAttackerClashFlash"])') : null;
+  const clashBtnText = clashActionBtn ? (clashActionBtn.textContent || '') : '';
+  const isPostRollClashBtn = isClashOpen && (clashBtnText.includes('Roll Counter') || clashBtnText.includes('Resolve') || clashBtnText.includes('Complete'));
+
+  let shouldDockBottom = !isTargetInHand && !isScoutStep && !isPostRollClashBtn;
 
   if (shouldDockBottom) {
     hud.classList.add('hud-bottom');
@@ -13733,7 +13760,11 @@ function updateTutorialUI() {
     const actionEl = document.getElementById('tut-action-text');
     if (actionEl) {
       const basePrompt = (typeof currentStep.getTaskPrompt === 'function') ? currentStep.getTaskPrompt() : currentStep.taskPrompt;
-      if (currentStep.actionButtonText) {
+      const clashModal = document.getElementById('clash-modal');
+      const isClashOpen = Boolean(clashModal && clashModal.style.display && clashModal.style.display !== 'none');
+      const activeGameModal = document.getElementById('game-modal');
+      const isGameModalOpen = Boolean(activeGameModal && activeGameModal.classList.contains('active'));
+      if (currentStep.actionButtonText && !isClashOpen && !isGameModalOpen && !gameState.targetingState) {
         const btnBg = tutorialState.mode === "INDEPTH" ? "linear-gradient(135deg, #10b981, #059669)" : "linear-gradient(135deg, #f59e0b, #d97706)";
         actionEl.innerHTML = `<span>${basePrompt}</span> <button class="btn btn-primary" onclick="handleTutorialActionButtonClick('${currentStep.id}')" style="margin-left:10px; padding:3px 12px; font-size:0.75rem; background:${btnBg}; cursor:pointer;">${currentStep.actionButtonText}</button>`;
       } else {
@@ -13838,6 +13869,13 @@ function tutorialGlobalClickHandler(e) {
         if ((modalBtn.textContent || '').includes("Keep") || (modalBtn.textContent || '').includes("Ready")) return;
       } else if (currentStep.id === 'id_turn1_trade_card') {
         if ((modalBtn.textContent || '').includes("Leather Tunic")) return;
+      } else if (Array.from(activeModal.querySelectorAll('#modal-actions button')).some(b => (b.textContent || '').includes("Use Bonus"))) {
+        if ((modalBtn.textContent || '').includes("Use Bonus")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        showToast("👉 Click 'Yes, Use Bonus' to activate your charged Sharpened Broadsword!");
+        return false;
       } else {
         // Any roll animation (e.g. "🎲 Roll D4", "🎲 Roll D20", "Continue")
         return;
@@ -13845,8 +13883,17 @@ function tutorialGlobalClickHandler(e) {
     }
   }
 
-  // Allow clash modal buttons: Roll, Resolve Strike, Complete Strike
-  if (e.target.closest('#clash-actions button')) {
+  // Allow clash modal buttons: Roll, Roll Counter, Resolve Strike, Complete Strike (block Flash / Ability in tutorial)
+  const clashBtnEl = e.target.closest('#clash-actions button');
+  if (clashBtnEl) {
+    const onclickAttr = clashBtnEl.getAttribute('onclick') || '';
+    if (onclickAttr.includes('triggerAttackerClashFlash')) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      showToast("👉 Click the Roll Attack button to roll dice and resolve damage!");
+      return false;
+    }
     return;
   }
 
