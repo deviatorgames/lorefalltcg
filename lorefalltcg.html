@@ -5035,18 +5035,24 @@ function getStat(card, statName, player) {
       });
   }
 
-  // Hero skills granting static stat bonuses to the Hero (e.g. Slash Proficiency 2: +1 power, Iceshard Barrage: +2 accuracy)
+  // Hero skills granting static stat bonuses to the Hero strictly when using that specific skill in combat
   if (card.type === "Hero" && player && player.skills) {
       player.skills.forEach(sk => {
           if (sk && sk.mechanics && sk.mechanics.staticModifiers) {
-              sk.mechanics.staticModifiers.forEach(mod => {
-                  if (mod.effect && mod.effect.action === "statBonus" && mod.effect.target === "selfEquippedCharacter") {
-                      const sVal = mod.effect.stat === statName ? mod.effect.value : (mod.effect.stats ? mod.effect.stats[statName] : 0);
-                      if (sVal && evaluateCondition(mod.condition, sk, { triggerPlayer: player })) {
-                          base += sVal;
+              const isUsingThisSkill = Boolean(
+                  currentClash && currentClash.aInfo && currentClash.aInfo.type === 'skill' &&
+                  currentClash.attacker === sk && currentClash.attackerPlayer === player
+              );
+              if (isUsingThisSkill) {
+                  sk.mechanics.staticModifiers.forEach(mod => {
+                      if (mod.effect && mod.effect.action === "statBonus" && (mod.effect.target === "selfEquippedCharacter" || mod.effect.target === "self")) {
+                          const sVal = mod.effect.stat === statName ? mod.effect.value : (mod.effect.stats ? mod.effect.stats[statName] : 0);
+                          if (sVal && evaluateCondition(mod.condition, sk, { triggerPlayer: player })) {
+                              base += sVal;
+                          }
                       }
-                  }
-              });
+                  });
+              }
           }
       });
   }
@@ -10219,10 +10225,19 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
           }
       }
 
-      // 2. Counterstrike Logic
+      // 2. Tactical Counterstrike Decision (Charge & Mana Economy)
       let rangeValid = isCounterRangeValid(finalTargetUnit.attackType);
       let isCounter = false;
       let heroCounterAsset = null;
+
+      const attackerPlayer = gameState.players[aInfo.playerIndex];
+      const attackerUnit = (aInfo.type === 'skill') ? attackerPlayer.hero : aInfo.card;
+      const expectedAtkDmg = estimateCardExpectedDamage(aInfo.card, attackerPlayer);
+      const defVal = getStat(finalTargetUnit, 'defense', defenderPlayer) || 0;
+      const estimatedIncoming = Math.max(0, expectedAtkDmg - defVal);
+      const willDie = (finalTargetUnit.currentHealth <= estimatedIncoming);
+      const isFreeCounter = defenderPlayer.hero.mechanics?.staticModifiers?.some(m => m.effect?.action === "freeCounterstrike");
+      const attackerDef = getStat(attackerUnit, 'defense', attackerPlayer) || 0;
 
       if (gameState.gameMode === "TUTORIAL") {
           isCounter = (aInfo.card.attackType !== "Ranged" && rangeValid && (finalTargetUnit.charge || 0) >= 1);
@@ -10240,36 +10255,115 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
           }
 
           if (validCounters.length > 0) {
+              // Analyze each candidate counter asset
+              const analyzedCounters = validCounters.map(asset => {
+                  const rawDmg = estimateCardExpectedDamage(asset, defenderPlayer);
+                  const netDmg = Math.max(0, rawDmg - attackerDef);
+                  const isLethal = netDmg >= attackerUnit.currentHealth;
+                  const chargeCost = asset.chargeReq || 1;
+                  const isHighTierSkill = (asset.type === "Skill" && (asset.skillLevel || 1) >= 2 && chargeCost >= 2);
+                  return { asset, rawDmg, netDmg, isLethal, chargeCost, isHighTierSkill };
+              });
+
               if (diff === "EASY") {
-                  if (Math.random() < 0.65) {
+                  // Easy: avoids wasting high-tier multi-charge skills or counterstriking for 0 damage.
+                  // Only counters if net damage > 0 and using a cheap asset or if lethal!
+                  const validEasyCounters = analyzedCounters.filter(c => c.netDmg > 0 && (!c.isHighTierSkill || c.isLethal));
+                  if (validEasyCounters.length > 0 && Math.random() < 0.35) {
                       isCounter = true;
-                      heroCounterAsset = validCounters[Math.floor(Math.random() * validCounters.length)];
+                      heroCounterAsset = validEasyCounters[0].asset;
+                  }
+              } else if (diff === "MEDIUM") {
+                  // Medium: Counterstrikes if free, or lethal, or cheap weapon with good damage.
+                  // Avoids blowing 2+ charge skills unless lethal!
+                  const lethalChoice = analyzedCounters.find(c => c.isLethal);
+                  const cheapWeaponChoice = analyzedCounters.find(c => !c.isHighTierSkill && c.netDmg >= 2);
+
+                  if (isFreeCounter) {
+                      isCounter = true;
+                      heroCounterAsset = analyzedCounters[0].asset;
+                  } else if (lethalChoice) {
+                      isCounter = true;
+                      heroCounterAsset = lethalChoice.asset;
+                  } else if (cheapWeaponChoice && Math.random() < 0.50) {
+                      isCounter = true;
+                      heroCounterAsset = cheapWeaponChoice.asset;
+                  } else {
+                      isCounter = false; // Hold the line to save charge and mana
                   }
               } else {
-                  isCounter = true;
-                  // Score valid counterstrike assets by expected damage and low charge cost impact
-                  validCounters.sort((a, b) => {
-                      const scoreAsset = (item) => {
-                          let dmg = 0;
-                          if (item.attackType === "Ranged") dmg = item.rangedAttack || 2;
-                          else {
-                              const dieMax = parseInt((item.attack || "D4").replace(/\D/g, "")) || 4;
-                              dmg = (dieMax + 1) / 2 + (defenderPlayer.hero.power || 0);
-                          }
-                          // Slightly prefer weapons or surplus-charged skills so we don't uncharge a high-level skill unnecessarily
-                          const chargeSurplus = (item.charge || 0) - (item.chargeReq || 1);
-                          return dmg + (item.type === "Equipment" ? 1.5 : 0) + (chargeSurplus > 0 ? 1 : 0);
-                      };
-                      return scoreAsset(b) - scoreAsset(a);
-                  });
-                  heroCounterAsset = validCounters[0];
+                  // HARD: Master tactical economy!
+                  // Counterstriking burns charge, which burns mana to rebuild.
+                  // Only counterstrike if free, lethal, last-stand, or high-value 1-charge weapon.
+                  // NEVER waste Level 2 or Level 3 skills on non-lethal counterstrikes!
+                  const lethalChoice = analyzedCounters.find(c => c.isLethal);
+                  const efficientWeaponChoice = analyzedCounters.find(c => c.chargeCost === 1 && c.netDmg >= 3);
+
+                  if (isFreeCounter) {
+                      isCounter = true;
+                      heroCounterAsset = analyzedCounters[0].asset;
+                  } else if (lethalChoice) {
+                      isCounter = true;
+                      heroCounterAsset = lethalChoice.asset;
+                  } else if (defenderPlayer.hero.currentHealth <= 6 && analyzedCounters.some(c => c.netDmg >= 2)) {
+                      isCounter = true;
+                      heroCounterAsset = analyzedCounters.sort((a, b) => b.netDmg - a.netDmg)[0].asset;
+                  } else if (efficientWeaponChoice && Math.random() < 0.40) {
+                      isCounter = true;
+                      heroCounterAsset = efficientWeaponChoice.asset;
+                  } else {
+                      isCounter = false; // Tactically Hold the Line!
+                  }
               }
           }
       } else {
-          // If an Ally was attacked, check if it can counter
-          let isFreeCounter = defenderPlayer.hero.mechanics?.staticModifiers?.some(m => m.effect?.action === "freeCounterstrike");
-          if (isFreeCounter || (rangeValid && finalTargetUnit.charge >= (finalTargetUnit.chargeReq || 1) && !finalTargetUnit.isExhausted)) {
-              isCounter = (diff === "EASY") ? (Math.random() < 0.7) : true; 
+          // Ally was attacked:
+          if (rangeValid && (finalTargetUnit.charge || 0) >= (finalTargetUnit.chargeReq || 1) && !finalTargetUnit.isExhausted) {
+              const rawDmg = estimateCardExpectedDamage(finalTargetUnit, defenderPlayer);
+              const netCounterDmg = Math.max(0, rawDmg - attackerDef);
+              const isLethalOnAttacker = (netCounterDmg >= attackerUnit.currentHealth);
+
+              if (isFreeCounter) {
+                  isCounter = true;
+              } else if (netCounterDmg <= 0) {
+                  // Dealing 0 damage while burning charge is always bad across all difficulties!
+                  isCounter = false;
+              } else if (diff === "EASY") {
+                  // Easy: if dying, retaliate before death! If will survive, hold the line 75% of the time to avoid mana starvation
+                  if (willDie && netCounterDmg > 0) {
+                      isCounter = true;
+                  } else if (isLethalOnAttacker && Math.random() < 0.60) {
+                      isCounter = true;
+                  } else {
+                      isCounter = (Math.random() < 0.25); // 75% hold line
+                  }
+              } else if (diff === "MEDIUM") {
+                  // Medium:
+                  // If dying -> retaliate before death!
+                  // If lethal -> kill attacker!
+                  // If will survive -> HOLD THE LINE 85% of the time to save charge for attack!
+                  if (willDie && netCounterDmg > 0) {
+                      isCounter = true;
+                  } else if (isLethalOnAttacker) {
+                      isCounter = true;
+                  } else if (netCounterDmg <= 1) {
+                      isCounter = false;
+                  } else {
+                      isCounter = (Math.random() < 0.15); // 85% hold line
+                  }
+              } else {
+                  // HARD:
+                  // 1) Dying unit: Always counter if netDmg > 0 (last-gasp value)
+                  // 2) Lethal counter: Always counter (kills attacking threat)
+                  // 3) Surviving unit: HOLD THE LINE! Preserves charge so the ally strikes for FREE on its upcoming turn without spending mana!
+                  if (willDie && netCounterDmg > 0) {
+                      isCounter = true;
+                  } else if (isLethalOnAttacker) {
+                      isCounter = true;
+                  } else {
+                      isCounter = false; // Ally will survive: hold the line!
+                  }
+              }
           }
       }
 
@@ -10689,11 +10783,17 @@ function checkKeyword(card, player, keyword) {
    if (card.type === "Hero") {
        player.skills.forEach(sk => {
            if (sk && sk.mechanics && sk.mechanics.staticModifiers) {
-               sk.mechanics.staticModifiers.forEach(mod => {
-                   if (mod.effect && mod.effect.action === "grantKeyword" && matchesKw(mod.effect.value) && mod.effect.target === "selfEquippedCharacter") {
-                       if (evaluateCondition(mod.condition, sk, { triggerPlayer: player })) hasKw = true;
-                   }
-               });
+               const isUsingThisSkill = Boolean(
+                   currentClash && currentClash.aInfo && currentClash.aInfo.type === 'skill' &&
+                   currentClash.attacker === sk && currentClash.attackerPlayer === player
+               );
+               if (isUsingThisSkill) {
+                   sk.mechanics.staticModifiers.forEach(mod => {
+                       if (mod.effect && mod.effect.action === "grantKeyword" && matchesKw(mod.effect.value) && (mod.effect.target === "selfEquippedCharacter" || mod.effect.target === "self")) {
+                           if (evaluateCondition(mod.condition, sk, { triggerPlayer: player })) hasKw = true;
+                       }
+                   });
+               }
            }
        });
        player.synergies.forEach(syn => {
@@ -10728,10 +10828,10 @@ function checkKeyword(card, player, keyword) {
        if (u && u !== card && u.mechanics && u.mechanics.staticModifiers) {
            u.mechanics.staticModifiers.forEach(mod => {
                if (mod.effect && mod.effect.action === "grantKeyword" && matchesKw(mod.effect.value)) {
-                   const targetClass = card.unitClass || card.heroClass;
-                   const targetRace = card.race || card.heroRace;
-                   const matchesClassOrRace = (u.unitClass && targetClass === u.unitClass) || (u.race && targetRace === u.race);
-                   if (mod.effect.target === "allFriendlySameClass" && matchesClassOrRace) {
+                   const targetClass = (card.unitClass || card.heroClass || "").trim().toLowerCase();
+                   const uClass = (u.unitClass || u.heroClass || "").trim().toLowerCase();
+                   const matchesClass = Boolean(targetClass && uClass && targetClass === uClass);
+                   if (mod.effect.target === "allFriendlySameClass" && matchesClass) {
                        if (evaluateCondition(mod.condition, u, { triggerPlayer: player })) hasKw = true;
                    }
                }
@@ -10805,8 +10905,11 @@ async function rollClashAttacker() {
           await performAnimatedRoll("Accuracy Roll", `<strong>${aUnit.name}</strong> is rolling Accuracy!${advText}`, accRoll, dex + accMod, 11, forceWin, accRollObj, currentClash.attackerPlayer.index);
           if (forceWin) totalAcc = 99;
 
-          if (accRoll === 20) isCrit = true; 
-          else if (totalAcc < 11) currentClash.atkHit = false;
+          if (accRoll === 20 || totalAcc >= 11) {
+              currentClash.atkHit = true;
+          } else {
+              currentClash.atkHit = false;
+          }
           
           if (currentClash.atkHit && !isCrit && hasCritChance) {
               let confirmRollObj = rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
@@ -11106,7 +11209,6 @@ async function rollClashDefender() {
       await performAnimatedRoll("Counter Accuracy", `<strong>${charName}</strong> is rolling Accuracy!${advText}`, accRoll, dex + accMod, 11, forceWin, accRollObj, currentClash.defenderPlayer.index);
       if (forceWin) totalAcc = 99;
 
-      if (accRoll === 20) isCrit = true;
       let counterHit = (accRoll === 20 || totalAcc >= 11);
 
       if (counterHit && !isCrit && hasCritChance) {
@@ -11686,6 +11788,13 @@ function estimateCardExpectedDamage(card, player) {
     const dieMax = parseInt((card.attack || "D4").replace(/\D/g, "")) || 4;
     let avgDie = (dieMax + 1) / 2;
     let pow = getStat(charUnit, 'power', player);
+    if (isSkill && card.mechanics && card.mechanics.staticModifiers) {
+      card.mechanics.staticModifiers.forEach(mod => {
+        if (mod.effect && mod.effect.action === "statBonus" && mod.effect.stat === "power" && evaluateCondition(mod.condition, card, { triggerPlayer: player })) {
+          pow += (mod.effect.value || 0);
+        }
+      });
+    }
     if (charUnit.equipment) {
       charUnit.equipment.forEach(eq => {
         if (eq.attackType === "Melee" && eq.attack && (eq.chargeReq === undefined || (eq.charge || 0) >= eq.chargeReq)) {
@@ -11931,53 +12040,119 @@ function checkAIAction() {
         }
       }
 
-      // 4. Deploy Allies (Medium/Hard deploys strongest affordable Allies first and places fragile 2-charge units on Bench if Vanguard is already occupied)
-      if (diff !== "EASY") {
-        // Sort Allies in hand so higher-value allies are considered first when iterating backwards
-        const allyIndices = [];
-        activeP.hand.forEach((c, idx) => { if (c.type === "Ally" && activeP.manaPool >= c.manaCost) allyIndices.push(idx); });
-        allyIndices.sort((a, b) => (activeP.hand[b].manaCost || 0) - (activeP.hand[a].manaCost || 0));
+      // --- AI Mana Economy & Strategy Planner (Easy, Medium, Hard) ---
+      // 1. Calculate mana needed to finish charging ready attackers for THIS turn
+      const isFirstTurnSkipCombat = (gameState.turnNumber === 1 && gameState.activePlayerIndex === gameState.firstPlayerIndex);
+      let manaNeededToFinishAttackers = 0;
+      if (!isFirstTurnSkipCombat) {
+        // Battle Zone units that are ready to strike if charged
+        const bzChargeNeeds = activeP.battleZone
+          .filter(u => u && !u.isExhausted && (u.charge || 0) < (u.chargeReq || 1))
+          .map(u => (u.chargeReq || 1) - (u.charge || 0))
+          .sort((a, b) => a - b);
+        // Hero skills that are ready to strike if charged
+        const skillChargeNeeds = (!activeP.hero.isExhausted)
+          ? activeP.skills
+              .filter(s => s && (s.charge || 0) < (s.chargeReq || 1))
+              .map(s => (s.chargeReq || 1) - (s.charge || 0))
+              .sort((a, b) => a - b)
+          : [];
+        const allNeeds = [...bzChargeNeeds, ...skillChargeNeeds].sort((a, b) => a - b);
+        const strikesToFund = Math.min(gameState.maxStrikes || 2, allNeeds.length);
+        for (let k = 0; k < strikesToFund; k++) {
+          manaNeededToFinishAttackers += allNeeds[k];
+        }
       }
-      for (let i = activeP.hand.length - 1; i >= 0; i--) {
-        const c = activeP.hand[i];
+
+      // 2. Calculate mana savings reserve for upcoming high-tier skills in hand (Level 2/3)
+      let manaSavingsReserve = 0;
+      const nextSkillInHand = activeP.hand.find(c => {
+        if (!c || c.type !== "Skill") return false;
+        const lvl = c.skillLevel || 1;
+        const slotIdx = lvl - 1;
+        return !activeP.skills[slotIdx] && (lvl === 1 || Boolean(activeP.skills[slotIdx - 1]));
+      });
+      if (nextSkillInHand && nextSkillInHand.manaCost > activeP.manaPool) {
+        if (diff === "HARD") {
+          manaSavingsReserve = Math.min(activeP.manaPool, Math.max(1, nextSkillInHand.manaCost - 2));
+        } else if (diff === "MEDIUM") {
+          manaSavingsReserve = Math.min(activeP.manaPool, Math.max(0, nextSkillInHand.manaCost - 3));
+        } else if (diff === "EASY") {
+          if (activeP.battleZone[0] !== null && Math.random() < 0.50) {
+            manaSavingsReserve = Math.min(activeP.manaPool, 1);
+          }
+        }
+      }
+
+      // 4. Deploy Allies (Selective Deployment: Never mana-starve attackers or skill savings unless Vanguard is empty)
+      const isVanguardEmpty = (activeP.battleZone[0] === null);
+      let affordableAllies = [];
+      activeP.hand.forEach((c, idx) => {
         if (c && c.type === "Ally" && activeP.manaPool >= c.manaCost) {
-          let bzSlot = activeP.battleZone.findIndex(x => x === null);
-          let benchSlot = activeP.bench.findIndex(x => x === null);
-          let useBench = false;
+          affordableAllies.push({ card: c, originalIndex: idx });
+        }
+      });
+      if (diff !== "EASY") {
+        affordableAllies.sort((a, b) => (b.card.manaCost || 0) - (a.card.manaCost || 0));
+      }
 
-          if (bzSlot === -1 && benchSlot !== -1) {
+      for (const item of affordableAllies) {
+        const c = item.card;
+        const currentIdx = activeP.hand.indexOf(c);
+        if (currentIdx === -1 || activeP.manaPool < c.manaCost) continue;
+
+        let bzSlot = activeP.battleZone.findIndex(x => x === null);
+        let benchSlot = activeP.bench.findIndex(x => x === null);
+        if (bzSlot === -1 && benchSlot === -1) continue;
+
+        const manaAfterPlay = activeP.manaPool - c.manaCost;
+        const vanguardNowEmpty = (activeP.battleZone[0] === null);
+
+        // If Vanguard is already occupied, deploying an additional ally is secondary:
+        // Do NOT spend mana if doing so would prevent charging ready attackers or wipe out savings for a skill!
+        if (!vanguardNowEmpty) {
+          const requiredReserve = (diff === "HARD") ? (manaNeededToFinishAttackers + manaSavingsReserve)
+                               : (diff === "MEDIUM") ? (manaNeededToFinishAttackers + Math.min(1, manaSavingsReserve))
+                               : (Math.random() < 0.50 ? manaNeededToFinishAttackers : 0);
+
+          if (manaAfterPlay < requiredReserve) {
+            continue; // Hold back to charge attackers and save for skills!
+          }
+          if (diff === "EASY" && Math.random() < 0.45) {
+            continue; // Easy holds back on spamming the board to save resources
+          }
+        }
+
+        let useBench = false;
+        if (bzSlot === -1 && benchSlot !== -1) {
+          useBench = true;
+        } else if (diff === "HARD" && bzSlot !== -1 && benchSlot !== -1) {
+          if (!vanguardNowEmpty && (c.chargeReq || 1) >= 2 && c.health <= 4 && manaAfterPlay < (c.chargeReq || 1)) {
             useBench = true;
-          } else if (diff === "HARD" && bzSlot !== -1 && benchSlot !== -1) {
-            // On Hard: if we already have a Vanguard in Battle Zone and this Ally needs >= 2 Charge and has low HP (<= 4) and no remaining Mana to charge it this turn, deploy it safely to Bench so it auto-charges at End Phase!
-            const hasVanguard = activeP.battleZone[0] !== null;
-            const manaAfterPlay = activeP.manaPool - c.manaCost;
-            if (hasVanguard && (c.chargeReq || 1) >= 2 && c.health <= 4 && manaAfterPlay < (c.chargeReq || 1)) {
-              useBench = true;
-            }
           }
+        }
 
-          const targetSlot = useBench ? benchSlot : bzSlot;
-          if (targetSlot !== -1) {
-            await showActionShowcase({
-              card: c,
-              actionTag: useBench ? `${activeP.name.toUpperCase()} DEPLOYED TO BENCH` : `${activeP.name.toUpperCase()} DEPLOYED TO BATTLE ZONE`,
-              title: c.name,
-              description: `Summoned ${c.name} (${c.manaCost} Mana)`,
-              targetSlotId: useBench ? `p2-bench-${targetSlot}` : `p2-bz-${targetSlot}`,
-              duration: 1600
-            });
-            activeP.manaPool -= c.manaCost;
-            activeP.hand.splice(i, 1);
-            c.currentHealth = c.health;
-            c.charge = 0;
-            c.benchLocked = useBench;
-            c._justDeployed = true;
-            if (useBench) activeP.bench[targetSlot] = c;
-            else activeP.battleZone[targetSlot] = c;
-            addLogEntry(`${activeP.name} deployed <strong>${c.name}</strong> to the ${useBench ? 'Bench' : 'Battle Zone'}.`);
-            await executeHook(c, 'onPlay', { triggerPlayer: activeP });
-            renderAll();
-          }
+        const targetSlot = useBench ? benchSlot : bzSlot;
+        if (targetSlot !== -1) {
+          await showActionShowcase({
+            card: c,
+            actionTag: useBench ? `${activeP.name.toUpperCase()} DEPLOYED TO BENCH` : `${activeP.name.toUpperCase()} DEPLOYED TO BATTLE ZONE`,
+            title: c.name,
+            description: `Summoned ${c.name} (${c.manaCost} Mana)`,
+            targetSlotId: useBench ? `p2-bench-${targetSlot}` : `p2-bz-${targetSlot}`,
+            duration: 1600
+          });
+          activeP.manaPool -= c.manaCost;
+          activeP.hand.splice(currentIdx, 1);
+          c.currentHealth = c.health;
+          c.charge = 0;
+          c.benchLocked = useBench;
+          c._justDeployed = true;
+          if (useBench) activeP.bench[targetSlot] = c;
+          else activeP.battleZone[targetSlot] = c;
+          addLogEntry(`${activeP.name} deployed <strong>${c.name}</strong> to the ${useBench ? 'Bench' : 'Battle Zone'}.`);
+          await executeHook(c, 'onPlay', { triggerPlayer: activeP });
+          renderAll();
         }
       }
 
@@ -12063,13 +12238,14 @@ function checkAIAction() {
 
       // 7. Spend leftover mana charging units/skills/equipment
       if (diff === "EASY") {
-        while (activeP.manaPool > 0) {
+        while (activeP.manaPool > manaSavingsReserve) {
           let chargeables = [];
-          [...activeP.battleZone, ...activeP.bench, ...activeP.skills, ...activeP.hero.equipment].forEach(u => {
+          // Prioritize Battle Zone allies and Hero Skills first so attacks are enabled, then bench
+          [...activeP.battleZone, ...activeP.skills, ...activeP.bench, ...activeP.hero.equipment].forEach(u => {
             if (u && u.chargeReq !== undefined && (u.charge || 0) < u.chargeReq) chargeables.push(u);
           });
           if (chargeables.length > 0) {
-            let t = chargeables[Math.floor(Math.random() * chargeables.length)];
+            let t = chargeables[0];
             t.charge = (t.charge || 0) + 1;
             activeP.manaPool -= 1;
           } else {
@@ -12105,7 +12281,6 @@ function checkAIAction() {
 
           for (const cand of activeCandidates) {
             while (activeP.manaPool > 0 && (cand.unit.charge || 0) < cand.unit.chargeReq) {
-              // Reserve mana for Essence Wellspring or Comrade's Call on Hard if Hero is very low and this unit can't even finish charging
               cand.unit.charge = (cand.unit.charge || 0) + 1;
               activeP.manaPool -= 1;
             }
@@ -12128,7 +12303,8 @@ function checkAIAction() {
         await aiTryActivateAbilities(activeP, "COMMAND", diff);
 
         // Priority 4: Invest any remaining Mana into Bench Allies or partially charged Skills
-        while (activeP.manaPool > 0) {
+        // CRITICAL: Respect manaSavingsReserve so AI accumulates mana for high-tier skills!
+        while (activeP.manaPool > manaSavingsReserve) {
           let secondary = [];
           [...activeP.skills, ...activeP.battleZone, ...activeP.bench, ...allEquip].forEach(u => {
             if (u && u.chargeReq !== undefined && (u.charge || 0) < u.chargeReq) secondary.push(u);
@@ -12202,23 +12378,104 @@ function checkAIAction() {
           }
 
           const nextStrikeNum = gameState.strikesUsed + 1;
+          const strikesRemaining = (gameState.maxStrikes || 2) - gameState.strikesUsed;
           let aInfo = null;
 
-          if (diff === "EASY") {
-              aInfo = attackers[Math.floor(Math.random() * attackers.length)];
+          // Helper for cards that specifically require Strike 2 or 3
+          const getStrikeTriggerVal = (card) => {
+              const ab = card.mechanics?.passiveAbilities?.find(a => a.condition?.type === "strikeCount");
+              return ab ? ab.condition.value : null;
+          };
+
+          // --- Tactical Strike Scheming (Multi-Strike Sequencing & Breakthrough Setup) ---
+          const oppVanguardIdx = opp.battleZone.findIndex(s => s !== null);
+          const hasVanguard = (oppVanguardIdx !== -1);
+          let chosenScheme = null;
+
+          if (hasVanguard && strikesRemaining >= 2 && attackers.length >= 2) {
+              const vanguard = opp.battleZone[oppVanguardIdx];
+              const vDef = getStat(vanguard, 'defense', opp) || 0;
+              const vHP = vanguard.currentHealth;
+              const heroDef = getStat(opp.hero, 'defense', opp) || 0;
+
+              let schemes = [];
+              for (let i = 0; i < attackers.length; i++) {
+                  for (let j = 0; j < attackers.length; j++) {
+                      if (i === j) continue;
+                      const att1 = attackers[i];
+                      const att2 = attackers[j];
+                      const dmg1 = Math.max(0, estimateCardExpectedDamage(att1.card, activeP) - vDef);
+                      const dmg2 = Math.max(0, estimateCardExpectedDamage(att2.card, activeP) - vDef);
+                      const att2HasStrike2 = (getStrikeTriggerVal(att2.card) === 2);
+                      const att1HasStrike2 = (getStrikeTriggerVal(att1.card) === 2);
+                      if (att1HasStrike2) continue; // att1 shouldn't waste its Strike 2 bonus on Strike 1
+
+                      // Scheme Plan A: Soften Vanguard for Devastating Breakthrough on Strike 2
+                      // att1 deals good damage without killing, leaving Vanguard at 1-4 HP.
+                      // att2 deals heavy damage (> remaining HP), unleashing massive Breakthrough to Hero (or forcing Hero Intervention)!
+                      if (dmg1 > 0 && dmg1 < vHP && (vHP - dmg1) <= 4) {
+                          const remHP = vHP - dmg1;
+                          if (dmg2 >= remHP + 2 || att2HasStrike2) {
+                              const projectedBreakthrough = Math.max(0, (dmg2 - remHP) - heroDef);
+                              const score = 100 + (projectedBreakthrough * 15) + dmg1 + (att2HasStrike2 ? 25 : 0);
+                              schemes.push({ att1, att2, type: 'BREAKTHROUGH_SETUP', score, remHP, breakthrough: projectedBreakthrough });
+                          }
+                      }
+
+                      // Scheme Plan B: Clear Vanguard on Strike 1 -> Unleash Full Hit on Hero on Strike 2
+                      // att1 kills Vanguard cleanly, leaving the Battle Zone empty for att2's heavy strike directly on Hero!
+                      if (dmg1 >= vHP && estimateCardExpectedDamage(att2.card, activeP) >= estimateCardExpectedDamage(att1.card, activeP)) {
+                          const score = 90 + (dmg2 * 10) + (att2HasStrike2 ? 25 : 0);
+                          schemes.push({ att1, att2, type: 'CLEAR_THEN_HERO', score });
+                      }
+
+                      // Scheme Plan C: Strike 2 Advantage/Crit Trigger (e.g. Pummel)
+                      if (att2HasStrike2 && !att1HasStrike2) {
+                          const score = 80 + dmg1 + dmg2;
+                          schemes.push({ att1, att2, type: 'STRIKE_2_TRIGGER', score });
+                      }
+                  }
+              }
+
+              if (schemes.length > 0) {
+                  schemes.sort((a, b) => b.score - a.score);
+                  const best = schemes[0];
+                  if (diff === "HARD") {
+                      chosenScheme = best;
+                  } else if (diff === "MEDIUM") {
+                      if (Math.random() < 0.75) chosenScheme = best;
+                  } else if (diff === "EASY") {
+                      if (Math.random() < 0.40) chosenScheme = best;
+                  }
+              }
+          }
+
+          if (chosenScheme) {
+              aInfo = chosenScheme.att1;
+              if (chosenScheme.type === 'BREAKTHROUGH_SETUP') {
+                  addLogEntry(`<span style="color:#a855f7; font-weight:bold;">[AI TACTIC]</span> ${activeP.name} schemes: striking with <strong>${chosenScheme.att1.card.name}</strong> to soften Vanguard for a Breakthrough on Strike 2!`);
+              }
+          } else if (diff === "EASY") {
+              // Easy: if strikesRemaining === 1 and Vanguard is low HP (<= 4), 60% chance to pick heaviest attacker to finish it off
+              if (strikesRemaining === 1 && hasVanguard && opp.battleZone[oppVanguardIdx].currentHealth <= 4 && Math.random() < 0.60) {
+                  attackers.sort((a, b) => estimateCardExpectedDamage(b.card, activeP) - estimateCardExpectedDamage(a.card, activeP));
+                  aInfo = attackers[0];
+              } else {
+                  aInfo = attackers[Math.floor(Math.random() * attackers.length)];
+              }
           } else {
-              // Score attackers for smart sequencing (Strike 2 / Strike 3 abilities, expected damage, etc.)
-              const getStrikeTriggerVal = (card) => {
-                  const ab = card.mechanics?.passiveAbilities?.find(a => a.condition?.type === "strikeCount");
-                  return ab ? ab.condition.value : null;
-              };
+              // Medium / Hard general attacker scoring (taking into account strike count bonuses and finishing blows)
               const scoredAttackers = attackers.map(att => {
                   let score = estimateCardExpectedDamage(att.card, activeP);
                   const strikeTrig = getStrikeTriggerVal(att.card);
                   if (strikeTrig === nextStrikeNum) {
-                      score += 25; // Huge bonus for matching Strike 2 or Strike 3!
+                      score += 30; // Big bonus for matching Strike 2 or Strike 3!
                   } else if (strikeTrig && strikeTrig > nextStrikeNum && attackers.length > 1) {
-                      score -= 15; // Hold back Strike 2 / Strike 3 card for its matching strike!
+                      score -= 20; // Save Strike 2 / Strike 3 card for its matching strike!
+                  }
+                  // If on Strike 2+ and Vanguard is low HP, strongly prioritize heavy attackers to maximize Breakthrough damage
+                  if (nextStrikeNum >= 2 && hasVanguard && opp.battleZone[oppVanguardIdx].currentHealth <= 4) {
+                      score += score * 0.5; // Amplify high damage for massive breakthrough
                   }
                   return { att, score };
               });
