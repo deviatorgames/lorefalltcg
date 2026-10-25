@@ -25,13 +25,86 @@
       width: 100%;
       max-width: 100%;
     }
+
+    /* Keyword Highlighting & Floating Tooltip */
+    .keyword-highlight {
+      color: #fbbf24;
+      font-weight: 600;
+      text-decoration: underline dotted #f59e0b;
+      text-underline-offset: 3px;
+      cursor: help;
+      padding: 1px 3px;
+      margin: 0 1px;
+      border-radius: 3px;
+      background: rgba(245, 158, 11, 0.08);
+      transition: all 0.15s ease-in-out;
+      user-select: text;
+      display: inline;
+    }
+    .keyword-highlight:hover,
+    .keyword-highlight:focus {
+      background: rgba(245, 158, 11, 0.22);
+      color: #fffbeb;
+      text-decoration: underline solid #fef08a;
+      box-shadow: 0 0 8px rgba(245, 158, 11, 0.45);
+      outline: none;
+    }
+    .keyword-floating-tooltip {
+      position: fixed;
+      z-index: 1000000;
+      background: #090e1a;
+      color: #f1f5f9;
+      border: 1.5px solid #f59e0b;
+      border-radius: 8px;
+      padding: 10px 14px;
+      box-shadow: 0 12px 35px -4px rgba(0, 0, 0, 0.85), 0 0 16px rgba(245, 158, 11, 0.25);
+      font-size: 0.8rem;
+      line-height: 1.4;
+      max-width: 290px;
+      min-width: 180px;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      backdrop-filter: blur(8px);
+      font-family: inherit;
+      text-align: left;
+    }
+    .keyword-floating-tooltip.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .kft-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 5px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .kft-icon {
+      font-size: 1rem;
+      line-height: 1;
+    }
+    .kft-title {
+      font-weight: 800;
+      color: #fef08a;
+      letter-spacing: 0.5px;
+      text-transform: capitalize;
+    }
+    .kft-body {
+      color: #cbd5e1;
+      font-size: 0.76rem;
+      font-weight: 400;
+      line-height: 1.35;
+    }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans antialiased overflow-hidden fixed inset-0 w-full h-full">
   <div id="root" class="viewport-shell flex flex-col min-w-0 overflow-hidden"></div>
 
   <script type="text/babel">
-    const { useState, useMemo, useEffect } = React;
+    const { useState, useMemo, useEffect, useRef } = React;
 
     // -- DATABASE PAYLOAD --
     const INITIAL_DATABASE = {"Hero": [{"Card Name": "Favar Dahv, Scholar", "Status": "Complete", "Mana": 6, "Health": 26, "Power": 2, "Dexterity": 2, "Race": "Human", "Class": "Mage", "Faction": "Crusaders", "Card Rarity": "Hero", "Abilities": "", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Athran, Prince of Korvas", "Status": "Complete", "Mana": 4, "Health": 30, "Power": 4, "Dexterity": 4, "Race": "Human", "Class": "Warrior", "Faction": "Dominion", "Card Rarity": "Hero", "Abilities": "", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Irith Goldenthorn", "Status": "Complete", "Mana": 3, "Health": 22, "Power": 2, "Dexterity": 6, "Race": "Elf", "Class": "Ranger", "Faction": "Rootbound", "Card Rarity": "Hero", "Abilities": "", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Yuoshken, Fiery Tyrant", "Status": "In Progress", "Mana": 3, "Health": 38, "Power": 4, "Dexterity": 2, "Race": "Elemental", "Class": "Berserker", "Faction": "Pyreheart", "Card Rarity": "Hero", "Abilities": "Blah", "Creator": "Gavin", "Status Notes": "Needs lore text.", "Image URL": ""}, {"Card Name": "Malacai, Spiteful Eye", "Status": "Complete", "Mana": 5, "Health": 24, "Power": 2, "Dexterity": 5, "Race": "Vampire ", "Class": "Assassin", "Faction": "Hollowed", "Card Rarity": "Hero", "Abilities": "Blah", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}], "Ally": [{"Card Name": "Astute Cleric", "Status": "In Progress", "Mana Cost": 2, "Health": 6, "Dexterity": 1, "Power": 2.0, "Attack Type": "Melee", "Attack": "D4", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 1, "Race": "Human", "Class": "Cleric", "Faction": "Covenant, Crusaders", "Card Rarity": "Common", "Abilities": "Pay 2 mana: Target character gains 2 health.", "Creator": "Gavin", "Status Notes": "Update faction background", "Image URL": ""}, {"Card Name": "Gladeweaver", "Status": "In Progress", "Mana Cost": 1, "Health": 4, "Dexterity": 2, "Power": 0.0, "Attack Type": "Melee", "Attack": "D4", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 1, "Race": "Fairy", "Class": "Mage", "Faction": "Crusaders, Rootbound", "Card Rarity": "Common", "Abilities": "When Gladeweaver comes into play, draw a card ", "Creator": "Gavin", "Status Notes": "Update faction background", "Image URL": ""}, {"Card Name": "Behemoth Leviathan", "Status": "Complete", "Mana Cost": 7, "Health": 15, "Dexterity": 0, "Power": 2.0, "Attack Type": "Melee", "Attack": "D4", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 3, "Race": "Wyrm", "Class": "Serpent", "Faction": "Crusaders", "Card Rarity": "Rare", "Abilities": "", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Gotterdammerung Serpent", "Status": "Complete", "Mana Cost": 5, "Health": 9, "Dexterity": 2, "Power": 2.0, "Attack Type": "Melee", "Attack": "D4", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 2, "Race": "Wyrm", "Class": "Serpent", "Faction": "Crusaders", "Card Rarity": "Uncommon", "Abilities": "", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Indignant Water Sprite", "Status": "Complete", "Mana Cost": 2, "Health": 2, "Dexterity": 2, "Power": 1.0, "Attack Type": "Melee", "Attack": "D4", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 1, "Race": "Fairy", "Class": "Sprite", "Faction": "Crusaders", "Card Rarity": "Uncommon", "Abilities": "", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Keen Visionary", "Status": "In Progress", "Mana Cost": 3, "Health": 7, "Dexterity": 1, "Power": 1.0, "Attack Type": "Melee", "Attack": "D6", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 1, "Race": "Human", "Class": "Mage", "Faction": "Crusaders", "Card Rarity": "Common", "Abilities": "Whenever you draw a card from an ability, target ally or skill gains 2 charge.", "Creator": "Gavin", "Status Notes": "Update text. Take out \"to\" typo", "Image URL": ""}, {"Card Name": "Neophyte Seeress", "Status": "In Progress", "Mana Cost": 3, "Health": 6, "Dexterity": 4, "Power": "", "Attack Type": "Ranged", "Attack": "", "Ranged Attack": 5.0, "Strike Type": "Single", "Charge Requirement": 2, "Race": "Human", "Class": "Mage", "Faction": "Crusaders, Stratossar", "Card Rarity": "Uncommon", "Abilities": "Exhaust Neophyte Seeress: Target wins chance roll this turn.", "Creator": "Gavin", "Status Notes": "Update faction background", "Image URL": ""}, {"Card Name": "Splashing Imp", "Status": "In Progress", "Mana Cost": 2, "Health": 6, "Dexterity": 2, "Power": 1.0, "Attack Type": "Melee", "Attack": "D4", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 1, "Race": "Imp", "Class": "Soldier", "Faction": "Crusaders, Hollowed", "Card Rarity": "Common", "Abilities": "Strike 2: Splashing Imp gains 2 health.", "Creator": "Gavin", "Status Notes": "Update faction background", "Image URL": ""}, {"Card Name": "Bastion Defender", "Status": "In Progress", "Mana Cost": 1, "Health": 3, "Dexterity": 1, "Power": 0.0, "Attack Type": "Melee", "Attack": "D4", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 1, "Race": "Human", "Class": "Soldier", "Faction": "Factionless", "Card Rarity": "Common", "Abilities": "When Bastion Defender is defeated, target character gets chance for critical this turn.", "Creator": "Gavin", "Status Notes": "Update faction background", "Image URL": ""}, {"Card Name": "Brother-In-Arms", "Status": "Complete", "Mana Cost": 2, "Health": 5, "Dexterity": 1, "Power": 1.0, "Attack Type": "Melee", "Attack": "D4", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 1, "Race": "Human", "Class": "Soldier", "Faction": "Dominion", "Card Rarity": "Common", "Abilities": "Brother-In-Arms has D6 attack as long as you control another soldier.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Fleetfoot Skirmisher", "Status": "In Progress", "Mana Cost": 2, "Health": 5, "Dexterity": 3, "Power": "", "Attack Type": "Ranged", "Attack": "", "Ranged Attack": 4.0, "Strike Type": "Single", "Charge Requirement": 1, "Race": "Human", "Class": "Archer", "Faction": "Factionless", "Card Rarity": "Common", "Abilities": "Strike 3: Fleetfoot Skirmisher gets +3 dexterity and +1 ranged attack.", "Creator": "Gavin", "Status Notes": "Update faction background", "Image URL": ""}, {"Card Name": "Inspiring Commander", "Status": "In Progress", "Mana Cost": 5, "Health": 9, "Dexterity": 3, "Power": 1.0, "Attack Type": "Melee", "Attack": "D8", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 2, "Race": "Human", "Class": "Knight", "Faction": "Covenant, Dominion", "Card Rarity": "Uncommon", "Abilities": "All soldiers you control have +1 power as long as Inspiring Commander is your Vanguard.", "Creator": "Gavin", "Status Notes": "Update faction background and text.", "Image URL": ""}, {"Card Name": "Legion Captain", "Status": "Complete", "Mana Cost": 6, "Health": 12, "Dexterity": 4, "Power": 2.0, "Attack Type": "Melee", "Attack": "D6", "Ranged Attack": "", "Strike Type": "Multi", "Charge Requirement": 3, "Race": "Human", "Class": "Knight", "Faction": "Dominion", "Card Rarity": "Rare", "Abilities": "Strike 2: Legion Captain gets chance for critical.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Stonekeep Sentry", "Status": "Complete", "Mana Cost": 2, "Health": 6, "Dexterity": 3, "Power": 1.0, "Attack Type": "Melee", "Attack": "D6", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 1, "Race": "Human", "Class": "Soldier", "Faction": "Dominion", "Card Rarity": "Common", "Abilities": "asdfij", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Windrider Sniper", "Status": "In Progress", "Mana Cost": 5, "Health": 8, "Dexterity": 4, "Power": "", "Attack Type": "Ranged", "Attack": "", "Ranged Attack": 6.0, "Strike Type": "Multi", "Charge Requirement": 3, "Race": "Human", "Class": "Archer", "Faction": "Covenant, Dominion", "Card Rarity": "Uncommon", "Abilities": "When Windrider Sniper is played, they roll for chance to deal 6 non-combat damage to target enemy ally.", "Creator": "Gavin", "Status Notes": "Update faction background and text.", "Image URL": ""}], "Skill": [{"Card Name": "Frost", "Status": "In Progress", "Mana Cost": 2, "Trade Value": 2, "Attack Type": "Melee", "Attack": "D4", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 1, "Skill Level": "Level 1", "Compatible Classes": "Mage, Paladin", "Faction": "Covenant, Crusaders", "Card Rarity": "Common", "Abilities": "Whenever Frost deals damage to an enemy, look at the top 3 cards of your Loot. You may reveal a Skill card from among them and put it into your hand. Put the remaining cards back on top of your deck in any order.\n\nProficiency 2: Frost has Freeze (Roll for chance. If successful, defending enemy is exhausted until your next turn.)", "Creator": "Gavin", "Status Notes": "update faction background", "Image URL": ""}, {"Card Name": "Water Whip", "Status": "In Progress", "Mana Cost": 2, "Trade Value": 4, "Attack Type": "Melee", "Attack": "D6", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 2, "Skill Level": "Level 1", "Compatible Classes": "Mage, Paladin", "Faction": "Crusaders", "Card Rarity": "Common", "Abilities": "Strike 2: You gain 2 health.\nProficiency 3: Target ally gains 2 health.", "Creator": "Gavin", "Status Notes": "Update text.", "Image URL": ""}, {"Card Name": "Tsunami", "Status": "Complete", "Mana Cost": 6, "Trade Value": 6, "Attack Type": "Ranged", "Attack": "", "Ranged Attack": 10.0, "Strike Type": "Multi", "Charge Requirement": 4, "Skill Level": "Level 3", "Compatible Classes": "Mage", "Faction": "Crusaders", "Card Rarity": "Rare", "Abilities": "When striking with Tsunami, deplete 1 charge from it.\n\nPay 1 mana: Tsunami has knockback this strike.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Torrential Surge", "Status": "Complete", "Mana Cost": 4, "Trade Value": 5, "Attack Type": "Melee", "Attack": "D12", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 5, "Skill Level": "Level 3", "Compatible Classes": "Mage, Paladin", "Faction": "Crusaders", "Card Rarity": "Rare", "Abilities": "User has advantage.\n\nKnockback (When defending enemy takes combat damage, they lose 2 charge. If defender is a hero, choose a card amoung their learned skills. That skill loses 2 charge.)", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Iceshard Barrage", "Status": "In Progress", "Mana Cost": 2, "Trade Value": 4, "Attack Type": "Ranged", "Attack": "", "Ranged Attack": 5.0, "Strike Type": "Multi", "Charge Requirement": 3, "Skill Level": "Level 2", "Compatible Classes": "Assassin, Mage, Paladin", "Faction": "Crusaders, Hollowed", "Card Rarity": "Uncommon", "Abilities": "User gets +2 to accuracy rolls.\nProficiency 3: User gets +2 to accuracy rolls.\nStrike 2: Draw a card.", "Creator": "Gavin", "Status Notes": "Update faction background and text", "Image URL": ""}, {"Card Name": "Pummel", "Status": "Complete", "Mana Cost": 4, "Trade Value": 5, "Attack Type": "Melee", "Attack": "D10", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 3, "Skill Level": "Level 3", "Compatible Classes": "Berserker, Warrior", "Faction": "Dominion, Pyreheart", "Card Rarity": "Rare", "Abilities": "Strike 2: Roll with advantage.\nStrike 3: Roll with double advantage.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Bash", "Status": "In Progress", "Mana Cost": 2, "Trade Value": 4, "Attack Type": "Melee", "Attack": "D4", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 2, "Skill Level": "Level 2", "Compatible Classes": "Berserker, Warrior", "Faction": "Factionless", "Card Rarity": "Uncommon", "Abilities": "", "Creator": "Gavin", "Status Notes": "update faction background", "Image URL": ""}, {"Card Name": "Slash", "Status": "In Progress", "Mana Cost": 1, "Trade Value": 3, "Attack Type": "Melee", "Attack": "D4", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 1, "Skill Level": "Level 1", "Compatible Classes": "Assassin, Paladin, Warrior", "Faction": "Factionless", "Card Rarity": "Common", "Abilities": "If you roll a 1, roll again and your original roll is null. You can only re-roll once.\nProficiency 2: You have +1 power.", "Creator": "Gavin", "Status Notes": "update faction background", "Image URL": ""}, {"Card Name": "Leaping Strike", "Status": "In Progress", "Mana Cost": 2, "Trade Value": 4, "Attack Type": "Melee", "Attack": "D6", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 2, "Skill Level": "Level 2", "Compatible Classes": "Assassin, Ranger, Warrior", "Faction": "Factionless", "Card Rarity": "Uncommon", "Abilities": "", "Creator": "Gavin", "Status Notes": "update faction background", "Image URL": ""}, {"Card Name": "Piercing Shot", "Status": "New", "Mana Cost": 1, "Trade Value": 2, "Attack Type": "Ranged", "Attack": "", "Ranged Attack": 3.0, "Strike Type": "Single", "Charge Requirement": 1, "Skill Level": "Level 1", "Compatible Classes": "Assassin, Ranger, Warrior", "Faction": "Factionless", "Card Rarity": "Common", "Abilities": "Piercing (Ignores all defense ratings.)\nProficiency 2: Piercing Shot's ranged attack is 4.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Pivot Swing", "Status": "In Progress", "Mana Cost": 5, "Trade Value": 4, "Attack Type": "Melee", "Attack": "D10", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 3, "Skill Level": "Level 3", "Compatible Classes": "Assassin, Warrior", "Faction": "Factionless", "Card Rarity": "Rare", "Abilities": "If Pivot Swing has 5 charge, you get chance for critical.", "Creator": "Gavin", "Status Notes": "update faction background and text", "Image URL": ""}], "Flash": [{"Card Name": "Healing Potion", "Status": "Complete", "Flash Subtype": "Item", "Gold Cost": 3.0, "Mana Cost": "", "Trade Value": "", "Faction": "", "Card Rarity": "Common", "Abilities": "Target character gains 10 health.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Small Healing Potion", "Status": "Complete", "Flash Subtype": "Item", "Gold Cost": 2.0, "Mana Cost": "", "Trade Value": "", "Faction": "", "Card Rarity": "Common", "Abilities": "Target character gains 5 health.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Mana Potion", "Status": "Complete", "Flash Subtype": "Item", "Gold Cost": 3.0, "Mana Cost": "", "Trade Value": "", "Faction": "", "Card Rarity": "Common", "Abilities": "Choose one:\n- You gain 3 mana.\n- Target ally gains 2 charge.\n- Target skill gains 2 charge.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Small Mana Potion", "Status": "Complete", "Flash Subtype": "Item", "Gold Cost": 2.0, "Mana Cost": "", "Trade Value": "", "Faction": "", "Card Rarity": "Common", "Abilities": "You gain 2 mana.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Buried in Flame", "Status": "Complete", "Flash Subtype": "Event", "Gold Cost": "", "Mana Cost": 2.0, "Trade Value": 1.0, "Faction": "Pyreheart", "Card Rarity": "Common", "Abilities": "Buried in Flame deals 3 damage to all allies in play.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Favar's Elixir", "Status": "Complete", "Flash Subtype": "Item", "Gold Cost": 4.0, "Mana Cost": "", "Trade Value": "", "Faction": "", "Card Rarity": "Uncommon", "Abilities": "Target character gains 10 health. If target is a mage, they gain 10 health and get +4 max health instead.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Potion of Vigor", "Status": "Complete", "Flash Subtype": "Item", "Gold Cost": 2.0, "Mana Cost": "", "Trade Value": "", "Faction": "", "Card Rarity": "Common", "Abilities": "Target character gets +2 power this turn.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Potion of Intelligence", "Status": "Complete", "Flash Subtype": "Item", "Gold Cost": 2.0, "Mana Cost": "", "Trade Value": "", "Faction": "", "Card Rarity": "Common", "Abilities": "Draw 2 cards.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Greater Potion of Intelligence", "Status": "Complete", "Flash Subtype": "Item", "Gold Cost": 4.0, "Mana Cost": "", "Trade Value": "", "Faction": "", "Card Rarity": "Uncommon", "Abilities": "Draw 3 cards.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Tavern Draught", "Status": "Complete", "Flash Subtype": "Item", "Gold Cost": 1.0, "Mana Cost": "", "Trade Value": "", "Faction": "", "Card Rarity": "Common", "Abilities": "Target character gets +2 power and gets -5 dexterity this turn.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Stalwart Prowess", "Status": "New", "Flash Subtype": "Event", "Gold Cost": "", "Mana Cost": 2.0, "Trade Value": 2.0, "Faction": "Factionless", "Card Rarity": "Common", "Abilities": "Defending allies you control get +2 power and +2 ranged attack this turn.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}], "Equipment": [{"Card Name": "Apprentice's Linen Robe", "Status": "New", "Gold Cost": 3, "Equipment Type": "Armor", "Equipment Subtype": "Tunic", "Attack Type": "", "Attack": "", "Ranged Attack": "", "Charge Requirement": "", "Defense Modifier": 1.0, "Defense Die Roll Modifier": "", "Card Rarity": "Common", "Abilities": " +1 mana or charge per turn.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Rune-Fortified Vest", "Status": "New", "Gold Cost": 4, "Equipment Type": "Armor", "Equipment Subtype": "Tunic", "Attack Type": "", "Attack": "", "Ranged Attack": "", "Charge Requirement": "", "Defense Modifier": 2.0, "Defense Die Roll Modifier": "", "Card Rarity": "Common", "Abilities": "User must be an assassin, mage, or paladin.\n\n+1 mana or charge per turn.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Leather Tunic", "Status": "New", "Gold Cost": 3, "Equipment Type": "Armor", "Equipment Subtype": "Tunic", "Attack Type": "", "Attack": "", "Ranged Attack": "", "Charge Requirement": "", "Defense Modifier": 2.0, "Defense Die Roll Modifier": "", "Card Rarity": "Common", "Abilities": "", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Sharpened Broadsword", "Status": "New", "Gold Cost": 3, "Equipment Type": "One-Handed Weapon", "Equipment Subtype": "Sword", "Attack Type": "Melee", "Attack": "", "Ranged Attack": "", "Charge Requirement": 1.0, "Defense Modifier": "", "Defense Die Roll Modifier": "", "Card Rarity": "Common", "Abilities": "", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Favar's Scepter", "Status": "New", "Gold Cost": 5, "Equipment Type": "Two-Handed Weapon", "Equipment Subtype": "Staff", "Attack Type": "Ranged", "Attack": "", "Ranged Attack": 2.0, "Charge Requirement": 1.0, "Defense Modifier": "", "Defense Die Roll Modifier": "", "Card Rarity": "Uncommon", "Abilities": " +1 mana per turn if user is Favar Dahv, Scholar.\n\nUser passive abilities trigger twice instead of once.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Dantalion's Might", "Status": "New", "Gold Cost": 5, "Equipment Type": "Two-Handed Weapon", "Equipment Subtype": "Sword", "Attack Type": "Melee", "Attack": "D6", "Ranged Attack": "", "Charge Requirement": 2.0, "Defense Modifier": "", "Defense Die Roll Modifier": "", "Card Rarity": "Uncommon", "Abilities": "User has piercing if equipped by Athran, Prince of Korvas.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}], "Synergy": [{"Card Name": "Essence Wellspring", "Status": "In Progress", "Mana Cost": 3, "Trade Value": 2, "Faction": "Crusaders, Rootbound", "Card Rarity": "Common", "Abilities": "During your command phase, you may spend 1 mana up to 3 times. If you do, you gain 1 health for each mana that was spent. All health gained this way counts as 1 trigger.", "Creator": "Gavin", "Status Notes": "update faction background", "Image URL": ""}, {"Card Name": "Deflect", "Status": "In Progress", "Mana Cost": 2, "Trade Value": 1, "Faction": "Covenant, Crusaders", "Card Rarity": "Common", "Abilities": "Once per turn, cancel target ranged strike.", "Creator": "Gavin", "Status Notes": "update faction background", "Image URL": ""}, {"Card Name": "Comrade's Call", "Status": "Complete", "Mana Cost": 3, "Trade Value": 3, "Faction": "Dominion", "Card Rarity": "Common", "Abilities": "When this card is played, you get 2 Korvas Soldier Tokens.\n\nPay 2 gold: You get a Korvas Soldier token.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}], "Token": [{"Card Name": "Elf Companion", "Token Type": "Ally", "Status": "Complete", "Mana Cost": 0, "Health": 3, "Dexterity": 1, "Power": 1.0, "Attack Type": "Melee", "Attack": "D4", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 1, "Race": "Elf", "Class": "Ranger", "Faction": "Rootbound", "Card Rarity": "Common", "Abilities": "Token Elf Companion unit.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}, {"Card Name": "Korvas Soldier", "Token Type": "Ally", "Status": "Complete", "Mana Cost": 0, "Health": 3, "Dexterity": 1, "Power": 1.0, "Attack Type": "Melee", "Attack": "D4", "Ranged Attack": "", "Strike Type": "Single", "Charge Requirement": 1, "Race": "Human", "Class": "Soldier", "Faction": "Dominion", "Card Rarity": "Common", "Abilities": "Token Soldier unit.", "Creator": "Gavin", "Status Notes": "", "Image URL": ""}]};
@@ -65,8 +138,256 @@
       return String(str).toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
     }
 
+    const KEYWORD_DEFINITIONS = {
+      "Freeze": {
+        name: "Freeze",
+        icon: "❄️",
+        shortDesc: "Roll for chance. If successful, defending enemy is exhausted until your next turn.",
+        fullText: "Freeze (Roll for chance. If successful, defending enemy is exhausted until your next turn.)"
+      },
+      "Blind": {
+        name: "Blind",
+        icon: "👁️",
+        shortDesc: "Enemies targeted by affected character roll chance for evasion.",
+        fullText: "Blind (Enemies targeted by affected character roll chance for evasion.)"
+      },
+      "Double Advantage": {
+        name: "Double Advantage",
+        icon: "🎲🎲",
+        shortDesc: "Roll three attack dice and take the highest result.",
+        fullText: "Roll with double advantage."
+      },
+      "Advantage": {
+        name: "Advantage",
+        icon: "🎲",
+        shortDesc: "Roll two attack dice and take the higher result.",
+        fullText: "User has advantage."
+      },
+      "Disadvantage": {
+        name: "Disadvantage",
+        icon: "⚠️",
+        shortDesc: "Roll two dice and take the lower result.",
+        fullText: "Target rolls with disadvantage on chance and attack rolls."
+      },
+      "Pierce Proof": {
+        name: "Pierce Proof",
+        icon: "🛡️",
+        shortDesc: "Immune to piercing damage.",
+        fullText: "Pierce Proof (Immune to piercing damage.)"
+      },
+      "Piercing": {
+        name: "Piercing",
+        icon: "🗡️",
+        shortDesc: "Ignores all defense ratings when dealing damage.",
+        fullText: "Piercing (Ignores all defense ratings.)"
+      },
+      "Knockback": {
+        name: "Knockback",
+        icon: "💥",
+        shortDesc: "Depletes 2 charge from defending enemy or their learned skill.",
+        fullText: "Knockback (When defending enemy takes combat damage, they lose 2 charge. If defender is a hero, choose a card among their learned skills. That skill loses 2 charge.)"
+      },
+      "Overreach": {
+        name: "Overreach",
+        icon: "🏹",
+        shortDesc: "Can strike any enemy ally regardless of Vanguard frontline priority.",
+        fullText: "Overreach (Can strike any enemy ally regardless of Vanguard frontline priority.)"
+      },
+      "Leach": {
+        name: "Leach",
+        icon: "🩸",
+        shortDesc: "Heal yourself equal to combat damage dealt.",
+        fullText: "Leach (Whenever you deal combat damage, you gain that much health.)"
+      },
+      "Leech": {
+        name: "Leech",
+        icon: "🩸",
+        shortDesc: "Heal yourself equal to combat damage dealt.",
+        fullText: "Leech (Whenever you deal combat damage, you gain that much health.)"
+      },
+      "Poison": {
+        name: "Poison",
+        icon: "🧪",
+        shortDesc: "Defending enemy takes 2 non-combat damage at the start of their turn.",
+        fullText: "Poison (Defending enemy takes 2 non-combat damage at the start of their turn.)"
+      },
+      "Curse": {
+        name: "Curse",
+        icon: "🔮",
+        shortDesc: "Target rolls with disadvantage on chance and attack rolls.",
+        fullText: "Curse (Target rolls with disadvantage on chance and attack rolls.)"
+      },
+      "Aptitude": {
+        name: "Aptitude",
+        icon: "⚡",
+        shortDesc: "Dexterity modifiers to attack rolls are doubled.",
+        fullText: "Aptitude (Dexterity modifiers to attack rolls are doubled.)"
+      },
+      "Allegiance": {
+        name: "Allegiance",
+        icon: "🤝",
+        shortDesc: "All other characters of the same class type as this character get advantage.",
+        fullText: "Allegiance (All other characters of the same class type as this character get advantage.)"
+      },
+      "Overcharge": {
+        name: "Overcharge",
+        icon: "⚡",
+        shortDesc: "For every charge above base threshold, they get +1 power.",
+        fullText: "Overcharge (For every charge this character has above its base threshold, they get +1 power.)"
+      },
+      "Chance for Critical": {
+        name: "Chance for Critical",
+        icon: "🎯",
+        shortDesc: "Grants chance to roll critical hit on next strike.",
+        fullText: "Target character gets chance for critical this turn."
+      },
+      "Chance for Evasion": {
+        name: "Chance for Evasion",
+        icon: "💨",
+        shortDesc: "Grants chance to evade incoming combat damage.",
+        fullText: "Target character gets chance for evasion this turn."
+      },
+      "Critical": {
+        name: "Critical",
+        icon: "🎯",
+        shortDesc: "Grants chance to roll critical hit on next strike.",
+        fullText: "Target character gets chance for critical this turn."
+      },
+      "Evasion": {
+        name: "Evasion",
+        icon: "💨",
+        shortDesc: "Grants chance to evade incoming combat damage.",
+        fullText: "Target character gets chance for evasion this turn."
+      },
+      "Protection": {
+        name: "Protection",
+        icon: "🛡️",
+        shortDesc: "Cannot be the target of enemy abilities.",
+        fullText: "Protection (Cannot be the target of.)"
+      },
+      "Revive": {
+        name: "Revive",
+        icon: "✨",
+        shortDesc: "Return an ally card from your discard pile to the battlefield.",
+        fullText: "Revive target ally."
+      }
+    };
+
+    const KEYWORD_SORTED_NAMES = Object.keys(KEYWORD_DEFINITIONS).sort((a, b) => b.length - a.length);
+
+    function findKeywordDef(rawName) {
+      if (!rawName) return null;
+      const name = String(rawName).trim().toLowerCase();
+      for (const k of Object.keys(KEYWORD_DEFINITIONS)) {
+        if (k.toLowerCase() === name) return KEYWORD_DEFINITIONS[k];
+      }
+      if (name === "protectionfromenemyabilities" || name.includes("protection")) return KEYWORD_DEFINITIONS["Protection"];
+      if (name === "pierceproof" || name === "pierce_proof") return KEYWORD_DEFINITIONS["Pierce Proof"];
+      if (name === "doubleadvantage" || name === "double_advantage") return KEYWORD_DEFINITIONS["Double Advantage"];
+      if (name === "chanceforcritical" || name === "chance_for_critical" || name === "critical") return KEYWORD_DEFINITIONS["Chance for Critical"];
+      if (name === "chanceforevasion" || name === "chance_for_evasion" || name === "evasion") return KEYWORD_DEFINITIONS["Chance for Evasion"];
+      if (name === "canstrikefrombench") return KEYWORD_DEFINITIONS["Overreach"];
+      return null;
+    }
+
+    let keywordListenersAttached = false;
+    function attachKeywordTooltipListeners() {
+      if (keywordListenersAttached) return;
+      keywordListenersAttached = true;
+
+      let tooltip = document.getElementById('keyword-floating-tooltip');
+      if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.id = 'keyword-floating-tooltip';
+        tooltip.className = 'keyword-floating-tooltip';
+        tooltip.style.display = 'none';
+        tooltip.innerHTML = `
+          <div class="kft-header">
+            <span class="kft-icon" id="kft-icon">✨</span>
+            <span class="kft-title" id="kft-title">Keyword</span>
+          </div>
+          <div class="kft-body" id="kft-body">Description</div>
+        `;
+        document.body.appendChild(tooltip);
+      }
+
+      const iconEl = document.getElementById('kft-icon');
+      const titleEl = document.getElementById('kft-title');
+      const bodyEl = document.getElementById('kft-body');
+
+      function show(el) {
+        const kwName = el.getAttribute('data-keyword') || el.innerText.trim();
+        const def = findKeywordDef(kwName);
+        const desc = el.getAttribute('data-desc') || (def ? (def.shortDesc || def.fullText) : '');
+        const icon = el.getAttribute('data-icon') || (def ? (def.icon || '✨') : '✨');
+
+        if (!desc) return;
+
+        if (iconEl) iconEl.innerText = icon;
+        if (titleEl) titleEl.innerText = def ? def.name : kwName;
+        if (bodyEl) bodyEl.innerText = desc;
+
+        tooltip.style.display = 'block';
+
+        const rect = el.getBoundingClientRect();
+        const tipRect = tooltip.getBoundingClientRect();
+
+        let left = rect.left + (rect.width / 2) - (tipRect.width / 2);
+        const margin = 10;
+        if (left < margin) left = margin;
+        if (left + tipRect.width > window.innerWidth - margin) {
+          left = window.innerWidth - tipRect.width - margin;
+        }
+
+        let top = rect.top - tipRect.height - 8;
+        if (top < margin) {
+          top = rect.bottom + 8;
+        }
+
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${top}px`;
+        tooltip.classList.add('active');
+      }
+
+      function hide() {
+        tooltip.classList.remove('active');
+        setTimeout(() => {
+          if (!tooltip.classList.contains('active')) {
+            tooltip.style.display = 'none';
+          }
+        }, 150);
+      }
+
+      document.addEventListener('mouseover', (e) => {
+        const target = e.target.closest('.keyword-highlight');
+        if (target) show(target);
+      });
+
+      document.addEventListener('mouseout', (e) => {
+        const target = e.target.closest('.keyword-highlight');
+        if (target) hide();
+      });
+
+      document.addEventListener('focusin', (e) => {
+        const target = e.target.closest('.keyword-highlight');
+        if (target) show(target);
+      });
+
+      document.addEventListener('focusout', (e) => {
+        const target = e.target.closest('.keyword-highlight');
+        if (target) hide();
+      });
+
+      window.addEventListener('scroll', () => hide(), true);
+    }
+    if (typeof document !== 'undefined') {
+      if (document.readyState !== 'loading') attachKeywordTooltipListeners();
+      else document.addEventListener('DOMContentLoaded', attachKeywordTooltipListeners);
+    }
+
     function renderAbilityText(text) {
         if (!text) return null;
+        const kwRegex = new RegExp(`\\b(${KEYWORD_SORTED_NAMES.map(s => s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')).join('|')})\\b`, 'gi');
         const parts = text.split(/(\[Mana:\d+(?:-\d+)?\]|\[Gold:\d+\])/g);
         return parts.map((part, idx) => {
             const mMatch = part.match(/^\[Mana:(\d+(?:-\d+)?)\]$/);
@@ -77,7 +398,26 @@
             if (gMatch) {
                 return <span key={idx} className="inline-flex items-center justify-center min-w-[20px] px-1 h-5 rounded-full bg-amber-500 text-slate-950 text-[10px] font-black mx-0.5 border border-amber-300 shadow-sm">{gMatch[1]}</span>;
             }
-            return part;
+            const subTokens = part.split(kwRegex);
+            if (subTokens.length <= 1) return part;
+            return subTokens.map((sub, sIdx) => {
+                const def = findKeywordDef(sub);
+                if (def) {
+                    return (
+                        <span 
+                            key={`${idx}-${sIdx}`}
+                            className="keyword-highlight cursor-help"
+                            data-keyword={def.name}
+                            data-desc={def.shortDesc || def.fullText}
+                            data-icon={def.icon || "✨"}
+                            tabIndex={0}
+                        >
+                            {sub}
+                        </span>
+                    );
+                }
+                return sub;
+            });
         });
     }
 
@@ -114,89 +454,6 @@
           <span className="w-8 text-xs font-bold text-slate-200 text-right">{value}</span>
       </div>
     );
-
-    const KEYWORD_DEFINITIONS = {
-      "Freeze": {
-        name: "Freeze",
-        shortDesc: "Exhausts defending enemy until next turn on chance success.",
-        fullText: "Freeze (Roll for chance. If successful, defending enemy is exhausted until your next turn.)"
-      },
-      "Blind": {
-        name: "Blind",
-        shortDesc: "Enemies targeted by affected character roll chance for evasion.",
-        fullText: "Blind (Enemies targeted by affected character roll chance for evasion.)"
-      },
-      "Advantage": {
-        name: "Advantage",
-        shortDesc: "Roll two attack dice and take the higher result.",
-        fullText: "User has advantage."
-      },
-      "Double Advantage": {
-        name: "Double Advantage",
-        shortDesc: "Roll three attack dice and take the highest result.",
-        fullText: "Roll with double advantage."
-      },
-      "Piercing": {
-        name: "Piercing",
-        shortDesc: "Ignores all defense ratings when dealing damage.",
-        fullText: "Piercing (Ignores all defense ratings.)"
-      },
-      "Pierce Proof": {
-        name: "Pierce Proof",
-        shortDesc: "Immune to piercing damage.",
-        fullText: "Pierce Proof (Immune to piercing damage.)"
-      },
-      "Knockback": {
-        name: "Knockback",
-        shortDesc: "Depletes 2 charge from defending enemy or their learned skill.",
-        fullText: "Knockback (When defending enemy takes combat damage, they lose 2 charge. If defender is a hero, choose a card among their learned skills. That skill loses 2 charge.)"
-      },
-      "Overreach": {
-        name: "Overreach",
-        shortDesc: "Can strike any enemy ally regardless of Vanguard positioning.",
-        fullText: "Overreach (Can strike any enemy ally regardless of Vanguard frontline priority.)"
-      },
-      "Leach": {
-        name: "Leach",
-        shortDesc: "Heal yourself equal to combat damage dealt.",
-        fullText: "Leach (Whenever you deal combat damage, you gain that much health.)"
-      },
-      "Poison": {
-        name: "Poison",
-        shortDesc: "Defending enemy takes 2 non-combat damage at start of turn.",
-        fullText: "Poison (Defending enemy takes 2 non-combat damage at the start of their turn.)"
-      },
-      "Curse": {
-        name: "Curse",
-        shortDesc: "Target rolls with disadvantage on chance and attack rolls.",
-        fullText: "Curse (Target rolls with disadvantage on chance and attack rolls.)"
-      },
-      "Aptitude": {
-        name: "Aptitude",
-        shortDesc: "Dexterity modifiers to attack rolls are doubled.",
-        fullText: "Aptitude (Dexterity modifiers to attack rolls are doubled.)"
-      },
-      "Allegiance": {
-        name: "Allegiance",
-        shortDesc: "All other allies of the same class get advantage.",
-        fullText: "Allegiance (All other characters of the same class type as this character get advantage.)"
-      },
-      "Overcharge": {
-        name: "Overcharge",
-        shortDesc: "For every charge above base threshold, they get +1 power.",
-        fullText: "Overcharge (For every charge this character has above it's base threshold, they get +1 power.)"
-      },
-      "Chance for Critical": {
-        name: "Chance for Critical",
-        shortDesc: "Grants chance to roll critical hit on next strike.",
-        fullText: "Target character gets chance for critical this turn."
-      },
-      "Chance for Evasion": {
-        name: "Chance for Evasion",
-        shortDesc: "Grants chance to evade incoming combat damage.",
-        fullText: "Target character gets chance for evasion this turn."
-      }
-    };
 
     const DEFAULT_BUILDER_STATE = {
       category: 'activated',
@@ -261,6 +518,7 @@
       effectType: 'heal',
       effectTarget: 'targetCharacter',
       effectAmount: 2,
+      effectScaleMode: 'fixed',
       effectStat: 'power',
       effectDuration: 'thisTurn',
       effectKeyword: 'Freeze',
@@ -268,6 +526,8 @@
       tokenAmount: 1,
       lootCardsCount: 1,
       lootAction: 'hand',
+      lootTargetCard: "Pious' Armor",
+      lootTargetType: 'Equipment',
       attackOverrideMode: 'die',
       attackFixedValue: 8,
       attackInsteadOf: 'none',
@@ -287,6 +547,43 @@
     };
 
     const OFFICIAL_ABILITY_PRESETS = [
+      {
+        name: "Pious (Command Chance Search for Pious' Armor)",
+        category: "activated",
+        actCostType: "free",
+        actPhase: "command",
+        actFrequency: "once",
+        isOptional: true,
+        effectCondition: "if_chance_success",
+        effectType: "look_loot",
+        lootAction: "search_specific_card",
+        lootTargetCard: "Pious' Armor",
+        recommended: "Once per turn during your command phase, you may roll for chance. If successful, search your loot for Pious' Armor and put it in your hand. Then shuffle your loot."
+      },
+      {
+        name: "Pious (Defense Damage Reduction -> +X Ally Health)",
+        category: "triggered",
+        trigEvent: "onDamageReduced",
+        trigSubject: "self",
+        isOptional: false,
+        effectCondition: "none",
+        effectType: "stat_buff",
+        effectTarget: "targetAlly",
+        effectStat: "health",
+        effectScaleMode: "damage_reduced",
+        effectDuration: "thisTurn",
+        recommended: "Whenever Pious reduces incoming damage from a strike using defense, target ally gets +X health this turn where X is the amount of damage reduced."
+      },
+      {
+        name: "Pious' Chestplate (Protection from Enemy Abilities)",
+        category: "static",
+        staticConditionMode: "user_is",
+        staticClass: "Pious",
+        effectType: "keyword_grant",
+        effectKeyword: "Protection",
+        effectTarget: "selfEquippedCharacter",
+        recommended: "If user is Pious, he has protection from enemy abilities."
+      },
       {
         name: "Purity Strike (Fixed Attack Override)",
         category: "activated",
@@ -595,54 +892,64 @@
       return 'target character';
     }
 
+    function getScaleSuffixPhrase(scaleMode) {
+      if (scaleMode === 'damage_reduced') return " where X is the amount of damage reduced";
+      if (scaleMode === 'damage_dealt') return " where X is the amount of combat damage dealt";
+      if (scaleMode === 'attack_roll') return " where X is the attack roll";
+      if (scaleMode === 'health_gained') return " where X is the amount of health gained";
+      return "";
+    }
+
     function buildIndicativeEffect(s, cName) {
-      const amt = s.effectAmount;
+      const isScaled = s.effectScaleMode && s.effectScaleMode !== 'fixed';
+      const amt = isScaled ? 'X' : s.effectAmount;
+      const scaleSuffix = isScaled ? getScaleSuffixPhrase(s.effectScaleMode) : '';
       if (s.effectType === 'heal') {
-        if (s.effectTarget === 'selfHero') return `you gain ${amt} health.`;
-        if (s.effectTarget === 'targetCharacter') return `target character gains ${amt} health.`;
-        if (s.effectTarget === 'targetAlly') return `target ally gains ${amt} health.`;
-        if (s.effectTarget === 'targetFriendlyAlly') return `target ally you control gains ${amt} health.`;
-        if (s.effectTarget === 'targetEnemyAlly') return `target enemy ally gains ${amt} health.`;
-        return `${cName} gains ${amt} health.`;
+        if (s.effectTarget === 'selfHero') return `you gain ${amt} health${scaleSuffix}.`;
+        if (s.effectTarget === 'targetCharacter') return `target character gains ${amt} health${scaleSuffix}.`;
+        if (s.effectTarget === 'targetAlly') return `target ally gains ${amt} health${scaleSuffix}.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `target ally you control gains ${amt} health${scaleSuffix}.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `target enemy ally gains ${amt} health${scaleSuffix}.`;
+        return `${cName} gains ${amt} health${scaleSuffix}.`;
       }
       if (s.effectType === 'draw') {
         return amt === 1 ? "draw a card." : `draw ${amt} cards.`;
       }
       if (s.effectType === 'mana') {
-        if (s.effectTarget === 'targetCharacter') return `target character gains ${amt} mana.`;
-        if (s.effectTarget === 'targetAlly') return `target ally gains ${amt} mana.`;
-        if (s.effectTarget === 'targetFriendlyAlly') return `target ally you control gains ${amt} mana.`;
-        if (s.effectTarget === 'targetEnemyAlly') return `target enemy ally gains ${amt} mana.`;
-        return `you gain ${amt} mana.`;
+        if (s.effectTarget === 'targetCharacter') return `target character gains ${amt} mana${scaleSuffix}.`;
+        if (s.effectTarget === 'targetAlly') return `target ally gains ${amt} mana${scaleSuffix}.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `target ally you control gains ${amt} mana${scaleSuffix}.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `target enemy ally gains ${amt} mana${scaleSuffix}.`;
+        return `you gain ${amt} mana${scaleSuffix}.`;
       }
       if (s.effectType === 'charge') {
-        if (s.effectTarget === 'deplete') return `deplete ${amt} charge from it.`;
-        if (s.effectTarget === 'targetAllyOrSkill') return `target ally or skill gains ${amt} charge.`;
-        if (s.effectTarget === 'targetSkill') return `target skill gains ${amt} charge.`;
-        if (s.effectTarget === 'targetRangedSkill') return `target ranged skill gains ${amt} charge.`;
-        if (s.effectTarget === 'targetAlly') return `target ally gains ${amt} charge.`;
-        if (s.effectTarget === 'targetFriendlyAlly') return `target ally you control gains ${amt} charge.`;
-        if (s.effectTarget === 'targetEnemyAlly') return `target enemy ally gains ${amt} charge.`;
-        if (s.effectTarget === 'targetCharacter') return `target character gains ${amt} charge.`;
-        return `${cName} gains ${amt} charge.`;
+        if (s.effectTarget === 'deplete') return `deplete ${amt} charge from it${scaleSuffix}.`;
+        if (s.effectTarget === 'targetAllyOrSkill') return `target ally or skill gains ${amt} charge${scaleSuffix}.`;
+        if (s.effectTarget === 'targetSkill') return `target skill gains ${amt} charge${scaleSuffix}.`;
+        if (s.effectTarget === 'targetRangedSkill') return `target ranged skill gains ${amt} charge${scaleSuffix}.`;
+        if (s.effectTarget === 'targetAlly') return `target ally gains ${amt} charge${scaleSuffix}.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `target ally you control gains ${amt} charge${scaleSuffix}.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `target enemy ally gains ${amt} charge${scaleSuffix}.`;
+        if (s.effectTarget === 'targetCharacter') return `target character gains ${amt} charge${scaleSuffix}.`;
+        return `${cName} gains ${amt} charge${scaleSuffix}.`;
       }
       if (s.effectType === 'damage') {
-        if (s.effectTarget === 'selfHero') return `you take ${amt} non-combat damage.`;
-        if (s.effectTarget === 'self') return `${cName} takes ${amt} non-combat damage.`;
-        if (s.effectTarget === 'allAllies') return `deal ${amt} non-combat damage to all allies in play.`;
-        if (s.effectTarget === 'targetEnemyAlly') return `deal ${amt} non-combat damage to target enemy ally.`;
-        if (s.effectTarget === 'targetFriendlyAlly') return `deal ${amt} non-combat damage to target ally you control.`;
-        if (s.effectTarget === 'targetAlly') return `deal ${amt} non-combat damage to target ally.`;
-        if (s.effectTarget === 'targetCharacter') return `deal ${amt} non-combat damage to target character.`;
-        return `deal ${amt} non-combat damage to target ally.`;
+        if (s.effectTarget === 'selfHero') return `you take ${amt} non-combat damage${scaleSuffix}.`;
+        if (s.effectTarget === 'self') return `${cName} takes ${amt} non-combat damage${scaleSuffix}.`;
+        if (s.effectTarget === 'allAllies') return `deal ${amt} non-combat damage to all allies in play${scaleSuffix}.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `deal ${amt} non-combat damage to target enemy ally${scaleSuffix}.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `deal ${amt} non-combat damage to target ally you control${scaleSuffix}.`;
+        if (s.effectTarget === 'targetAlly') return `deal ${amt} non-combat damage to target ally${scaleSuffix}.`;
+        if (s.effectTarget === 'targetCharacter') return `deal ${amt} non-combat damage to target character${scaleSuffix}.`;
+        return `deal ${amt} non-combat damage to target ally${scaleSuffix}.`;
       }
       if (s.effectType === 'lose_health') {
-        if (s.effectTarget === 'selfHero') return `you lose ${amt} health.`;
-        if (s.effectTarget === 'self') return `${cName} loses ${amt} health.`;
-        if (s.effectTarget === 'targetAlly') return `target ally loses ${amt} health.`;
-        if (s.effectTarget === 'targetEnemyAlly') return `target enemy ally loses ${amt} health.`;
-        if (s.effectTarget === 'targetFriendlyAlly') return `target ally you control loses ${amt} health.`;
-        return `target character loses ${amt} health.`;
+        if (s.effectTarget === 'selfHero') return `you lose ${amt} health${scaleSuffix}.`;
+        if (s.effectTarget === 'self') return `${cName} loses ${amt} health${scaleSuffix}.`;
+        if (s.effectTarget === 'targetAlly') return `target ally loses ${amt} health${scaleSuffix}.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `target enemy ally loses ${amt} health${scaleSuffix}.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `target ally you control loses ${amt} health${scaleSuffix}.`;
+        return `target character loses ${amt} health${scaleSuffix}.`;
       }
       if (s.effectType === 'stat_buff') {
         const dur = s.effectDuration === 'thisStrike' ? 'this strike' : (s.effectDuration === 'permanent' ? '' : 'this turn');
@@ -654,7 +961,7 @@
         else if (s.effectTarget === 'targetFriendlyAlly') tgtPrefix = 'Target ally you control gets';
         else if (s.effectTarget === 'targetEnemyAlly') tgtPrefix = 'Target enemy ally gets';
         else if (s.effectTarget === 'allFriendlyDefending') tgtPrefix = 'Defending allies you control get';
-        return `${tgtPrefix} +${amt} ${statName}${dur ? ' ' + dur : ''}.`;
+        return `${tgtPrefix} +${amt} ${statName}${dur ? ' ' + dur : ''}${scaleSuffix}.`;
       }
       if (s.effectType === 'keyword_grant') {
         const dur = s.effectDuration === 'thisStrike' ? 'this strike' : (s.effectDuration === 'permanent' ? '' : 'this turn');
@@ -720,6 +1027,8 @@
         return `target wins chance roll this turn.`;
       }
       if (s.effectType === 'look_loot') {
+        if (s.lootAction === 'search_specific_card') return `search your loot for ${s.lootTargetCard || "Pious' Armor"} and put it in your hand. Then shuffle your loot.`;
+        if (s.lootAction === 'search_type') return `search your loot for a ${s.lootTargetType || 'Skill'} card and put it in your hand. Then shuffle your loot.`;
         if (s.lootAction === 'reveal_skill') return `look at the top ${s.lootCardsCount} cards of your Loot. You may reveal a Skill card from among them and put it into your hand.`;
         if (s.lootAction === 'search_level') return `search your loot for a skill 1 level higher than those and put it into your hand. Shuffle your loot.`;
         return `look at the top ${s.lootCardsCount === 1 ? 'card' : s.lootCardsCount + ' cards'} of your loot. You may put that card into your hand.`;
@@ -799,53 +1108,55 @@
     }
 
     function buildInfinitiveEffect(s, cName) {
-      const amt = s.effectAmount;
+      const isScaled = s.effectScaleMode && s.effectScaleMode !== 'fixed';
+      const amt = isScaled ? 'X' : s.effectAmount;
+      const scaleSuffix = isScaled ? getScaleSuffixPhrase(s.effectScaleMode) : '';
       if (s.effectType === 'heal') {
-        if (s.effectTarget === 'selfHero') return `gain ${amt} health.`;
-        if (s.effectTarget === 'targetCharacter') return `have target character gain ${amt} health.`;
-        if (s.effectTarget === 'targetAlly') return `have target ally gain ${amt} health.`;
-        if (s.effectTarget === 'targetFriendlyAlly') return `have target ally you control gain ${amt} health.`;
-        if (s.effectTarget === 'targetEnemyAlly') return `have target enemy ally gain ${amt} health.`;
-        return `have ${cName} gain ${amt} health.`;
+        if (s.effectTarget === 'selfHero') return `gain ${amt} health${scaleSuffix}.`;
+        if (s.effectTarget === 'targetCharacter') return `have target character gain ${amt} health${scaleSuffix}.`;
+        if (s.effectTarget === 'targetAlly') return `have target ally gain ${amt} health${scaleSuffix}.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `have target ally you control gain ${amt} health${scaleSuffix}.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `have target enemy ally gain ${amt} health${scaleSuffix}.`;
+        return `have ${cName} gain ${amt} health${scaleSuffix}.`;
       }
       if (s.effectType === 'draw') {
         return amt === 1 ? "draw a card." : `draw ${amt} cards.`;
       }
       if (s.effectType === 'mana') {
-        if (s.effectTarget === 'targetCharacter') return `have target character gain ${amt} mana.`;
-        if (s.effectTarget === 'targetAlly') return `have target ally gain ${amt} mana.`;
-        if (s.effectTarget === 'targetFriendlyAlly') return `have target ally you control gain ${amt} mana.`;
-        if (s.effectTarget === 'targetEnemyAlly') return `have target enemy ally gain ${amt} mana.`;
-        return `gain ${amt} mana.`;
+        if (s.effectTarget === 'targetCharacter') return `have target character gain ${amt} mana${scaleSuffix}.`;
+        if (s.effectTarget === 'targetAlly') return `have target ally gain ${amt} mana${scaleSuffix}.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `have target ally you control gain ${amt} mana${scaleSuffix}.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `have target enemy ally gain ${amt} mana${scaleSuffix}.`;
+        return `gain ${amt} mana${scaleSuffix}.`;
       }
       if (s.effectType === 'charge') {
-        if (s.effectTarget === 'deplete') return `deplete ${amt} charge from it.`;
-        if (s.effectTarget === 'targetAllyOrSkill') return `have target ally or skill gain ${amt} charge.`;
-        if (s.effectTarget === 'targetSkill') return `have target skill gain ${amt} charge.`;
-        if (s.effectTarget === 'targetRangedSkill') return `have target ranged skill gain ${amt} charge.`;
-        if (s.effectTarget === 'targetAlly') return `have target ally gain ${amt} charge.`;
-        if (s.effectTarget === 'targetFriendlyAlly') return `have target ally you control gain ${amt} charge.`;
-        if (s.effectTarget === 'targetEnemyAlly') return `have target enemy ally gain ${amt} charge.`;
-        if (s.effectTarget === 'targetCharacter') return `have target character gain ${amt} charge.`;
-        return `have ${cName} gain ${amt} charge.`;
+        if (s.effectTarget === 'deplete') return `deplete ${amt} charge from it${scaleSuffix}.`;
+        if (s.effectTarget === 'targetAllyOrSkill') return `have target ally or skill gain ${amt} charge${scaleSuffix}.`;
+        if (s.effectTarget === 'targetSkill') return `have target skill gain ${amt} charge${scaleSuffix}.`;
+        if (s.effectTarget === 'targetRangedSkill') return `have target ranged skill gain ${amt} charge${scaleSuffix}.`;
+        if (s.effectTarget === 'targetAlly') return `have target ally gain ${amt} charge${scaleSuffix}.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `have target ally you control gain ${amt} charge${scaleSuffix}.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `have target enemy ally gain ${amt} charge${scaleSuffix}.`;
+        if (s.effectTarget === 'targetCharacter') return `have target character gain ${amt} charge${scaleSuffix}.`;
+        return `have ${cName} gain ${amt} charge${scaleSuffix}.`;
       }
       if (s.effectType === 'damage') {
-        if (s.effectTarget === 'selfHero') return `take ${amt} non-combat damage.`;
-        if (s.effectTarget === 'self') return `have ${cName} take ${amt} non-combat damage.`;
-        if (s.effectTarget === 'allAllies') return `deal ${amt} non-combat damage to all allies in play.`;
-        if (s.effectTarget === 'targetEnemyAlly') return `deal ${amt} non-combat damage to target enemy ally.`;
-        if (s.effectTarget === 'targetFriendlyAlly') return `deal ${amt} non-combat damage to target ally you control.`;
-        if (s.effectTarget === 'targetAlly') return `deal ${amt} non-combat damage to target ally.`;
-        if (s.effectTarget === 'targetCharacter') return `deal ${amt} non-combat damage to target character.`;
-        return `deal ${amt} non-combat damage to target ally.`;
+        if (s.effectTarget === 'selfHero') return `take ${amt} non-combat damage${scaleSuffix}.`;
+        if (s.effectTarget === 'self') return `have ${cName} take ${amt} non-combat damage${scaleSuffix}.`;
+        if (s.effectTarget === 'allAllies') return `deal ${amt} non-combat damage to all allies in play${scaleSuffix}.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `deal ${amt} non-combat damage to target enemy ally${scaleSuffix}.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `deal ${amt} non-combat damage to target ally you control${scaleSuffix}.`;
+        if (s.effectTarget === 'targetAlly') return `deal ${amt} non-combat damage to target ally${scaleSuffix}.`;
+        if (s.effectTarget === 'targetCharacter') return `deal ${amt} non-combat damage to target character${scaleSuffix}.`;
+        return `deal ${amt} non-combat damage to target ally${scaleSuffix}.`;
       }
       if (s.effectType === 'lose_health') {
-        if (s.effectTarget === 'selfHero') return `lose ${amt} health.`;
-        if (s.effectTarget === 'self') return `have ${cName} lose ${amt} health.`;
-        if (s.effectTarget === 'targetAlly') return `have target ally lose ${amt} health.`;
-        if (s.effectTarget === 'targetEnemyAlly') return `have target enemy ally lose ${amt} health.`;
-        if (s.effectTarget === 'targetFriendlyAlly') return `have target ally you control lose ${amt} health.`;
-        return `have target character lose ${amt} health.`;
+        if (s.effectTarget === 'selfHero') return `lose ${amt} health${scaleSuffix}.`;
+        if (s.effectTarget === 'self') return `have ${cName} lose ${amt} health${scaleSuffix}.`;
+        if (s.effectTarget === 'targetAlly') return `have target ally lose ${amt} health${scaleSuffix}.`;
+        if (s.effectTarget === 'targetEnemyAlly') return `have target enemy ally lose ${amt} health${scaleSuffix}.`;
+        if (s.effectTarget === 'targetFriendlyAlly') return `have target ally you control lose ${amt} health${scaleSuffix}.`;
+        return `have target character lose ${amt} health${scaleSuffix}.`;
       }
       if (s.effectType === 'stat_buff') {
         const dur = s.effectDuration === 'thisStrike' ? 'this strike' : (s.effectDuration === 'permanent' ? '' : 'this turn');
@@ -857,7 +1168,7 @@
         else if (s.effectTarget === 'targetEnemyAlly') tgt = 'target enemy ally';
         else if (s.effectTarget === 'allFriendlyDefending') tgt = 'defending allies you control';
         else if (s.effectTarget === 'self') tgt = cName;
-        return `give ${tgt} +${amt} ${statName}${dur ? ' ' + dur : ''}.`;
+        return `give ${tgt} +${amt} ${statName}${dur ? ' ' + dur : ''}${scaleSuffix}.`;
       }
       if (s.effectType === 'keyword_grant') {
         const dur = s.effectDuration === 'thisStrike' ? 'this strike' : (s.effectDuration === 'permanent' ? '' : 'this turn');
@@ -907,6 +1218,9 @@
         if (kw === 'Aptitude') {
           return `give ${obj} Aptitude.`;
         }
+        if (kw === 'Protection') {
+          return `have protection from enemy abilities${durSuffix}.`;
+        }
         if (kw === 'Allegiance') {
           return `grant Allegiance (All other characters of the same class type as this character get advantage.)`;
         }
@@ -926,6 +1240,8 @@
         return `have target win chance roll this turn.`;
       }
       if (s.effectType === 'look_loot') {
+        if (s.lootAction === 'search_specific_card') return `search your loot for ${s.lootTargetCard || "Pious' Armor"} and put it in your hand. Then shuffle your loot.`;
+        if (s.lootAction === 'search_type') return `search your loot for a ${s.lootTargetType || 'Skill'} card and put it in your hand. Then shuffle your loot.`;
         if (s.lootAction === 'reveal_skill') return `look at the top ${s.lootCardsCount} cards of your Loot. You may reveal a Skill card from among them and put it into your hand.`;
         if (s.lootAction === 'search_level') return `search your loot for a skill 1 level higher than those and put it into your hand. Shuffle your loot.`;
         return `look at the top ${s.lootCardsCount === 1 ? 'card' : s.lootCardsCount + ' cards'} of your loot. You may put that card into your hand.`;
@@ -1063,9 +1379,9 @@
           fullOutcome = `${baseEffect.replace(/\.$/, '')}.${followUp}`;
         }
       } else if (s.effectCondition === 'if_chance_success') {
-        fullOutcome = `Roll for chance. If successful, ${indicative}`;
+        fullOutcome = `${s.isOptional ? 'you may roll' : 'Roll'} for chance. If successful, ${indicative}`;
       } else if (s.effectCondition === 'if_chance_win') {
-        fullOutcome = `Roll for chance. If you win, ${indicative}`;
+        fullOutcome = `${s.isOptional ? 'you may roll' : 'Roll'} for chance. If you win, ${indicative}`;
       } else if (s.effectCondition === 'if_defeated_enemy') {
         fullOutcome = `If you defeated an enemy ally this turn, ${indicative}`;
       } else if (s.effectCondition === 'if_enemy_noncombat') {
@@ -1087,8 +1403,8 @@
       } else {
         // No If Condition specified
         if (s.isChanceRoll) {
-          if (s.chanceStyle === 'if_successful') fullOutcome = `Roll for chance. If successful, ${indicative}`;
-          else if (s.chanceStyle === 'if_win') fullOutcome = `Roll for chance. If you win, ${indicative}`;
+          if (s.chanceStyle === 'if_successful') fullOutcome = `${s.isOptional ? 'you may roll' : 'Roll'} for chance. If successful, ${indicative}`;
+          else if (s.chanceStyle === 'if_win') fullOutcome = `${s.isOptional ? 'you may roll' : 'Roll'} for chance. If you win, ${indicative}`;
           else fullOutcome = baseEffect;
         } else {
           fullOutcome = baseEffect;
@@ -1250,11 +1566,34 @@
           else if (s.trigSubject === 'friendlyAlly') subj = "an ally you control";
           return `When rolling accuracy for ${subj}, ${fullOutcome}`;
         }
+
+        if (s.trigEvent === 'onDamageReduced') {
+          let subj = cName;
+          if (s.trigSubject === 'hero') subj = "your hero";
+          else if (s.trigSubject === 'friendlyAlly') subj = "an ally you control";
+          let clause = fullOutcome;
+          if (/^(?:Target|Defending|You)\b/.test(clause)) {
+            clause = clause.charAt(0).toLowerCase() + clause.slice(1);
+          }
+          return `Whenever ${subj} reduces incoming damage from a strike using defense, ${clause}`;
+        }
       }
 
       // 3. STATIC / CONTINUOUS
       if (s.category === 'static') {
         if (s.staticConditionMode === 'always') return cap(fullOutcome);
+
+        if (s.staticConditionMode === 'user_is') {
+          const uName = (s.staticClass || 'Pious').trim();
+          if (s.effectType === 'keyword_grant') {
+            const kw = s.effectKeyword || 'Protection';
+            if (kw.toLowerCase() === 'protection') {
+              return `If user is ${uName}, he has protection from enemy abilities.`;
+            }
+            return `If user is ${uName}, user has ${kw.toLowerCase()}.`;
+          }
+          return `If user is ${uName}, ${fullOutcome}`;
+        }
 
         if (s.staticConditionMode === 'zone_role') {
           if (s.staticZoneRole === 'bench_strike') {
@@ -1369,12 +1708,18 @@
       else if (/Whenever you win a chance roll/i.test(t)) badges.push({ label: 'Trigger: On Chance Win', color: 'bg-amber-900/80 text-amber-200 border-amber-600' });
       else if (/At the start of your turn/i.test(t)) badges.push({ label: 'Trigger: Turn Start', color: 'bg-blue-900/80 text-blue-200 border-blue-600' });
       else if (/When rolling accuracy/i.test(t)) badges.push({ label: 'Trigger: On Accuracy Roll', color: 'bg-amber-900/80 text-amber-200 border-amber-600' });
+      else if (/Whenever .* reduces incoming damage from a strike using defense/i.test(t)) badges.push({ label: 'Trigger: On Defense Damage Reduced 🛡️', color: 'bg-sky-900/80 text-sky-200 border-sky-600' });
       else if (/Proficiency\s+(\d+)\s*:/i.test(t)) {
         const p = t.match(/Proficiency\s+(\d+)\s*:/i);
         badges.push({ label: `Tier: Proficiency ${p[1]}`, color: 'bg-purple-900/80 text-purple-200 border-purple-600' });
       }
 
       // Zone & Role detection
+      if (/protection/i.test(t)) badges.push({ label: 'Keyword: Protection (Target Immunity 🛡️)', color: 'bg-emerald-950 text-emerald-300 border-emerald-600' });
+      if (/(?:If user is|if equipped by)\s+[A-Za-z0-9' ,-]+/i.test(t)) {
+        const uM = t.match(/(?:If user is|if equipped by)\s+([A-Za-z0-9' ,-]+?)(?:,?\s*(?:he|user|she|they)?\s*(?:has|have|gets?|\.|$))/i);
+        badges.push({ label: `Req User: ${uM ? uM[1].trim() : 'Specific Hero'} 👑`, color: 'bg-amber-950 text-amber-300 border-amber-600' });
+      }
       if (/is your Vanguard/i.test(t)) badges.push({ label: 'Zone: Frontline Vanguard', color: 'bg-blue-900/80 text-blue-200 border-blue-600' });
       if (/from your bench/i.test(t) || /while on your bench/i.test(t)) badges.push({ label: 'Zone: Bench Position', color: 'bg-teal-900/80 text-teal-200 border-teal-600' });
       if (/to the battle zone/i.test(t)) badges.push({ label: 'Zone: Battle Zone ETB', color: 'bg-cyan-900/80 text-cyan-200 border-cyan-600' });
@@ -1407,7 +1752,15 @@
       if (/Striking\s+with.*ends\s+your\s+combat\s+phase/i.test(t)) badges.push({ label: 'Consequence: Ends Combat Phase 🛑', color: 'bg-rose-950 text-rose-300 border-rose-700' });
       if (/keep rolling until you fail/i.test(t)) badges.push({ label: 'Action: Cascade / Repeat Roll 🎯', color: 'bg-emerald-950 text-emerald-300 border-emerald-700' });
       if (/\bTokens?\b/i.test(t)) badges.push({ label: 'Action: Summon Token', color: 'bg-indigo-950 text-indigo-300 border-indigo-700' });
-      if (/look at the top/i.test(t) || /search your loot/i.test(t)) badges.push({ label: 'Action: Loot Deck Search', color: 'bg-sky-900/80 text-sky-200 border-sky-600' });
+      if (/search your loot for (?!a\s+skill\s+1\s+level)/i.test(t)) {
+        const sCardM = t.match(/search your loot for\s+(.+?)\s+and put it in(?:to)? your hand/i);
+        badges.push({ label: sCardM ? `Action: Search Loot (${sCardM[1].trim()}) 🔍` : 'Action: Loot Deck Search', color: 'bg-sky-900/80 text-sky-200 border-sky-600' });
+      } else if (/look at the top/i.test(t) || /search your loot/i.test(t)) {
+        badges.push({ label: 'Action: Loot Deck Search', color: 'bg-sky-900/80 text-sky-200 border-sky-600' });
+      }
+      if (/\+X\s+health\b/i.test(t) || /where X is the amount of damage reduced/i.test(t)) {
+        badges.push({ label: 'Action: +X Health (Damage Reduced) 💚', color: 'bg-emerald-950 text-emerald-300 border-emerald-700' });
+      }
       if (/advantage/i.test(t)) badges.push({ label: 'Keyword: Advantage', color: 'bg-amber-950 text-amber-300 border-amber-700' });
       if (/\bBlind\b/i.test(t)) badges.push({ label: 'Keyword: Blind', color: 'bg-indigo-950 text-indigo-300 border-indigo-700' });
       if (/Freeze/i.test(t)) badges.push({ label: 'Keyword: Freeze', color: 'bg-cyan-950 text-cyan-300 border-cyan-700' });
@@ -1575,6 +1928,12 @@
         if (/your hero/i.test(text)) res.trigSubject = 'hero';
         else if (/an ally you control/i.test(text)) res.trigSubject = 'friendlyAlly';
         else res.trigSubject = 'self';
+      } else if (/Whenever .* reduces incoming damage from a strike using defense/i.test(text)) {
+        res.category = 'triggered';
+        res.trigEvent = 'onDamageReduced';
+        if (/your hero/i.test(text)) res.trigSubject = 'hero';
+        else if (/an ally you control/i.test(text)) res.trigSubject = 'friendlyAlly';
+        else res.trigSubject = 'self';
       } else if (/Whenever .* deals? combat damage/i.test(text)) {
         res.category = 'triggered';
         res.trigEvent = 'onDamageDealt';
@@ -1668,6 +2027,16 @@
         res.category = 'static';
         res.staticConditionMode = 'scaling';
         res.staticScaling = 'discard_count';
+      } else if (/(?:If user is|if equipped by)\s+([A-Za-z0-9' ,-]+)/i.test(text)) {
+        res.category = 'static';
+        res.staticConditionMode = 'user_is';
+        const uMatch = text.match(/(?:If user is|if equipped by)\s+([A-Za-z0-9' ,-]+?)(?:,?\s*(?:he|user|she|they)?\s*(?:has|have|gets?|\.|$))/i);
+        if (uMatch) res.staticClass = uMatch[1].trim();
+        if (/protection/i.test(text)) {
+          res.effectType = 'keyword_grant';
+          res.effectKeyword = 'Protection';
+          res.effectTarget = 'selfEquippedCharacter';
+        }
       }
 
       // 6. Modality & Conditions
@@ -1814,17 +2183,27 @@
         else if (/target ally you control/i.test(text)) res.effectTarget = 'targetFriendlyAlly';
         else if (/target ally/i.test(text)) res.effectTarget = 'targetAlly';
         else res.effectTarget = 'targetCharacter';
-      } else if (/\+(\d+)\s+(power|defense|dexterity|ranged attack|max health|to accuracy rolls)/i.test(text)) {
+      } else if (/\+(?:(\d+)|(X))\s+(power|defense|dexterity|ranged attack|max health|health|to accuracy rolls)/i.test(text)) {
         res.effectType = 'stat_buff';
-        const bM = text.match(/\+(\d+)\s+(power|defense|dexterity|ranged attack|max health|to accuracy rolls)/i);
+        const bM = text.match(/\+(?:(\d+)|(X))\s+(power|defense|dexterity|ranged attack|max health|health|to accuracy rolls)/i);
         if (bM) {
-          res.effectAmount = parseInt(bM[1]);
-          const sName = bM[2].toLowerCase();
+          if (bM[2] && bM[2].toUpperCase() === 'X') {
+            if (/damage reduced/i.test(text)) res.effectScaleMode = 'damage_reduced';
+            else if (/damage dealt/i.test(text)) res.effectScaleMode = 'damage_dealt';
+            else if (/attack roll/i.test(text)) res.effectScaleMode = 'attack_roll';
+            else if (/health gained/i.test(text)) res.effectScaleMode = 'health_gained';
+            else res.effectScaleMode = 'damage_reduced';
+          } else {
+            res.effectScaleMode = 'fixed';
+            res.effectAmount = parseInt(bM[1]);
+          }
+          const sName = bM[3].toLowerCase();
           if (sName === 'power') res.effectStat = 'power';
           else if (sName === 'defense') res.effectStat = 'defense';
           else if (sName === 'dexterity') res.effectStat = 'dexterity';
           else if (sName === 'ranged attack') res.effectStat = 'rangedAttack';
           else if (sName === 'max health') res.effectStat = 'maxHealth';
+          else if (sName === 'health') res.effectStat = 'health';
           else if (sName === 'to accuracy rolls') res.effectStat = 'accuracy';
         }
         if (/this strike/i.test(text)) res.effectDuration = 'thisStrike';
@@ -1850,7 +2229,15 @@
         res.lootCardsCount = cM ? parseInt(cM[1]) : 1;
         if (/reveal a skill/i.test(text)) res.lootAction = 'reveal_skill';
         else if (/skill 1 level higher/i.test(text)) res.lootAction = 'search_level';
-        else res.lootAction = 'hand';
+        else if (/search your loot for an?\s+(ally|skill|equipment|synergy|flash)\s+card/i.test(text)) {
+          res.lootAction = 'search_type';
+          const tM = text.match(/search your loot for an?\s+(ally|skill|equipment|synergy|flash)\s+card/i);
+          if (tM) res.lootTargetType = tM[1].charAt(0).toUpperCase() + tM[1].slice(1).toLowerCase();
+        } else if (/search your loot for\s+(.+?)\s+and put it in(?:to)? your hand/i.test(text)) {
+          res.lootAction = 'search_specific_card';
+          const sM = text.match(/search your loot for\s+(.+?)\s+and put it in(?:to)? your hand/i);
+          if (sM) res.lootTargetCard = sM[1].trim();
+        } else res.lootAction = 'hand';
       } else if (/(?:ranged\s+attack|attack)\s+(?:is|be)\s+(\d+|D\d+)/i.test(cleanedText || text)) {
         res.effectType = 'attack_die';
         const atkM = (cleanedText || text).match(/(?:(?:have\s+)?([\w\s'-]+?)'s\s+)?(ranged\s+attack|attack)\s+(?:is|be)\s+(\d+|D\d+)(?:\s+instead\s+of\s+([A-Za-z0-9]+))?/i);
@@ -1906,7 +2293,147 @@
       return res;
     }
 
-    function AbilityBuilderModal({ isOpen, onClose, onApply, cardName, cardType, initialAbilities, initialClause }) {
+    function SearchableCardSelect({ value, onChange, allCards = [], placeholder = "Select or search a card..." }) {
+      const [isOpen, setIsOpen] = useState(false);
+      const [searchQuery, setSearchQuery] = useState('');
+      const containerRef = (typeof useRef !== 'undefined' ? useRef : React.useRef)(null);
+
+      useEffect(() => {
+        const handleClickOutside = (e) => {
+          if (containerRef.current && !containerRef.current.contains(e.target)) {
+            setIsOpen(false);
+          }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+      }, []);
+
+      const cardOptions = useMemo(() => {
+        const seen = new Set();
+        const list = [];
+        const addCard = (name, type) => {
+          const clean = (name || "").trim();
+          if (!clean) return;
+          const key = clean.toLowerCase();
+          if (seen.has(key)) return;
+          seen.add(key);
+          list.push({ name: clean, type: type || 'Card' });
+        };
+
+        // Ensure key official callout cards are always in the list
+        addCard("Pious' Armor", "Equipment");
+        addCard("Pious' Chestplate", "Equipment");
+        addCard("Pious", "Hero");
+        addCard("Broadsword", "Equipment");
+        addCard("Tavern Draught", "Flash");
+        addCard("Healing Potion", "Flash");
+
+        (allCards || []).forEach(c => {
+          const cName = c['Card Name'] || c['Hero Name'] || c.name;
+          const cType = c._type || c.type || 'Card';
+          addCard(cName, cType);
+        });
+
+        return list.sort((a, b) => a.name.localeCompare(b.name));
+      }, [allCards]);
+
+      const filteredOptions = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return cardOptions;
+        return cardOptions.filter(item =>
+          item.name.toLowerCase().includes(q) ||
+          (item.type && item.type.toLowerCase().includes(q))
+        );
+      }, [cardOptions, searchQuery]);
+
+      const exactMatchExists = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return true;
+        return cardOptions.some(item => item.name.toLowerCase() === q);
+      }, [cardOptions, searchQuery]);
+
+      return (
+        <div className="relative" ref={containerRef}>
+          <button
+            type="button"
+            onClick={() => setIsOpen(prev => !prev)}
+            className="w-full bg-slate-900 border border-slate-700 hover:border-amber-500/70 rounded px-2.5 py-1.5 text-xs text-slate-200 flex items-center justify-between gap-2 text-left focus:border-amber-500 outline-none transition">
+            <span className="truncate font-semibold text-amber-300">{value || placeholder}</span>
+            <span className="text-slate-400 text-[10px] shrink-0">{isOpen ? '▲' : '▼'}</span>
+          </button>
+
+          {isOpen && (
+            <div className="absolute z-[110] mt-1 w-full sm:w-72 bg-slate-950 border border-slate-700 rounded-lg shadow-2xl overflow-hidden">
+              <div className="p-2 border-b border-slate-800 bg-slate-900/90">
+                <div className="relative flex items-center">
+                  <span className="absolute left-2.5 text-slate-400 text-xs pointer-events-none">🔍</span>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Search card name or type..."
+                    className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded pl-7 pr-6 py-1 text-xs text-slate-100 outline-none"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2 text-slate-400 hover:text-white text-xs">
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="max-h-52 overflow-y-auto divide-y divide-slate-800/60">
+                {searchQuery.trim() && !exactMatchExists && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(searchQuery.trim());
+                      setIsOpen(false);
+                      setSearchQuery('');
+                    }}
+                    className="w-full px-3 py-2 text-left text-xs bg-amber-950/30 hover:bg-amber-900/40 text-amber-300 flex items-center justify-between gap-2">
+                    <span className="truncate">Use custom card: <strong>"{searchQuery.trim()}"</strong></span>
+                    <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/40 shrink-0">+ Custom</span>
+                  </button>
+                )}
+
+                {filteredOptions.length > 0 ? (
+                  filteredOptions.map(item => {
+                    const isSelected = value && value.toLowerCase() === item.name.toLowerCase();
+                    return (
+                      <button
+                        key={item.name}
+                        type="button"
+                        onClick={() => {
+                          onChange(item.name);
+                          setIsOpen(false);
+                          setSearchQuery('');
+                        }}
+                        className={`w-full px-3 py-1.5 text-left text-xs flex items-center justify-between gap-2 transition ${isSelected ? 'bg-amber-600/25 text-amber-300 font-bold' : 'text-slate-200 hover:bg-slate-800/80'}`}>
+                        <span className="truncate">{item.name}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 shrink-0">
+                          {item.type}
+                        </span>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="px-3 py-4 text-center text-xs text-slate-500">
+                    No matching cards found.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function AbilityBuilderModal({ isOpen, onClose, onApply, cardName, cardType, initialAbilities, initialClause, allCards = [] }) {
       if (!isOpen) return null;
 
       // Classification
@@ -1971,6 +2498,7 @@
       const [effectType, setEffectType] = useState('heal');
       const [effectTarget, setEffectTarget] = useState('targetCharacter');
       const [effectAmount, setEffectAmount] = useState(2);
+      const [effectScaleMode, setEffectScaleMode] = useState('fixed');
       const [effectStat, setEffectStat] = useState('power');
       const [effectDuration, setEffectDuration] = useState('thisTurn');
       const [effectKeyword, setEffectKeyword] = useState('Freeze');
@@ -1978,6 +2506,8 @@
       const [tokenAmount, setTokenAmount] = useState(1);
       const [lootCardsCount, setLootCardsCount] = useState(1);
       const [lootAction, setLootAction] = useState('hand');
+      const [lootTargetCard, setLootTargetCard] = useState("Pious' Armor");
+      const [lootTargetType, setLootTargetType] = useState('Equipment');
       const [attackOverrideMode, setAttackOverrideMode] = useState('die');
       const [attackFixedValue, setAttackFixedValue] = useState(8);
       const [attackInsteadOf, setAttackInsteadOf] = useState('none');
@@ -2017,8 +2547,8 @@
         selectedKeyword, profLevel,
         isOptional, isChanceRoll, chanceStyle,
         effectCondition, referringAction, conditionNote, condChargeThreshold, condClass, condEquipType, customConditionText,
-        effectType, effectTarget, effectAmount, effectStat, effectDuration, effectKeyword,
-        tokenName, tokenAmount, lootCardsCount, lootAction,
+        effectType, effectTarget, effectAmount, effectScaleMode, effectStat, effectDuration, effectKeyword,
+        tokenName, tokenAmount, lootCardsCount, lootAction, lootTargetCard, lootTargetType,
         attackOverrideMode, attackFixedValue, attackInsteadOf, attackStatTarget, attackDieValue, customEffectText,
         counterstrikeHeroConstraint, counterstrikeFollowUp, counterstrikeCustomFollowUp,
         repeatRollType, repeatStopCondition, repeatMaxCount, repeatSuccessOutcome, strikeConsequence
@@ -2087,6 +2617,7 @@
         setEffectType(next.effectType);
         setEffectTarget(next.effectTarget);
         setEffectAmount(next.effectAmount);
+        setEffectScaleMode(next.effectScaleMode || 'fixed');
         setEffectStat(next.effectStat);
         setEffectDuration(next.effectDuration);
         setEffectKeyword(next.effectKeyword);
@@ -2094,6 +2625,8 @@
         setTokenAmount(next.tokenAmount);
         setLootCardsCount(next.lootCardsCount);
         setLootAction(next.lootAction);
+        setLootTargetCard(next.lootTargetCard || "Pious' Armor");
+        setLootTargetType(next.lootTargetType || 'Equipment');
         setAttackOverrideMode(next.attackOverrideMode || 'die');
         setAttackFixedValue(next.attackFixedValue || 8);
         setAttackInsteadOf(next.attackInsteadOf || 'none');
@@ -2341,6 +2874,7 @@
                           <option value="onStrike">On Strike declaration (Strike 1 / 2 / 3)</option>
                           <option value="onDamageDealt">Whenever dealing combat damage</option>
                           <option value="onDamageTaken">Whenever taking combat damage</option>
+                          <option value="onDamageReduced">Whenever reducing incoming strike damage using defense (Pious)</option>
                           <option value="onHeal">Whenever health is gained</option>
                           <option value="onDraw">Whenever a card is drawn</option>
                           <option value="onChanceWin">On chance roll result</option>
@@ -2554,6 +3088,18 @@
                           </select>
                         </div>
                       )}
+
+                      {/* Secondary Selectors for On-Damage Reduced Using Defense */}
+                      {trigEvent === 'onDamageReduced' && (
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">2. Who Reduces Damage Using Defense?</label>
+                          <select value={trigSubject} onChange={e => { setTrigSubject(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                            <option value="self">This card ({cardName || 'Pious'})</option>
+                            <option value="hero">Your Hero</option>
+                            <option value="friendlyAlly">An ally you control</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -2566,12 +3112,27 @@
                         <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">1. Static Condition Category</label>
                         <select value={staticConditionMode} onChange={e => { setStaticConditionMode(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 font-bold focus:border-amber-500">
                           <option value="always">Always Active (Continuous passive)</option>
+                          <option value="user_is">Specific User Requirement (If user is Pious / Athran)</option>
                           <option value="zone_role">Location & Frontline Role (Vanguard / Bench)</option>
                           <option value="control_synergy">Control Synergy (Tribal / Class / Race)</option>
                           <option value="combat_precondition">Combat Preconditions (Defeated enemy, etc.)</option>
                           <option value="scaling">Resource & Counter Scaling (Charge, Discard)</option>
                         </select>
                       </div>
+
+                      {/* Sub-selectors for Specific User Requirement */}
+                      {staticConditionMode === 'user_is' && (
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-amber-400 block mb-1">2. Required User / Hero Name</label>
+                          <input
+                            type="text"
+                            value={staticClass || 'Pious'}
+                            onChange={e => { setStaticClass(e.target.value); setIsManualEdit(false); }}
+                            placeholder="e.g. Pious, Athran, Prince of Korvas"
+                            className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200"
+                          />
+                        </div>
+                      )}
 
                       {/* Sub-selectors for Zone & Role */}
                       {staticConditionMode === 'zone_role' && (
@@ -2950,14 +3511,30 @@
                       </>
                     )}
 
-                    {/* Numeric Amount */}
+                    {/* Numeric Amount & Dynamic X Scaling */}
                     {['heal', 'draw', 'charge', 'mana', 'damage', 'lose_health', 'stat_buff'].includes(effectType) && (
-                      <div>
-                        <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
-                          {effectType === 'draw' ? 'Number of Cards' : (effectType === 'mana' ? 'Mana Gained' : (effectType === 'charge' ? 'Charge Tokens' : 'Amount'))}
-                        </label>
-                        <input type="number" min="1" max="20" value={effectAmount} onChange={e => { setEffectAmount(parseInt(e.target.value) || 1); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200" />
-                      </div>
+                      <>
+                        {effectType !== 'draw' && (
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Amount / Scaling Mode</label>
+                            <select value={effectScaleMode} onChange={e => { setEffectScaleMode(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                              <option value="fixed">Fixed Number (e.g. +2)</option>
+                              <option value="damage_reduced">+X where X is Damage Reduced (Pious)</option>
+                              <option value="damage_dealt">+X where X is Combat Damage Dealt</option>
+                              <option value="attack_roll">+X where X is the Attack Roll</option>
+                              <option value="health_gained">+X where X is Health Gained</option>
+                            </select>
+                          </div>
+                        )}
+                        {(effectType === 'draw' || effectScaleMode === 'fixed') && (
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                              {effectType === 'draw' ? 'Number of Cards' : (effectType === 'mana' ? 'Mana Gained' : (effectType === 'charge' ? 'Charge Tokens' : 'Amount'))}
+                            </label>
+                            <input type="number" min="1" max="20" value={effectAmount} onChange={e => { setEffectAmount(parseInt(e.target.value) || 1); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200" />
+                          </div>
+                        )}
+                      </>
                     )}
 
                     {/* Stat Buff Sub-options */}
@@ -2971,7 +3548,7 @@
                             <option value="defense">Defense</option>
                             <option value="rangedAttack">Ranged Attack</option>
                             <option value="maxHealth">Max Health</option>
-                            <option value="health">Temporary Health</option>
+                            <option value="health">Health (+X Health this turn)</option>
                             <option value="accuracy">Accuracy Rolls</option>
                           </select>
                         </div>
@@ -3030,17 +3607,44 @@
                     {effectType === 'look_loot' && (
                       <>
                         <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Number of Cards</label>
-                          <input type="number" min="1" max="5" value={lootCardsCount} onChange={e => { setLootCardsCount(parseInt(e.target.value) || 1); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200" />
-                        </div>
-                        <div>
                           <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Loot Action</label>
                           <select value={lootAction} onChange={e => { setLootAction(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
-                            <option value="hand">Put that card into your hand</option>
-                            <option value="reveal_skill">Reveal a Skill card and put into hand</option>
-                            <option value="search_level">Search for skill 1 level higher</option>
+                            <option value="search_specific_card">Search Loot for Specific Named Card & Shuffle (Pious)</option>
+                            <option value="search_type">Search Loot for Card Type & Shuffle</option>
+                            <option value="hand">Look at top card(s) & put into hand</option>
+                            <option value="reveal_skill">Look at top X, reveal a Skill & put into hand</option>
+                            <option value="search_level">Search for skill 1 level higher & Shuffle</option>
                           </select>
                         </div>
+                        {lootAction === 'search_specific_card' && (
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-amber-400 block mb-1">Specific Card to Search (Searchable)</label>
+                            <SearchableCardSelect
+                              value={lootTargetCard}
+                              onChange={val => { setLootTargetCard(val); setIsManualEdit(false); }}
+                              allCards={allCards}
+                              placeholder="Search & select card..."
+                            />
+                          </div>
+                        )}
+                        {lootAction === 'search_type' && (
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Card Type to Search</label>
+                            <select value={lootTargetType} onChange={e => { setLootTargetType(e.target.value); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200">
+                              <option value="Equipment">Equipment</option>
+                              <option value="Skill">Skill</option>
+                              <option value="Ally">Ally</option>
+                              <option value="Synergy">Synergy</option>
+                              <option value="Flash">Flash</option>
+                            </select>
+                          </div>
+                        )}
+                        {(lootAction === 'hand' || lootAction === 'reveal_skill') && (
+                          <div>
+                            <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Number of Top Cards</label>
+                            <input type="number" min="1" max="5" value={lootCardsCount} onChange={e => { setLootCardsCount(parseInt(e.target.value) || 1); setIsManualEdit(false); }} className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200" />
+                          </div>
+                        )}
                       </>
                     )}
 
@@ -3464,6 +4068,10 @@
       };
 
       useEffect(() => {
+        attachKeywordTooltipListeners();
+      }, []);
+
+      useEffect(() => {
         if (!supabase) return;
         pullCloudData();
 
@@ -3861,6 +4469,14 @@
           if (!existingCard) return;
           
           const targetCard = { ...existingCard, [key]: val };
+          if (targetCard._type === 'Flash') {
+              if (targetCard["Flash Subtype"] === 'Item') {
+                  targetCard["Mana Cost"] = "";
+                  targetCard["Faction"] = "";
+              } else if (targetCard["Flash Subtype"] === 'Event') {
+                  targetCard["Gold Cost"] = "";
+              }
+          }
 
           // 2. Update local state
           setCards(prevCards => prevCards.map(c => c._id === cardId ? targetCard : c));
@@ -3952,7 +4568,18 @@
       
       const handleForgeChange = (key, val) => {
           if (FIELD_TYPES[key]?.type === 'number' && val !== "") val = parseFloat(val);
-          setForgeData(prev => ({ ...prev, [key]: val }));
+          setForgeData(prev => {
+              const next = { ...prev, [key]: val };
+              if (forgeCategory === 'Flash') {
+                  if (next["Flash Subtype"] === 'Item') {
+                      delete next["Mana Cost"];
+                      delete next["Faction"];
+                  } else if (next["Flash Subtype"] === 'Event') {
+                      delete next["Gold Cost"];
+                  }
+              }
+              return next;
+          });
       };
       
       const handleForgeSubmit = async (e) => {
@@ -5869,6 +6496,7 @@
           <AbilityBuilderModal
             isOpen={showAbilityBuilder}
             onClose={() => { setShowAbilityBuilder(false); setInitialBuilderClause(''); }}
+            allCards={cards}
             cardName={abilityBuilderTarget === 'forge' ? (forgeData['Card Name'] || '') : (modalCard ? (modalCard['Card Name'] || modalCard['Hero Name'] || '') : '')}
             cardType={abilityBuilderTarget === 'forge' ? forgeCategory : (modalCard ? modalCard._type : 'Ally')}
             initialAbilities={abilityBuilderTarget === 'forge' ? (forgeData['Abilities'] || '') : (modalCard ? (modalCard['Abilities'] || '') : '')}
@@ -6133,7 +6761,42 @@
       );
     }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+    class ErrorBoundary extends React.Component {
+      constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+      }
+      static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+      }
+      componentDidCatch(error, errorInfo) {
+        console.error("ErrorBoundary caught an error:", error, errorInfo);
+      }
+      render() {
+        if (this.state.hasError) {
+          return (
+            <div className="flex flex-col items-center justify-center h-screen bg-slate-950 text-slate-100 p-6 text-center">
+              <div className="bg-slate-900 border border-rose-500/50 p-6 rounded-xl max-w-md shadow-2xl">
+                <h2 className="text-rose-400 font-bold text-lg mb-2">Something went wrong</h2>
+                <p className="text-xs text-slate-400 mb-4">{this.state.error?.message || "An unexpected error occurred."}</p>
+                <button
+                  onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-bold transition">
+                  Reload Application
+                </button>
+              </div>
+            </div>
+          );
+        }
+        return this.props.children;
+      }
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <ErrorBoundary>
+        <App/>
+      </ErrorBoundary>
+    );
   </script>
 </body>
 </html>

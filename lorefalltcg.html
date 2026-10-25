@@ -1178,6 +1178,98 @@
     font-weight: 400;
     color: #cbd5e1;
   }
+  /* Keyword Highlighting & Floating Tooltip */
+  .keyword-highlight {
+    color: #fbbf24;
+    font-weight: 600;
+    text-decoration: underline dotted #f59e0b;
+    text-underline-offset: 3px;
+    cursor: help;
+    padding: 1px 3px;
+    margin: 0 1px;
+    border-radius: 3px;
+    background: rgba(245, 158, 11, 0.08);
+    transition: all 0.15s ease-in-out;
+    user-select: text;
+    display: inline;
+  }
+  .keyword-highlight:hover,
+  .keyword-highlight:focus {
+    background: rgba(245, 158, 11, 0.22);
+    color: #fffbeb;
+    text-decoration: underline solid #fef08a;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.45);
+    outline: none;
+  }
+  .keyword-pill {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    color: #fbbf24;
+    font-weight: 700;
+    cursor: help;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    text-decoration: none !important;
+  }
+  .keyword-pill:hover {
+    background: rgba(245, 158, 11, 0.3);
+    border-color: #fef08a;
+    color: #fffbeb;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+  }
+  .keyword-floating-tooltip {
+    position: fixed;
+    z-index: 1000000;
+    background: #090e1a;
+    color: #f1f5f9;
+    border: 1.5px solid #f59e0b;
+    border-radius: 8px;
+    padding: 10px 14px;
+    box-shadow: 0 12px 35px -4px rgba(0, 0, 0, 0.85), 0 0 16px rgba(245, 158, 11, 0.25);
+    font-size: 0.8rem;
+    line-height: 1.4;
+    max-width: 290px;
+    min-width: 180px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    backdrop-filter: blur(8px);
+    font-family: inherit;
+    text-align: left;
+  }
+  .keyword-floating-tooltip.active {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .kft-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 5px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(245, 158, 11, 0.3);
+  }
+  .kft-icon {
+    font-size: 1rem;
+    line-height: 1;
+  }
+  .kft-title {
+    font-weight: 800;
+    color: #fef08a;
+    letter-spacing: 0.5px;
+    text-transform: capitalize;
+  }
+  .kft-body {
+    color: #cbd5e1;
+    font-size: 0.76rem;
+    font-weight: 400;
+    line-height: 1.35;
+  }
   /* Modal Layout & Side UI Panel for Abilities & Actions */
   .fc-modal-layout {
     display: flex;
@@ -2503,6 +2595,10 @@ const RAW_CARDS_JSON = [
     "data": { "Attack": "D6", "Card Name": "Dantalion's Might", "Gold Cost": 5, "Attack Type": "Melee", "Card Rarity": "Uncommon", "Equipment Type": "Two-Handed Weapon", "Equipment Subtype": "Sword", "Charge Requirement": 2, "Abilities": "User has piercing if equipped by Athran, Prince of Korvas.", "mechanics": { "staticModifiers": [ { "condition": { "type": "equippedBy", "name": "Athran, Prince of Korvas" }, "effect": { "action": "grantKeyword", "value": "Piercing", "target": "selfEquippedCharacter" } } ] } }
   },
   {
+    "id": "Equipment_Pious' Chestplate", "type": "Equipment",
+    "data": { "Card Name": "Pious' Chestplate", "Gold Cost": 4, "Card Rarity": "Rare", "Equipment Type": "Armor", "Equipment Subtype": "Chestplate", "Charge Requirement": 1, "Abilities": "If user is Pious, he has protection from enemy abilities.\n(Protection: Cannot be the target of.)", "mechanics": { "staticModifiers": [ { "condition": { "type": "equippedBy", "name": "Pious" }, "effect": { "action": "grantKeyword", "value": "protectionFromEnemyAbilities", "target": "selfEquippedCharacter" } } ] } }
+  },
+  {
     "id": "Equipment_Sharpened Broadsword", "type": "Equipment",
     "data": { "Attack": "D4", "Card Name": "Sharpened Broadsword", "Gold Cost": 3, "Attack Type": "Melee", "Card Rarity": "Common", "Equipment Type": "One-Handed Weapon", "Equipment Subtype": "Sword", "Charge Requirement": 1, "Abilities": "", "mechanics": {} }
   },
@@ -2531,7 +2627,7 @@ function stripAbilityReminders(text) {
   if (!text) return "";
   // Remove keyword reminder lines like "Curse: (..." or "Poison: (..." or "Leach: (..." or "Overreach: ..."
   return text
-    .replace(/^(Curse|Poison|Leach|Leech|Overreach|Revive|Advantage|Allegiance|Piercing|Knockback|Freeze|Aptitude|Overcharge|Blind)\s*:\s*\(?.*$/gim, "")
+    .replace(/^(Curse|Poison|Leach|Leech|Overreach|Revive|Advantage|Allegiance|Piercing|Knockback|Freeze|Aptitude|Overcharge|Blind|Protection)\s*:\s*\(?.*$/gim, "")
     .replace(/\((?!choose a skill)[^)]*\)?/gi, "")
     .trim();
 }
@@ -3432,6 +3528,21 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
       mech.staticModifiers.push({ effect: { action: "grantKeyword", value: "advantage", target: selfOrEquippedTarget } });
     }
 
+    // Protection keywords (conditional e.g. "If user is Pious, he has protection from enemy abilities." or standalone "Protection")
+    const equippedProtectionMatch = clause.match(/(?:If\s+user\s+is|if\s+equipped\s+by)\s+([A-Za-z0-9' ,-]+?),?\s*(?:he|user|she|they)?\s*(?:has|have|gets?)\s+protection(?:\s+from\s+enemy\s+abilities)?/i) ||
+                                    clause.match(/(?:he|user|she|they)?\s*(?:has|have|gets?)\s+protection(?:\s+from\s+enemy\s+abilities)?\s+(?:if\s+user\s+is|if\s+equipped\s+by)\s+([A-Za-z0-9' ,-]+)/i);
+    if (equippedProtectionMatch) {
+      const heroName = equippedProtectionMatch[1].trim();
+      mech.staticModifiers.push({
+        condition: { type: "equippedBy", name: heroName },
+        effect: { action: "grantKeyword", value: "protectionFromEnemyAbilities", target: "selfEquippedCharacter" }
+      });
+    } else if (/\b(?:has|have|gets?|grant)\s+protection\s+from\s+enemy\s+abilities\b|\bprotection\s+from\s+enemy\s+abilities\b/i.test(clause)) {
+      mech.staticModifiers.push({ effect: { action: "grantKeyword", value: "protectionFromEnemyAbilities", target: selfOrEquippedTarget } });
+    } else if (/\b(?:has|have|gets?|grant)\s+protection\b|\bProtection\b/i.test(clause) && !/damage\s+reduction/i.test(clause)) {
+      mech.staticModifiers.push({ effect: { action: "grantKeyword", value: "protectionFromEnemyAbilities", target: selfOrEquippedTarget } });
+    }
+
     // "+1 dexterity." / "+2 defense." / "+1 to accuracy rolls." / "User gets +2 to accuracy rolls."
     const simpleStatMod = clause.match(/^(?:User\s+gets\s+)?([+-]\d+)\s+(?:to\s+)?(dexterity|power|defense|accuracy(?:\s+rolls)?|ranged\s+attack)\.?$/i);
     if (simpleStatMod) {
@@ -3915,7 +4026,8 @@ function hasValidBoardTarget(player, targetType) {
   if (!player || !gameState.players || gameState.players.length < 2) return false;
   const opp = gameState.players[1 - player.index];
   if (!opp) return false;
-  const oppAllies = [...opp.battleZone, ...opp.bench].filter(u => u !== null);
+  const isProtected = (u, pl) => checkKeyword(u, pl, "protection") || checkKeyword(u, pl, "protectionFromEnemyAbilities");
+  const oppAllies = [...opp.battleZone, ...opp.bench].filter(u => u !== null && !isProtected(u, opp));
   const friendlyAllies = [...player.battleZone, ...player.bench].filter(u => u !== null);
   const friendlySkills = (player.skills || []).filter(s => s !== null);
   const oppSkills = (opp.skills || []).filter(s => s !== null);
@@ -3936,7 +4048,8 @@ function hasValidBoardTarget(player, targetType) {
     return (friendlyAllies.length + oppAllies.length + friendlySkills.length + oppSkills.length) > 0;
   }
   if (targetType === "targetCharacter") {
-    return Boolean(player.hero || opp.hero);
+    const oppHeroTargetable = opp.hero && !isProtected(opp.hero, opp);
+    return Boolean(player.hero || oppHeroTargetable || friendlyAllies.length > 0 || oppAllies.length > 0);
   }
   return true;
 }
@@ -3944,9 +4057,11 @@ function hasValidBoardTarget(player, targetType) {
 function selectAITarget(aiPlayer, sourceCard, effect, targetType) {
   const opp = gameState.players[1 - aiPlayer.index];
   const diff = gameState.aiDifficulty || "MEDIUM";
+  const hasEnemyProt = (u) => checkKeyword(u, opp, "protection") || checkKeyword(u, opp, "protectionFromEnemyAbilities");
   const friendlyAllies = [...aiPlayer.battleZone, ...aiPlayer.bench].filter(u => u !== null);
   const friendlySkills = aiPlayer.skills.filter(s => s !== null);
-  const enemyAllies = [...opp.battleZone, ...opp.bench].filter(u => u !== null);
+  const enemyAllies = [...opp.battleZone, ...opp.bench].filter(u => u !== null && !hasEnemyProt(u));
+  const canTargetOppHero = opp.hero && !hasEnemyProt(opp.hero);
 
   // Unwrap actual effect action if wrapped in chanceRoll or multipleEffects
   let primaryEffect = effect;
@@ -4031,16 +4146,16 @@ function selectAITarget(aiPlayer, sourceCard, effect, targetType) {
         chargedEnemies.sort((a, b) => (b.charge || 0) - (a.charge || 0));
         return chargedEnemies[0];
       }
-      return enemyAllies[0] || opp.hero;
+      return enemyAllies[0] || (canTargetOppHero ? opp.hero : null);
     }
     const dmg = primaryEffect?.amount || 1;
-    if (opp.hero.currentHealth <= dmg) return opp.hero;
+    if (canTargetOppHero && opp.hero.currentHealth <= dmg) return opp.hero;
     const killable = enemyAllies.filter(u => u.currentHealth <= dmg);
     if (killable.length > 0 && diff !== "EASY") {
       killable.sort((a, b) => ((b.charge || 0) + (b.health || 0)) - ((a.charge || 0) + (a.health || 0)));
       return killable[0];
     }
-    return enemyAllies[0] || opp.hero;
+    return enemyAllies[0] || (canTargetOppHero ? opp.hero : null);
   }
 
   if (act === "heal" || act === "buffHealth" || (sourceCard && (sourceCard.id === "favars_elixir" || sourceCard.id === "small_healing_potion"))) {
@@ -4170,7 +4285,23 @@ function evaluateCondition(condition, card, context) {
 
   if (condition.type === "isEquippedToHero") return p.hero.equipment && p.hero.equipment.includes(card);
   if (condition.type === "isEquippedToAlly") return [...p.battleZone, ...p.bench].some(u => u && u.equipment && u.equipment.includes(card));
-  if (condition.type === "equippedBy") return p.hero.name === condition.name && p.hero.equipment && p.hero.equipment.includes(card);
+  if (condition.type === "equippedBy") {
+    const checkName = (u) => {
+      if (!u || !u.name) return false;
+      if (u.name.toLowerCase() === condition.name.toLowerCase()) return true;
+      try {
+        const regex = new RegExp(`\\b${condition.name}\\b`, 'i');
+        return regex.test(u.name);
+      } catch (e) {
+        return u.name.toLowerCase().includes(condition.name.toLowerCase());
+      }
+    };
+    if (p.hero && p.hero.equipment && p.hero.equipment.includes(card) && checkName(p.hero)) return true;
+    for (let u of [...p.battleZone, ...p.bench]) {
+      if (u && u.equipment && u.equipment.includes(card) && checkName(u)) return true;
+    }
+    return false;
+  }
 
   // Allegiance condition
   if (condition.type === "allegiance") {
@@ -7213,6 +7344,9 @@ const KNOWN_GITHUB_ART_MAP = {
   "Mana Potion": "Mana Potion.png",
   "Neophyte Seeress": "Neophyte Seeress.png",
   "Piercing Shot": "Piercing Shot.png",
+  "Pious": "Pious.png",
+  "Pious' Armor": "Pious' Armor.png",
+  "Pious' Chestplate": "Pious' Chestplate.png",
   "Pivot Swing": "Pivot Swing.png",
   "Potion of Forsight": "Potion of Forsight.png",
   "Potion of Intelligence": "Potion of Intelligence.png",
@@ -8199,7 +8333,7 @@ function isActivatedAbilityChunk(chunk) {
 }
 
 function isKeywordReminderChunk(chunk) {
-  return /^(Curse|Poison|Leach|Leech|Overreach|Revive|Advantage|Allegiance|Piercing|Knockback|Freeze|Aptitude|Overcharge|Blind)\s*[:(]/i.test((chunk || "").trim());
+  return /^(Curse|Poison|Leach|Leech|Overreach|Revive|Advantage|Allegiance|Piercing|Pierce Proof|Knockback|Freeze|Aptitude|Overcharge|Blind|Protection)\s*[:(]/i.test((chunk || "").trim());
 }
 
 function isClearlyPassiveChunk(chunk) {
@@ -8266,10 +8400,312 @@ function canActivateAbility(card, ab, p, zone, phase, omitActions = false) {
   return true;
 }
 
+const KEYWORD_DEFINITIONS = {
+  "Freeze": {
+    name: "Freeze",
+    icon: "❄️",
+    shortDesc: "Roll for chance. If successful, defending enemy is exhausted until your next turn.",
+    fullText: "Freeze (Roll for chance. If successful, defending enemy is exhausted until your next turn.)"
+  },
+  "Blind": {
+    name: "Blind",
+    icon: "👁️",
+    shortDesc: "Enemies targeted by affected character roll chance for evasion.",
+    fullText: "Blind (Enemies targeted by affected character roll chance for evasion.)"
+  },
+  "Double Advantage": {
+    name: "Double Advantage",
+    icon: "🎲🎲",
+    shortDesc: "Roll three attack dice and take the highest result.",
+    fullText: "Roll with double advantage."
+  },
+  "Advantage": {
+    name: "Advantage",
+    icon: "🎲",
+    shortDesc: "Roll two attack dice and take the higher result.",
+    fullText: "User has advantage."
+  },
+  "Disadvantage": {
+    name: "Disadvantage",
+    icon: "⚠️",
+    shortDesc: "Roll two dice and take the lower result.",
+    fullText: "Target rolls with disadvantage on chance and attack rolls."
+  },
+  "Pierce Proof": {
+    name: "Pierce Proof",
+    icon: "🛡️",
+    shortDesc: "Immune to piercing damage.",
+    fullText: "Pierce Proof (Immune to piercing damage.)"
+  },
+  "Piercing": {
+    name: "Piercing",
+    icon: "🗡️",
+    shortDesc: "Ignores all defense ratings when dealing damage.",
+    fullText: "Piercing (Ignores all defense ratings.)"
+  },
+  "Knockback": {
+    name: "Knockback",
+    icon: "💥",
+    shortDesc: "Depletes 2 charge from defending enemy or their learned skill.",
+    fullText: "Knockback (When defending enemy takes combat damage, they lose 2 charge. If defender is a hero, choose a card among their learned skills. That skill loses 2 charge.)"
+  },
+  "Overreach": {
+    name: "Overreach",
+    icon: "🏹",
+    shortDesc: "Can strike any enemy ally regardless of Vanguard frontline priority.",
+    fullText: "Overreach (Can strike any enemy ally regardless of Vanguard frontline priority.)"
+  },
+  "Leach": {
+    name: "Leach",
+    icon: "🩸",
+    shortDesc: "Whenever you deal combat damage, you gain that much health.",
+    fullText: "Leach (Whenever you deal combat damage, you gain that much health.)"
+  },
+  "Leech": {
+    name: "Leech",
+    icon: "🩸",
+    shortDesc: "Whenever you deal combat damage, you gain that much health.",
+    fullText: "Leech (Whenever you deal combat damage, you gain that much health.)"
+  },
+  "Poison": {
+    name: "Poison",
+    icon: "🧪",
+    shortDesc: "Defending enemy takes 2 non-combat damage at the start of their turn.",
+    fullText: "Poison (Defending enemy takes 2 non-combat damage at the start of their turn.)"
+  },
+  "Curse": {
+    name: "Curse",
+    icon: "🔮",
+    shortDesc: "Target rolls with disadvantage on chance and attack rolls.",
+    fullText: "Curse (Target rolls with disadvantage on chance and attack rolls.)"
+  },
+  "Aptitude": {
+    name: "Aptitude",
+    icon: "⚡",
+    shortDesc: "Dexterity modifiers to attack rolls are doubled.",
+    fullText: "Aptitude (Dexterity modifiers to attack rolls are doubled.)"
+  },
+  "Allegiance": {
+    name: "Allegiance",
+    icon: "🤝",
+    shortDesc: "All other characters of the same class type as this character get advantage.",
+    fullText: "Allegiance (All other characters of the same class type as this character get advantage.)"
+  },
+  "Overcharge": {
+    name: "Overcharge",
+    icon: "⚡",
+    shortDesc: "For every charge above base threshold, they get +1 power.",
+    fullText: "Overcharge (For every charge this character has above its base threshold, they get +1 power.)"
+  },
+  "Chance for Critical": {
+    name: "Chance for Critical",
+    icon: "🎯",
+    shortDesc: "Grants chance to roll critical hit on next strike.",
+    fullText: "Target character gets chance for critical this turn."
+  },
+  "Chance for Evasion": {
+    name: "Chance for Evasion",
+    icon: "💨",
+    shortDesc: "Grants chance to evade incoming combat damage.",
+    fullText: "Target character gets chance for evasion this turn."
+  },
+  "Critical": {
+    name: "Critical",
+    icon: "🎯",
+    shortDesc: "Grants chance to roll critical hit on next strike.",
+    fullText: "Target character gets chance for critical this turn."
+  },
+  "Evasion": {
+    name: "Evasion",
+    icon: "💨",
+    shortDesc: "Grants chance to evade incoming combat damage.",
+    fullText: "Target character gets chance for evasion this turn."
+  },
+  "Protection": {
+    name: "Protection",
+    icon: "🛡️",
+    shortDesc: "Cannot be the target of enemy abilities.",
+    fullText: "Protection (Cannot be the target of.)"
+  },
+  "Revive": {
+    name: "Revive",
+    icon: "✨",
+    shortDesc: "Return an ally card from your discard pile to the battlefield.",
+    fullText: "Revive target ally."
+  }
+};
+
+const KEYWORD_SORTED_NAMES = Object.keys(KEYWORD_DEFINITIONS).sort((a, b) => b.length - a.length);
+const KEYWORD_REGEX = new RegExp(`\\b(${KEYWORD_SORTED_NAMES.map(s => s.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')).join('|')})\\b`, 'gi');
+
+function escapeHtmlAttr(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function findKeywordDef(rawName) {
+  if (!rawName) return null;
+  const name = String(rawName).trim().toLowerCase();
+  for (const k of Object.keys(KEYWORD_DEFINITIONS)) {
+    if (k.toLowerCase() === name) return KEYWORD_DEFINITIONS[k];
+  }
+  if (name === "protectionfromenemyabilities" || name.includes("protection")) return KEYWORD_DEFINITIONS["Protection"];
+  if (name === "pierceproof" || name === "pierce_proof") return KEYWORD_DEFINITIONS["Pierce Proof"];
+  if (name === "doubleadvantage" || name === "double_advantage") return KEYWORD_DEFINITIONS["Double Advantage"];
+  if (name === "chanceforcritical" || name === "chance_for_critical" || name === "critical") return KEYWORD_DEFINITIONS["Chance for Critical"];
+  if (name === "chanceforevasion" || name === "chance_for_evasion" || name === "evasion") return KEYWORD_DEFINITIONS["Chance for Evasion"];
+  if (name === "canstrikefrombench") return KEYWORD_DEFINITIONS["Overreach"];
+  return null;
+}
+
+function highlightKeywordsInText(text) {
+  if (!text) return "";
+  // Split on HTML tags so we never replace keywords inside tag attributes or element names
+  const tokens = text.split(/(<[^>]+>)/g);
+  return tokens.map(token => {
+    if (token.startsWith("<") && token.endsWith(">")) {
+      return token;
+    }
+    return token.replace(KEYWORD_REGEX, (match) => {
+      const def = findKeywordDef(match);
+      if (!def) return match;
+      const cleanDesc = escapeHtmlAttr(def.shortDesc || def.fullText);
+      const cleanName = escapeHtmlAttr(def.name);
+      const icon = def.icon || "✨";
+      return `<span class="keyword-highlight" data-keyword="${cleanName}" data-desc="${cleanDesc}" data-icon="${icon}" tabindex="0">${match}</span>`;
+    });
+  }).join('');
+}
+
+function getKeywordsOnCard(card) {
+  if (!card) return [];
+  const found = new Set();
+  const text = (card.abilities || '') + ' ' + (card.description || '');
+  for (const kw of Object.keys(KEYWORD_DEFINITIONS)) {
+    if (kw === "Critical" || kw === "Evasion" || kw === "Leech") continue;
+    const reg = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\b`, 'i');
+    if (reg.test(text)) {
+      found.add(KEYWORD_DEFINITIONS[kw].name);
+    }
+  }
+  if (card.mechanics) {
+    const checkMod = (m) => {
+      if (m && m.effect && m.effect.action === "grantKeyword" && m.effect.value) {
+        const def = findKeywordDef(m.effect.value);
+        if (def) found.add(def.name);
+      }
+    };
+    (card.mechanics.staticModifiers || []).forEach(checkMod);
+    (card.mechanics.passiveAbilities || []).forEach(p => { if (p && p.effect) checkMod(p); });
+  }
+  return Array.from(found);
+}
+
+let keywordListenersAttached = false;
+function attachKeywordTooltipListeners() {
+  if (keywordListenersAttached) return;
+  keywordListenersAttached = true;
+
+  let tooltip = document.getElementById('keyword-floating-tooltip');
+  if (!tooltip) {
+    tooltip = document.createElement('div');
+    tooltip.id = 'keyword-floating-tooltip';
+    tooltip.className = 'keyword-floating-tooltip';
+    tooltip.style.display = 'none';
+    tooltip.innerHTML = `
+      <div class="kft-header">
+        <span class="kft-icon" id="kft-icon">✨</span>
+        <span class="kft-title" id="kft-title">Keyword</span>
+      </div>
+      <div class="kft-body" id="kft-body">Description</div>
+    `;
+    document.body.appendChild(tooltip);
+  }
+
+  const iconEl = document.getElementById('kft-icon');
+  const titleEl = document.getElementById('kft-title');
+  const bodyEl = document.getElementById('kft-body');
+
+  function show(el) {
+    const kwName = el.getAttribute('data-keyword') || el.innerText.trim();
+    const def = findKeywordDef(kwName);
+    const desc = el.getAttribute('data-desc') || (def ? (def.shortDesc || def.fullText) : '');
+    const icon = el.getAttribute('data-icon') || (def ? (def.icon || '✨') : '✨');
+
+    if (!desc) return;
+
+    if (iconEl) iconEl.innerText = icon;
+    if (titleEl) titleEl.innerText = def ? def.name : kwName;
+    if (bodyEl) bodyEl.innerText = desc;
+
+    tooltip.style.display = 'block';
+
+    const rect = el.getBoundingClientRect();
+    const tipRect = tooltip.getBoundingClientRect();
+
+    let left = rect.left + (rect.width / 2) - (tipRect.width / 2);
+    const margin = 10;
+    if (left < margin) left = margin;
+    if (left + tipRect.width > window.innerWidth - margin) {
+      left = window.innerWidth - tipRect.width - margin;
+    }
+
+    let top = rect.top - tipRect.height - 8;
+    if (top < margin) {
+      top = rect.bottom + 8;
+    }
+
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+    tooltip.classList.add('active');
+  }
+
+  function hide() {
+    tooltip.classList.remove('active');
+    setTimeout(() => {
+      if (!tooltip.classList.contains('active')) {
+        tooltip.style.display = 'none';
+      }
+    }, 150);
+  }
+
+  document.addEventListener('mouseover', (e) => {
+    const target = e.target.closest('.keyword-highlight');
+    if (target) show(target);
+  });
+
+  document.addEventListener('mouseout', (e) => {
+    const target = e.target.closest('.keyword-highlight');
+    if (target) hide();
+  });
+
+  document.addEventListener('focusin', (e) => {
+    const target = e.target.closest('.keyword-highlight');
+    if (target) show(target);
+  });
+
+  document.addEventListener('focusout', (e) => {
+    const target = e.target.closest('.keyword-highlight');
+    if (target) hide();
+  });
+
+  window.addEventListener('scroll', () => hide(), true);
+}
+if (typeof document !== 'undefined') {
+  if (document.readyState !== 'loading') attachKeywordTooltipListeners();
+  else document.addEventListener('DOMContentLoaded', attachKeywordTooltipListeners);
+}
+
 function formatAbilityReminderItalics(text) {
   if (!text) return "";
-  const withItalics = text.replace(/\(([^)]+)\)/g, '<span class="ability-reminder">($1)</span>');
-  return withItalics.replace(/\r?\n/g, '<br>');
+  let formatted = text.replace(/\(([^)]+)\)/g, '<span class="ability-reminder">($1)</span>');
+  formatted = highlightKeywordsInText(formatted);
+  return formatted.replace(/\r?\n/g, '<br>');
 }
 
 function renderAbilityBoxesHTML(card, p, zone, slot, phase, omitActions, disabledOpacity) {
@@ -8513,6 +8949,22 @@ function buildCardSidePanelHTML(card, p, zone, slot, isMyTurn, phase) {
     `;
   }
 
+  // Keywords Badges Header
+  const cardKeywords = getKeywordsOnCard(card);
+  let keywordsHeaderHTML = "";
+  if (cardKeywords.length > 0) {
+    keywordsHeaderHTML = `
+      <div style="margin-bottom:10px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+        <span style="font-size:0.65rem; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px;">Keywords:</span>
+        ${cardKeywords.map(kw => {
+          const def = findKeywordDef(kw);
+          if (!def) return '';
+          return `<span class="keyword-highlight keyword-pill" data-keyword="${escapeHtmlAttr(def.name)}" data-desc="${escapeHtmlAttr(def.shortDesc || def.fullText)}" data-icon="${escapeHtmlAttr(def.icon || '✨')}" tabindex="0">${def.icon || ''} ${def.name}</span>`;
+        }).join('')}
+      </div>
+    `;
+  }
+
   // Abilities List
   const layout = buildAbilityLayout(card);
   let abilitiesHTML = "";
@@ -8650,6 +9102,7 @@ function buildCardSidePanelHTML(card, p, zone, slot, isMyTurn, phase) {
       </div>
 
       <div class="fc-side-section-title">ABILITIES & TRAITS</div>
+      ${keywordsHeaderHTML}
       <div class="fc-side-abilities-list">
         ${abilitiesHTML}
       </div>
@@ -8681,6 +9134,12 @@ function handleCardInteraction(pIdx, zone, slot) {
     const reqType = gameState.targetingState.targetType;
     const isMine = pIdx === gameState.targetingState.player.index;
     const isAllyZone = (zone === "bz" || zone === "bench");
+
+    if (!isMine && card && (checkKeyword(card, p, "protection") || checkKeyword(card, p, "protectionFromEnemyAbilities"))) {
+      showToast(`${card.name || "Target"} has Protection from enemy abilities!`);
+      return;
+    }
+
     if (reqType === "targetEnemyAlly") {
       if (isMine || !isAllyZone || !card) {
         showToast("You must select an enemy Ally!");
@@ -9054,7 +9513,7 @@ window.activateSpecificAbility = async function(pIdx, zone, slot, abilityIndex, 
 
 function promptForBoardTarget(player, titleMsg, onSelectCallback, sourceCard, targetType = "targetCharacter") {
     document.getElementById('targeting-text').innerHTML = `<strong>Targeting:</strong> ${titleMsg}`;
-    document.getElementById('targeting-ability').innerHTML = sourceCard.abilities ? sourceCard.abilities.replace(/\n/g, '<br>') : "";
+    document.getElementById('targeting-ability').innerHTML = sourceCard.abilities ? formatAbilityReminderItalics(sourceCard.abilities) : "";
     
     const previewHTML = createCardHTML(sourceCard, player.index, 'hand', 0);
     document.getElementById('targeting-card-preview').innerHTML = `<div class="card-slot" style="border:none; background:none;">${previewHTML}</div>`;
@@ -9069,15 +9528,24 @@ function promptForBoardTarget(player, titleMsg, onSelectCallback, sourceCard, ta
     const opp = gameState.players[oppIdx];
 
     // Highlight only legal targets according to targetType (literal MTG-style wording)
-    const mark = (id) => { const el = document.getElementById(id); if (el) el.classList.add('valid-target'); };
+    const isTargetProtectedFromOpponent = (u, pl) => {
+        if (!u || !pl || pl.index === player.index) return false;
+        return checkKeyword(u, pl, "protection") || checkKeyword(u, pl, "protectionFromEnemyAbilities");
+    };
+
+    const mark = (id, unit, pl) => {
+        if (unit && pl && isTargetProtectedFromOpponent(unit, pl)) return;
+        const el = document.getElementById(id);
+        if (el) el.classList.add('valid-target');
+    };
     const markAllies = (pl) => {
         const prx = getPlayerDomPrefix(pl.index);
-        pl.battleZone.forEach((u, i) => { if (u) mark(`${prx}-bz-${i}`); });
-        pl.bench.forEach((u, i) => { if (u) mark(`${prx}-bench-${i}`); });
+        pl.battleZone.forEach((u, i) => { if (u) mark(`${prx}-bz-${i}`, u, pl); });
+        pl.bench.forEach((u, i) => { if (u) mark(`${prx}-bench-${i}`, u, pl); });
     };
     const markSkills = (pl) => {
         const prx = getPlayerDomPrefix(pl.index);
-        pl.skills.forEach((s, i) => { if (s) mark(`${prx}-skill-${i}`); });
+        pl.skills.forEach((s, i) => { if (s) mark(`${prx}-skill-${i}`, s, pl); });
     };
 
     if (targetType === "targetEnemyAlly") {
@@ -9093,7 +9561,7 @@ function promptForBoardTarget(player, titleMsg, onSelectCallback, sourceCard, ta
         markAllies(player); markAllies(opp); markSkills(player); markSkills(opp);
     } else {
         // targetCharacter: any Hero or Ally
-        [player, opp].forEach(pl => { const prx = getPlayerDomPrefix(pl.index); mark(`${prx}-hero-slot`); markAllies(pl); });
+        [player, opp].forEach(pl => { const prx = getPlayerDomPrefix(pl.index); mark(`${prx}-hero-slot`, pl.hero, pl); markAllies(pl); });
     }
 
     if (typeof updateTutorialUI === 'function' && typeof tutorialState !== 'undefined' && tutorialState?.active) {
@@ -10191,13 +10659,23 @@ async function triggerAttackerClashFlash() {
 function checkKeyword(card, player, keyword) {
    if (!card) return false;
    const kw = keyword.toLowerCase();
+   const isProt = (kw === "protection" || kw === "protectionfromenemyabilities");
    if (card["temp_" + keyword] || card["temp_" + kw] || card["strikeTemp_" + keyword] || card["strikeTemp_" + kw]) return true;
+   if (isProt && (card.protection || card.protectionFromEnemyAbilities || card.temp_protection || card.temp_protectionFromEnemyAbilities)) return true;
    if (card === player.hero && player.isCursed && kw === "disadvantage") return true;
-   
+
+   const matchesKw = (val) => {
+       if (!val) return false;
+       const v = String(val).toLowerCase();
+       if (v === kw) return true;
+       if (isProt && (v === "protection" || v === "protectionfromenemyabilities" || v.includes("protection"))) return true;
+       return false;
+   };
+
    let hasKw = false;
    if (card.mechanics && card.mechanics.staticModifiers) {
        card.mechanics.staticModifiers.forEach(mod => {
-           if (mod.effect && mod.effect.action === "grantKeyword" && mod.effect.value.toLowerCase() === kw) {
+           if (mod.effect && mod.effect.action === "grantKeyword" && matchesKw(mod.effect.value)) {
                if (evaluateCondition(mod.condition, card, { triggerPlayer: player })) {
                    if (!mod.effect.target || mod.effect.target === "self" || mod.effect.target === "selfEquippedCharacter") {
                        hasKw = true;
@@ -10212,7 +10690,7 @@ function checkKeyword(card, player, keyword) {
        player.skills.forEach(sk => {
            if (sk && sk.mechanics && sk.mechanics.staticModifiers) {
                sk.mechanics.staticModifiers.forEach(mod => {
-                   if (mod.effect && mod.effect.action === "grantKeyword" && mod.effect.value.toLowerCase() === kw && mod.effect.target === "selfEquippedCharacter") {
+                   if (mod.effect && mod.effect.action === "grantKeyword" && matchesKw(mod.effect.value) && mod.effect.target === "selfEquippedCharacter") {
                        if (evaluateCondition(mod.condition, sk, { triggerPlayer: player })) hasKw = true;
                    }
                });
@@ -10221,7 +10699,7 @@ function checkKeyword(card, player, keyword) {
        player.synergies.forEach(syn => {
            if (syn && syn.mechanics && syn.mechanics.staticModifiers) {
                syn.mechanics.staticModifiers.forEach(mod => {
-                   if (mod.effect && mod.effect.action === "grantKeyword" && mod.effect.value.toLowerCase() === kw && (mod.effect.target === "hero" || mod.effect.target === "selfHero" || mod.effect.target === "selfEquippedCharacter")) {
+                   if (mod.effect && mod.effect.action === "grantKeyword" && matchesKw(mod.effect.value) && (mod.effect.target === "hero" || mod.effect.target === "selfHero" || mod.effect.target === "selfEquippedCharacter")) {
                        if (evaluateCondition(mod.condition, syn, { triggerPlayer: player })) hasKw = true;
                    }
                });
@@ -10238,7 +10716,7 @@ function checkKeyword(card, player, keyword) {
            const weaponApproved = !inClashAsAttacker || !isWeapon || eq.chargeReq === undefined || eq.chargeReq === 0 || currentClash.aInfo.activeWeapons.includes(eq);
            if (meetsCharge && weaponApproved && eq.mechanics && eq.mechanics.staticModifiers) {
                eq.mechanics.staticModifiers.forEach(mod => {
-                   if (mod.effect && mod.effect.action === "grantKeyword" && mod.effect.value.toLowerCase() === kw && (!mod.effect.target || mod.effect.target === "selfEquippedCharacter" || mod.effect.target === "self")) {
+                   if (mod.effect && mod.effect.action === "grantKeyword" && matchesKw(mod.effect.value) && (!mod.effect.target || mod.effect.target === "selfEquippedCharacter" || mod.effect.target === "self")) {
                        if (evaluateCondition(mod.condition, eq, { triggerPlayer: player })) hasKw = true;
                    }
                });
@@ -10249,7 +10727,7 @@ function checkKeyword(card, player, keyword) {
    [...player.battleZone, ...player.bench].forEach(u => {
        if (u && u !== card && u.mechanics && u.mechanics.staticModifiers) {
            u.mechanics.staticModifiers.forEach(mod => {
-               if (mod.effect && mod.effect.action === "grantKeyword" && mod.effect.value.toLowerCase() === kw) {
+               if (mod.effect && mod.effect.action === "grantKeyword" && matchesKw(mod.effect.value)) {
                    const targetClass = card.unitClass || card.heroClass;
                    const targetRace = card.race || card.heroRace;
                    const matchesClassOrRace = (u.unitClass && targetClass === u.unitClass) || (u.race && targetRace === u.race);
@@ -15570,6 +16048,10 @@ function initArenaStartup() {
     if (detailModal) detailModal.style.display = 'none';
     const tutHUD = document.getElementById('tutorial-hud');
     if (tutHUD) tutHUD.style.display = 'none';
+
+    if (typeof attachKeywordTooltipListeners === 'function') {
+      try { attachKeywordTooltipListeners(); } catch (e) { console.warn("attachKeywordTooltipListeners:", e); }
+    }
 
     if (typeof AudioManager !== 'undefined' && typeof AudioManager.init === 'function') {
       try { 
