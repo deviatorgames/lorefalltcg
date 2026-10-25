@@ -2592,11 +2592,39 @@ function parseEnglishEffectClauseCore(clauseText, cardType, cardName) {
     if (choices.length > 0) return { action: "chooseOne", choices };
   }
 
-  // Chance roll wrapper: "roll for chance to <effect>" or "they roll for chance to <effect>"
+  // Chance roll wrapper: "roll for chance. If successful, <effect>", "roll for chance. If you win, <effect>", or "roll for chance to <effect>"
+  const chanceClauseMatch = t.match(/roll\s+for\s+chance\.\s*If\s+(?:successful|you\s+win)\s*,\s*(.+)/i);
+  if (chanceClauseMatch) {
+    const inner = parseEnglishEffectClause(chanceClauseMatch[1], cardType, cardName);
+    if (inner) return { action: "chanceRoll", successEffect: inner };
+  }
   const chanceWrapMatch = t.match(/roll\s+for\s+chance\s+to\s+(.+)/i);
   if (chanceWrapMatch && !/instead of D\d+/i.test(t) && !/summon an Elf Companion/i.test(t)) {
     const inner = parseEnglishEffectClause(chanceWrapMatch[1], cardType, cardName);
     if (inner) return { action: "chanceRoll", successEffect: inner };
+  }
+
+  // Search your loot for a skill 1 level higher ("search your loot for a skill 1 level higher than those and put it into your hand. Shuffle your loot.")
+  if (/search\s+your\s+loot\s+for\s+a\s+skill\s+1\s+level\s+higher/i.test(t)) {
+    return { action: "searchDeck", targetType: "Skill", targetLevel: "discardedLevelPlusOne", destination: "hand" };
+  }
+  // Search your loot for a level X skill ("search your loot for a level 1 skill...")
+  const searchLevelSkillMatch = t.match(/search\s+your\s+loot\s+for\s+a\s+level\s+(\d+)\s+skill/i);
+  if (searchLevelSkillMatch) {
+    return { action: "searchDeck", targetType: "Skill", targetLevel: parseInt(searchLevelSkillMatch[1], 10), destination: "hand" };
+  }
+  // Search your loot for a generic card type ("search your loot for an Equipment card...", "search your loot for a Skill...")
+  const searchTypeMatch = t.match(/search\s+your\s+loot\s+for\s+(?:a|an)\s+(skill|ally|equipment|synergy|flash)(?:\s+card)?(?:\s*,\s*reveal\s+it)?\s+and\s+put\s+(?:it|that\s+card)\s+in(?:to)?\s+your\s+hand/i);
+  if (searchTypeMatch) {
+    const rawT = searchTypeMatch[1].toLowerCase();
+    const mappedType = rawT.charAt(0).toUpperCase() + rawT.slice(1);
+    return { action: "searchDeck", targetType: mappedType, destination: "hand" };
+  }
+  // Search your loot for a specific named card ("search your loot for Pious' Armor and put it in your hand. Then shuffle your loot.")
+  const searchSpecificCardMatch = t.match(/search\s+your\s+loot\s+for\s+(.+?)(?:\s*,\s*reveal\s+it)?\s+and\s+put\s+(?:it|that\s+card)\s+in(?:to)?\s+your\s+hand/i);
+  if (searchSpecificCardMatch) {
+    const targetCardName = searchSpecificCardMatch[1].trim().replace(/^["']|["']$/g, "");
+    return { action: "searchDeck", targetCardName: targetCardName, destination: "hand" };
   }
 
   // Draw X card(s)
@@ -2785,6 +2813,43 @@ function parseEnglishEffectClauseCore(clauseText, cardType, cardName) {
       if (st) stats[st] = parseInt(m[1]);
     });
     return { action: "statBonus", stats, target: "allFriendlyDefendingAllies", duration: "thisTurn" };
+  }
+
+  // Variable X scaled stat buff / temporary health (e.g. "target ally gets +X health this turn where X is the amount of damage reduced.")
+  const varStatMatch = t.match(/(target\s+character|target\s+ally|you|[A-Za-z0-9' -]+?)\s+(?:gets?|gains?)\s+\+?X\s+(ranged\s+attack|dexterity|power|defense|max\s+health|health|charge|mana)(?:\s+(this\s+turn|this\s+strike))?(?:\s+where\s+X\s+is\s+(.+?))?\.?$/i);
+  if (varStatMatch && (/where\s+X\s+is/i.test(t) || /\+X\s+/i.test(t))) {
+    const who = varStatMatch[1].trim().toLowerCase();
+    const rawStat = varStatMatch[2].trim().toLowerCase();
+    const durRaw = (varStatMatch[3] || "this turn").toLowerCase();
+    const whereClause = (varStatMatch[4] || "").toLowerCase();
+    let tgt = "self";
+    if (who.includes("target character")) tgt = "targetCharacter";
+    else if (who.includes("target ally")) tgt = "targetAlly";
+    else if (who === "you") tgt = "selfHero";
+    const dur = durRaw.includes("strike") ? "thisStrike" : "thisTurn";
+
+    let scaleAmount = "damageReduced";
+    if (whereClause.includes("damage reduced")) scaleAmount = "damageReduced";
+    else if (whereClause.includes("attack roll")) scaleAmount = "attackRollValue";
+    else if (whereClause.includes("combat damage")) scaleAmount = "damageDealt";
+    else if (whereClause.includes("health gained")) scaleAmount = "healAmount";
+
+    if (rawStat === "health") {
+      if (/\bgets?\s+\+X\s+health/i.test(t) || /this\s+turn/i.test(t)) {
+        return { action: "buffHealth", amount: scaleAmount, target: tgt, duration: "thisTurn" };
+      }
+      return { action: "heal", amount: scaleAmount, target: tgt };
+    }
+    if (rawStat === "charge") {
+      return { action: "addCharge", amount: scaleAmount, target: tgt };
+    }
+    if (rawStat === "mana") {
+      return { action: "resourceGain", type: "mana", amount: scaleAmount, target: "selfPlayer" };
+    }
+    const st = parseStatNameFromEnglish(rawStat);
+    if (st) {
+      return { action: "statBonus", stat: st, value: scaleAmount, target: tgt, duration: dur };
+    }
   }
 
   // Multi-stat or single-stat temporary bonus: "<Target/Self/Hero> gets +X <stat> (and +Y <stat2>) (this turn)?"
@@ -3196,6 +3261,27 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
       return;
     }
 
+    // On Damage Reduced using Defense (Pious): "Whenever <Card/Pious/you> reduces incoming damage from a strike using defense, <effect>"
+    const onDmgReducedMatch = clause.match(/^Whenever\s+(.+?)\s+reduces?\s+incoming\s+damage(?:\s+from\s+a\s+strike)?(?:\s+using\s+defense)?\s*,\s*(.+)/i);
+    if (onDmgReducedMatch) {
+      const subjRaw = onDmgReducedMatch[1].trim();
+      const eff = parseEnglishEffectClause(onDmgReducedMatch[2], type, cardName);
+      if (eff) {
+        let cond = { type: "isDamageReducedDefender" };
+        if (/an\s+ally\s+you\s+control/i.test(subjRaw)) {
+          cond = { type: "isFriendlyAllyDamageReduced" };
+        } else if (/a\s+character(?:\s+you\s+control)?/i.test(subjRaw)) {
+          cond = { type: "isAnyFriendlyDamageReduced" };
+        }
+        mech.passiveAbilities.push({
+          trigger: "onDamageReduced",
+          condition: cond,
+          effect: eff
+        });
+      }
+      return;
+    }
+
     // Strike X: <effect>
     const strikeMatch = clause.match(/^Strike\s+(\d+)\s*:\s*(.+)/i);
     if (strikeMatch) {
@@ -3470,7 +3556,13 @@ function registerCardInEngine(id, type, rawData, imageUrl = null) {
     ? rawData.mechanics
     : (existing && existing.mechanics && Object.keys(existing.mechanics).length > 0 ? existing.mechanics : null);
 
-  const resolvedType = cleanFieldVal(type) || cleanFieldVal(rawData._type) || cleanFieldVal(rawData.type) || (existing ? existing.type : "Ally");
+  const idPrefixType = /^Flash_/i.test(String(id)) ? "Flash"
+    : (/^Skill_/i.test(String(id)) ? "Skill"
+    : (/^Equipment_/i.test(String(id)) ? "Equipment"
+    : (/^Synergy_/i.test(String(id)) ? "Synergy"
+    : (/^Hero_/i.test(String(id)) ? "Hero"
+    : (/^Ally_/i.test(String(id)) ? "Ally" : null)))));
+  const resolvedType = cleanFieldVal(type) || cleanFieldVal(rawData._type) || cleanFieldVal(rawData.type) || (cleanFieldVal(rawData["Flash Subtype"]) ? "Flash" : null) || idPrefixType || (existing ? existing.type : "Ally");
   const isTokenType = resolvedType === "Token" || rawData._type === "Token" || rawData.type === "Token" || String(id).startsWith("Token_");
   const tokenKind = cleanFieldVal(rawData["Token Type"]) || (cleanFieldVal(rawData["Health"]) !== undefined ? "Ally" : "Misc");
   const finalEngineType = isTokenType ? (tokenKind === "Ally" ? "Ally" : "Token") : resolvedType;
@@ -3488,10 +3580,19 @@ function registerCardInEngine(id, type, rawData, imageUrl = null) {
     else if (/Nimble Dirk|Dagger/i.test(cardName)) resolvedPowerMod = 1;
   }
 
-  let resolvedSubtype = cleanFieldVal(rawData["Equipment Subtype"]) || cleanFieldVal(rawData["Flash Subtype"]) || (existing ? existing.subtype : undefined);
+  let resolvedSubtype = cleanFieldVal(rawData["Equipment Subtype"]) || cleanFieldVal(rawData["Flash Subtype"]) || cleanFieldVal(rawData.subtype) || (existing ? existing.subtype : undefined);
   if (!resolvedSubtype && resolvedType === "Equipment" && /Dagger|Dirk|Augur's Tooth/i.test(cardName)) {
     resolvedSubtype = "Dagger";
   }
+
+  const rawManaCost = cleanFieldVal(rawData["Mana Cost"]) !== undefined ? cleanFieldVal(rawData["Mana Cost"]) : cleanFieldVal(rawData.manaCost);
+  const rawGoldCost = cleanFieldVal(rawData["Gold Cost"]) !== undefined ? cleanFieldVal(rawData["Gold Cost"]) : cleanFieldVal(rawData.goldCost);
+  const resolvedManaCost = (finalEngineType === "Flash" && resolvedSubtype === "Item")
+    ? undefined
+    : (rawManaCost !== undefined ? Number(rawManaCost) : (existing ? existing.manaCost : undefined));
+  const resolvedGoldCost = (finalEngineType === "Flash" && resolvedSubtype === "Event")
+    ? undefined
+    : (rawGoldCost !== undefined ? Number(rawGoldCost) : (existing ? existing.goldCost : undefined));
 
   const resolvedHealth = cleanFieldVal(rawData["Health"]) !== undefined
     ? Number(rawData["Health"])
@@ -3511,8 +3612,8 @@ function registerCardInEngine(id, type, rawData, imageUrl = null) {
     unitClass: cleanFieldVal(rawData["Class"]) !== undefined ? cleanFieldVal(rawData["Class"]) : (existing ? existing.unitClass : undefined),
     heroClass: cleanFieldVal(rawData["Class"]) !== undefined ? cleanFieldVal(rawData["Class"]) : (existing ? existing.heroClass : undefined),
     faction: cleanFieldVal(rawData["Faction"]) || (existing ? existing.faction : "Factionless"),
-    manaCost: cleanFieldVal(rawData["Mana Cost"]) !== undefined ? Number(rawData["Mana Cost"]) : (existing ? existing.manaCost : undefined),
-    goldCost: cleanFieldVal(rawData["Gold Cost"]) !== undefined ? Number(rawData["Gold Cost"]) : (existing ? existing.goldCost : undefined),
+    manaCost: resolvedManaCost,
+    goldCost: resolvedGoldCost,
     health: resolvedHealth,
     maxHealth: resolvedHealth,
     attackType: cleanFieldVal(rawData["Attack Type"]) !== undefined ? cleanFieldVal(rawData["Attack Type"]) : (existing ? existing.attackType : undefined),
@@ -4041,7 +4142,7 @@ async function executeHook(card, eventType, context) {
                 for (let i = 0; i < triggerCount; i++) {
                     // 1. Show the Trigger Popup first!
                     const act = ability.effect.action;
-                    if (["draw", "heal", "dealDamage", "chanceRoll", "summonToken", "addCharge", "lookAndDraw", "lookAndDrawConditional", "searchDeck"].includes(act)) {
+                    if (["draw", "heal", "buffHealth", "dealDamage", "chanceRoll", "summonToken", "addCharge", "lookAndDraw", "lookAndDrawConditional", "searchDeck"].includes(act)) {
                         const specificText = getSpecificAbilityText(card, ability);
                         await showPassivePopup(card, specificText + (i > 0 ? " (2nd Trigger)" : ""));
                     }
@@ -4102,6 +4203,9 @@ function evaluateCondition(condition, card, context) {
   if (condition.type === "hasCounter") return (card[condition.counterType + "s"] || 0) >= (condition.value || 1);
   if (condition.type === "isSelfDefeated") return context.defeatedUnit === card;
   if (condition.type === "isFriendlyDefeated") return context.defeatedUnit && context.defeatedUnit !== card;
+  if (condition.type === "isDamageReducedDefender") return context.defenderUnit === card && (context.damageReduced || 0) > 0;
+  if (condition.type === "isFriendlyAllyDamageReduced") return context.defenderUnit && context.defenderUnit.type === "Ally" && (context.damageReduced || 0) > 0;
+  if (condition.type === "isAnyFriendlyDamageReduced") return Boolean(context.defenderUnit && (context.damageReduced || 0) > 0);
   if (condition.type === "strikeCount") {
       if (context.strikeCount !== condition.value) return false;
       const curAttacker = context.aInfo || gameState.selectedAttacker;
@@ -4344,20 +4448,30 @@ async function applyEffectAction(effect, targets, sourceCard, context) {
        for(let i=0; i<effect.amount; i++) await drawCard(context.triggerPlayer, true);
     }
     else if (effect.action === "heal") {
-       let amount = effect.amount === "attackRollValue" ? (context.damage || 0) : effect.amount;
+       let amount = effect.amount === "attackRollValue" || effect.amount === "damageDealt"
+           ? (context.damage || 0)
+           : (effect.amount === "damageReduced" ? (context.damageReduced || 0) : (effect.amount === "healAmount" ? (context.healAmount || context.amount || 0) : effect.amount));
        if (amount > 0) await healCharacter(context.triggerPlayer, target, amount);
     }
     else if (effect.action === "buffHealth") {
-       target.currentHealth += effect.amount; 
-       addLogEntry(`${target.name} gained +${effect.amount} health this turn.`);
+       let amount = effect.amount === "damageReduced"
+           ? (context.damageReduced || 0)
+           : (effect.amount === "attackRollValue" || effect.amount === "damageDealt"
+               ? (context.damage || 0)
+               : (effect.amount === "healAmount" ? (context.healAmount || context.amount || 0) : effect.amount));
+       if (amount > 0) {
+           target.currentHealth += amount; 
+           addLogEntry(`${target.name} gained +${amount} health this turn.`);
+       }
     }
     else if (effect.action === "dealDamage") {
+       let dmgAmt = effect.amount === "damageReduced" ? (context.damageReduced || 0) : effect.amount;
        const ownerPlayer = gameState.players.find(pl => pl.hero === target || pl.battleZone.includes(target) || pl.bench.includes(target)) || gameState.players[1 - context.triggerPlayer.index];
-       target.currentHealth -= effect.amount;
+       target.currentHealth -= dmgAmt;
        if (ownerPlayer !== context.triggerPlayer) {
            gameState.enemyTookNonCombatDamageThisTurn = true;
        }
-       addLogEntry(`${effect.type === 'nonCombat' ? 'Non-Combat ' : ''}Damage: ${target.name} takes ${effect.amount} damage.`);
+       addLogEntry(`${effect.type === 'nonCombat' ? 'Non-Combat ' : ''}Damage: ${target.name} takes ${dmgAmt} damage.`);
        if (target.currentHealth <= 0 && target.type !== "Hero") {
            await checkDefeated(ownerPlayer, target);
        } else if (target.currentHealth <= 0 && target.type === "Hero") {
@@ -4365,17 +4479,21 @@ async function applyEffectAction(effect, targets, sourceCard, context) {
        }
     }
     else if (effect.action === "addCharge" && target.type !== "Hero") {
-       target.charge = (target.charge || 0) + effect.amount;
-       addLogEntry(`${target.name} gained +${effect.amount} Charge.`);
+       let chgAmt = effect.amount === "damageReduced" ? (context.damageReduced || 0) : effect.amount;
+       if (chgAmt > 0) {
+           target.charge = (target.charge || 0) + chgAmt;
+           addLogEntry(`${target.name} gained +${chgAmt} Charge.`);
+       }
     }
     else if (effect.action === "removeCharge" && target.type !== "Hero") {
        target.charge = Math.max(0, (target.charge || 0) - effect.amount);
        addLogEntry(`${target.name} lost ${effect.amount} Charge.`);
     }
     else if (effect.action === "resourceGain") {
-       if(effect.type === "mana") context.triggerPlayer.manaPool += effect.amount;
-       if(effect.type === "gold") context.triggerPlayer.gold += effect.amount;
-       addLogEntry(`${context.triggerPlayer.name} gained ${effect.amount} ${effect.type}.`);
+       let resAmt = effect.amount === "damageReduced" ? (context.damageReduced || 0) : effect.amount;
+       if(effect.type === "mana") context.triggerPlayer.manaPool += resAmt;
+       if(effect.type === "gold") context.triggerPlayer.gold += resAmt;
+       addLogEntry(`${context.triggerPlayer.name} gained ${resAmt} ${effect.type}.`);
     }
     else if (effect.action === "overrideAttackDieTemp") {
        target.temp_overrideAttackDie = effect.value;
@@ -4545,6 +4663,9 @@ async function applyEffectAction(effect, targets, sourceCard, context) {
     }
     else if (effect.action === "statBonus") {
        let isStrike = effect.duration === "thisStrike";
+       let resolvedVal = effect.value === "damageReduced"
+           ? (context.damageReduced || 0)
+           : (effect.value === "attackRollValue" || effect.value === "damageDealt" ? (context.damage || 0) : effect.value);
        if (effect.stats) {
           if (effect.stats.dexterity) target[isStrike ? 'strikeTempDex' : 'tempDex'] = (target[isStrike ? 'strikeTempDex' : 'tempDex'] || 0) + effect.stats.dexterity;
           if (effect.stats.rangedAttack) target[isStrike ? 'strikeTempRanged' : 'tempRanged'] = (target[isStrike ? 'strikeTempRanged' : 'tempRanged'] || 0) + effect.stats.rangedAttack;
@@ -4552,10 +4673,10 @@ async function applyEffectAction(effect, targets, sourceCard, context) {
           if (effect.stats.maxHealth) target.maxHealth = (target.maxHealth || target.health) + effect.stats.maxHealth;
        } else {
           if (effect.stat === "maxHealth") {
-              target.maxHealth = (target.maxHealth || target.health) + effect.value;
+              target.maxHealth = (target.maxHealth || target.health) + resolvedVal;
           } else {
               let tempKey = (isStrike ? 'strikeTemp_' : 'temp') + effect.stat.charAt(0).toUpperCase() + effect.stat.slice(1);
-              target[tempKey] = (target[tempKey] || 0) + effect.value;
+              target[tempKey] = (target[tempKey] || 0) + resolvedVal;
           }
        }
        addLogEntry(`${target.name} gained stats from ability.`);
@@ -4576,6 +4697,12 @@ async function applyEffectAction(effect, targets, sourceCard, context) {
     }
     else if (effect.action === "searchDeck") {
        let validCards = context.triggerPlayer.deck.filter(c => {
+           if (effect.targetCardName) {
+               const want = effect.targetCardName.trim().toLowerCase().replace(/[’‘]/g, "'");
+               const cNameNorm = (c.name || "").trim().toLowerCase().replace(/[’‘]/g, "'");
+               const cIdNorm = (c.id || "").trim().toLowerCase().replace(/[’‘]/g, "'");
+               if (cNameNorm !== want && cIdNorm !== want && !cNameNorm.includes(want)) return false;
+           }
            if (effect.targetType && c.type !== effect.targetType) return false;
            if (effect.targetLevel) {
                let reqLevel = effect.targetLevel === "discardedLevelPlusOne" ? (context.discardedLevel || 0) + 1 : effect.targetLevel;
@@ -4591,17 +4718,20 @@ async function applyEffectAction(effect, targets, sourceCard, context) {
            } else {
                const acts = validCards.map(c => ({ text: `Take ${c.name}`, value: c }));
                acts.push({ text: "Cancel", value: null });
-               chosen = await showModalAsync("Search Loot Deck", "Choose a card to add to your hand:", acts);
+               const promptDesc = effect.targetCardName
+                   ? `Found <strong>${effect.targetCardName}</strong> in your Loot! Put it in your hand:`
+                   : "Choose a card to add to your hand:";
+               chosen = await showModalAsync("Search Loot Deck", promptDesc, acts);
            }
            if (chosen) {
                context.triggerPlayer.deck = context.triggerPlayer.deck.filter(c => c.instanceId !== chosen.instanceId);
                if (effect.destination === "hand") context.triggerPlayer.hand.push(chosen);
-               addLogEntry(`${context.triggerPlayer.name} searched their deck and added a card to their hand.`);
+               addLogEntry(`${context.triggerPlayer.name} searched their Loot for <strong>${chosen.name}</strong>, put it in their hand, and shuffled their Loot.`);
            }
        } else if (!context.triggerPlayer.isAI) {
-           showToast("No valid targets found in deck.");
+           showToast(effect.targetCardName ? `No copy of ${effect.targetCardName} found in your Loot.` : "No valid targets found in deck.");
        }
-       context.triggerPlayer.deck.sort(() => Math.random() - 0.5);
+       shuffleDeck(context.triggerPlayer.deck);
     }
     else if (effect.action === "lookAndDraw" || effect.action === "lookAndDrawConditional") {
        if(context.triggerPlayer.deck.length > 0) {
@@ -4735,7 +4865,7 @@ function getStat(card, statName, player) {
   base += (card[strikeTempKey] || 0);
 
   if (statName === 'dexterity') base += (card.tempDex || 0) + (card.strikeTempDex || 0);
-  if (statName === 'power') base += (card.tempPower || 0) + (card.strikeTempPower || 0) + (card.soporificPowerDebuff || 0);
+  if (statName === 'power') base += (card.strikeTempPower || 0) + (card.soporificPowerDebuff || 0);
   if (statName === 'rangedAttack') base += (card.tempRanged || 0) + (card.strikeTempRanged || 0);
 
   if (card.equipment) {
@@ -9104,7 +9234,13 @@ async function runManaPhase() {
   activeP.nextAllyBonusDex = 0;
   gameState.enemiesDefeatedThisTurn = false;
   gameState.enemyTookNonCombatDamageThisTurn = false;
-  [...activeP.battleZone, ...activeP.bench, ...activeP.skills, ...activeP.synergies].forEach(c => { if (c) { c.usedThisTurn = false; c.usesThisTurn = 0; } });
+  [activeP.hero, ...(activeP.hero.equipment || []), ...activeP.battleZone, ...activeP.bench, ...activeP.skills, ...activeP.synergies].forEach(c => {
+    if (c) {
+      c.usedThisTurn = false;
+      c.usesThisTurn = 0;
+      if (c.equipment) c.equipment.forEach(eq => { if (eq) { eq.usedThisTurn = false; eq.usesThisTurn = 0; } });
+    }
+  });
   
   // Expire "until your next turn" debuffs (e.g. Soporific Dart) on opponent units
   if (oppP) {
@@ -9159,6 +9295,11 @@ async function resolveEndPhase() {
     gameState.players.forEach(p => {
         if (p.hero.isFrozen) { p.hero.isFrozen = false; } else { p.hero.isExhausted = false; }
         [...p.battleZone, ...p.bench].forEach(ally => { if (ally) { ally.currentHealth = ally.maxHealth || ally.health; if (ally.isFrozen) { ally.isFrozen = false; } else { ally.isExhausted = false; } ally.chargeAddedThisTurn = 0; } });
+        [p.hero, ...p.battleZone, ...p.bench, ...p.skills].forEach(u => {
+            if (u) {
+                Object.keys(u).forEach(k => { if (k.startsWith("temp")) delete u[k]; });
+            }
+        });
     });
 
   // Rulebook End Phase: Only Benched Allies (Garrison Bonus) and Learned Skills (Skill Bonus) gain +1 Charge!
@@ -9202,10 +9343,15 @@ async function playCardFromHand(cardIndex) {
 
 async function playFlashCard(player, cardIndex) {
   const card = player.hand[cardIndex];
-  if (card.subtype === "Item" && player.gold < card.goldCost) { showToast("Not enough Gold for Item!"); return; }
-  if (card.subtype === "Event" && player.manaPool < card.manaCost) { showToast("Not enough Mana for Flash Action!"); return; }
+  if (!card) return;
+  const isItem = card.subtype === "Item" || (card.subtype !== "Event" && card.goldCost !== undefined);
+  const isEvent = card.subtype === "Event" || (card.subtype !== "Item" && card.manaCost !== undefined && card.goldCost === undefined);
+  const reqGold = Number(card.goldCost) || 0;
+  const reqMana = Number(card.manaCost) || 0;
+  if (isItem && player.gold < reqGold) { showToast("Not enough Gold for Item!"); return; }
+  if (isEvent && player.manaPool < reqMana) { showToast("Not enough Mana for Flash Action!"); return; }
 
-  if (card.subtype === "Item") player.gold -= (card.goldCost || 0); else player.manaPool -= (card.manaCost || 0);
+  if (isItem) player.gold -= reqGold; else player.manaPool -= reqMana;
   player.hand.splice(cardIndex, 1); player.discard.push(card);
   
   await executeHook(card, 'onPlay', { triggerPlayer: player });
@@ -9789,10 +9935,24 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
 }
 
 async function openFlashStackMenuAsync(player) {
+  if (player && player.index !== undefined && gameState.players && gameState.players[player.index]) {
+      player = gameState.players[player.index];
+  }
   let acts = [];
-  player.hand.forEach((c, idx) => {
-      if (c.type === "Flash" && (player.gold >= (c.goldCost||0)) && (player.manaPool >= (c.manaCost||0))) {
-          acts.push({ text: "[Flash] " + c.name + (c.goldCost ? ` (${c.goldCost}G)` : ` (${c.manaCost}M)`), actionType: 'flash', idx: idx });
+  (player.hand || []).forEach((c, idx) => {
+      if (!c) return;
+      const isFlash = c.type === "Flash" || String(c.id || "").startsWith("Flash_") || c.subtype === "Item" || c.subtype === "Event";
+      if (!isFlash) return;
+      const isItem = c.subtype === "Item" || (c.subtype !== "Event" && c.goldCost !== undefined);
+      const isEvent = c.subtype === "Event" || (c.subtype !== "Item" && c.manaCost !== undefined && c.goldCost === undefined);
+      const reqGold = Number(c.goldCost) || 0;
+      const reqMana = Number(c.manaCost) || 0;
+      const canAfford = isItem
+          ? (player.gold >= reqGold)
+          : (isEvent ? (player.manaPool >= reqMana) : (player.gold >= reqGold && player.manaPool >= reqMana));
+      if (canAfford) {
+          const costLabel = isItem ? ` (${reqGold}G)` : ` (${reqMana}M)`;
+          acts.push({ text: "[Flash] " + c.name + costLabel, actionType: 'flash', idx: idx });
       }
   });
 
@@ -10369,9 +10529,15 @@ async function rollClashAttacker() {
       }
       totalDieRoll += extraDiceTotal;
 
-      let basePow = aUnit.power || 0;
       let power = getStat(aUnit, 'power', currentClash.attackerPlayer);
-      let bonusPow = power - basePow;
+      let weaponPowBonus = 0;
+      for (let eq of activeWeapons) {
+          if (eq && (eq.powerModifier || eq.power)) {
+              weaponPowBonus += (eq.powerModifier || eq.power);
+          }
+      }
+      let bonusPow = (aUnit.tempPower || 0) + (aUnit.strikeTemp_Power || 0) + (aUnit.strikeTempPower || 0) + (aUnit.soporificPowerDebuff || 0) + weaponPowBonus;
+      let basePow = power - bonusPow;
 
       currentClash.atkDamage = totalDieRoll + power;
       if (gameState.gameMode === "TUTORIAL" && currentClash.tUnit?.name === "Gladeweaver") {
@@ -10402,7 +10568,7 @@ async function rollClashAttacker() {
               currentClash.atkDamage = Math.max(12, currentClash.atkDamage);
           }
       }
-      logMsg += `Gross Damage: <strong style="color:#10b981; font-size:1.1rem;">${currentClash.atkDamage}</strong> <br>(Dice: ${totalDieRoll} + Base Power: ${basePow} + Bonus: ${bonusPow})`;
+      logMsg += `Gross Damage: <strong style="color:#10b981; font-size:1.1rem;">${currentClash.atkDamage}</strong> <br>(Dice: ${totalDieRoll} + Power: ${basePow} + Bonus: ${bonusPow})`;
   }
   
   currentClash.isCrit = isCrit;
@@ -10590,8 +10756,9 @@ async function rollClashDefender() {
       }
       totalDieRoll += extraDiceTotal;
 
-      let basePow = charWithStats.power || 0;
       let power = getStat(charWithStats, 'power', currentClash.defenderPlayer);
+      let bonusPow = (charWithStats.tempPower || 0) + (charWithStats.strikeTemp_Power || 0) + (charWithStats.strikeTempPower || 0) + (charWithStats.soporificPowerDebuff || 0);
+      let basePow = power - bonusPow;
       currentClash.defDamage = totalDieRoll + power;
       if (gameState.gameMode === "TUTORIAL" && currentClash.attacker?.name === "Bastion Defender") {
           currentClash.defDamage = Math.max(3, currentClash.defDamage);
@@ -10604,7 +10771,7 @@ async function rollClashDefender() {
           }
       }
       
-      logMsg += `Power: Base ${basePow} + Bonus ${power - basePow}<br>`;
+      logMsg += `Power: ${basePow} + Bonus: ${bonusPow}<br>`;
   }
 
   await dispatchGlobalHook('onCounterstrike', { triggerPlayer: currentClash.defenderPlayer, counterstriker: counterActor });
@@ -10671,8 +10838,13 @@ async function resolveClashDamage() {
 
   let finalDamage = 0;
   let breakthrough = 0;
+  currentClash.targetDamageReduced = 0;
+  currentClash.heroBreakthroughDamageReduced = 0;
 
   if (!evaded && currentClash.atkHit) {
+      if (!currentClash.isPierced && currentClash.effectiveDef > 0 && currentClash.atkDamage > 0) {
+          currentClash.targetDamageReduced = Math.min(currentClash.atkDamage, currentClash.effectiveDef);
+      }
       finalDamage = Math.max(0, currentClash.atkDamage - currentClash.effectiveDef);
       if (currentClash.tType === 'bz' && currentClash.tSlot === dPlayer.battleZone.findIndex(s => s !== null)) {
           if (finalDamage > dUnit.currentHealth) {
@@ -10682,6 +10854,9 @@ async function resolveClashDamage() {
               breakthrough = Math.max(0, rawBreakthrough - heroDef);
               currentClash.heroDef = heroDef;
               currentClash.rawBreakthrough = rawBreakthrough;
+              if (rawBreakthrough > 0 && heroDef > 0) {
+                  currentClash.heroBreakthroughDamageReduced = Math.min(rawBreakthrough, heroDef);
+              }
           }
       }
 
@@ -10852,6 +11027,20 @@ async function closeClashAndApply() {
   }
 
   if (!currentClash.evaded && currentClash.atkHit) {
+      if (currentClash.targetDamageReduced > 0) {
+          await dispatchGlobalHook('onDamageReduced', {
+              triggerPlayer: currentClash.defenderPlayer,
+              defenderUnit: tUnit,
+              damageReduced: currentClash.targetDamageReduced
+          });
+      }
+      if (currentClash.heroBreakthroughDamageReduced > 0 && tUnit !== currentClash.defenderPlayer.hero) {
+          await dispatchGlobalHook('onDamageReduced', {
+              triggerPlayer: currentClash.defenderPlayer,
+              defenderUnit: currentClash.defenderPlayer.hero,
+              damageReduced: currentClash.heroBreakthroughDamageReduced
+          });
+      }
       await dispatchGlobalHook('onDamageDealt', { triggerPlayer: attackerPlayer, damageSource: attacker, damagedTarget: tUnit, damage: currentClash.finalDamage });
       await dispatchGlobalHook('onStrikeResolution', { triggerPlayer: attackerPlayer, attackRollValue: currentClash.finalDamage });
   }
