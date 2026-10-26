@@ -4001,6 +4001,12 @@
       const [includeCommunityDecks, setIncludeCommunityDecks] = useState(false);
 
       const getDeckOfficialStatus = (deckName, deckObj) => {
+        if (deckObj) {
+          if (deckObj.isOfficial !== undefined && deckObj.isOfficial !== null) return Boolean(deckObj.isOfficial);
+          if (deckObj.cards && deckObj.cards._meta && deckObj.cards._meta.isOfficial !== undefined) {
+            return Boolean(deckObj.cards._meta.isOfficial);
+          }
+        }
         try {
           const raw = localStorage.getItem('lorefall_deck_official_overrides');
           if (raw) {
@@ -4009,8 +4015,8 @@
           }
         } catch(e) {}
         if (deckObj) {
-          if (deckObj.isOfficial !== undefined && deckObj.isOfficial !== null) return Boolean(deckObj.isOfficial);
-          return (deckObj.creator === 'Gavin');
+          if (deckObj.creator !== 'Gavin') return false;
+          return /Starter/i.test(deckName);
         }
         return false;
       };
@@ -4038,19 +4044,29 @@
               const merged = { ...prev };
               cloudDecks.forEach(row => {
                 const existing = prev[row.name];
+                let rawCards = row.cards || {};
+                let cleanCards = { ...rawCards };
+                let isOffFromCloud = null;
+                if (cleanCards._meta && cleanCards._meta.isOfficial !== undefined) {
+                  isOffFromCloud = Boolean(cleanCards._meta.isOfficial);
+                  delete cleanCards._meta;
+                } else if (row.is_official !== undefined && row.is_official !== null) {
+                  isOffFromCloud = Boolean(row.is_official);
+                }
+
                 let isOff;
-                if (overrides[row.name] !== undefined) {
+                if (isOffFromCloud !== null) {
+                  isOff = isOffFromCloud;
+                } else if (overrides[row.name] !== undefined) {
                   isOff = overrides[row.name];
                 } else if (existing && existing.isOfficial !== undefined && existing.isOfficial !== null) {
                   isOff = existing.isOfficial;
-                } else if (row.is_official !== undefined && row.is_official !== null) {
-                  isOff = Boolean(row.is_official);
                 } else {
-                  isOff = (row.creator === 'Gavin');
+                  isOff = (row.creator === 'Gavin' && /Starter/i.test(row.name));
                 }
                 merged[row.name] = {
                   heroId: row.hero_id,
-                  cards: row.cards,
+                  cards: cleanCards,
                   creator: row.creator,
                   date: row.date,
                   isOfficial: isOff
@@ -4691,11 +4707,16 @@
           }
           
           const existingDeck = savedDecks[finalName];
-          const isOfficial = (existingDeck && existingDeck.isOfficial !== undefined && existingDeck.isOfficial !== null)
-              ? Boolean(existingDeck.isOfficial)
-              : (currentUser === 'Gavin');
+          // Only user "Gavin" can create or maintain an Official deck. All decks saved by other users are automatically Community.
+          const isOfficial = (currentUser === 'Gavin')
+              ? (existingDeck && existingDeck.isOfficial !== undefined && existingDeck.isOfficial !== null
+                  ? Boolean(existingDeck.isOfficial)
+                  : /Starter/i.test(finalName))
+              : false;
 
           const safeDeckCopy = JSON.parse(JSON.stringify(deck));
+          delete safeDeckCopy._meta;
+
           const deckPayload = {
               heroId: selectedHeroId,
               cards: safeDeckCopy,
@@ -4708,35 +4729,65 @@
           triggerToast(`Deck "${finalName}" saved!`, false);
 
           if (supabase) {
-            await supabase.from('saved_decks').upsert({
-              name: finalName,
-              hero_id: selectedHeroId,
-              cards: safeDeckCopy,
-              creator: currentUser,
-              date: deckPayload.date,
-              is_official: isOfficial
-            });
+            const cardsWithMeta = {
+              ...safeDeckCopy,
+              _meta: { isOfficial: isOfficial }
+            };
+            try {
+              const { error } = await supabase.from('saved_decks').upsert({
+                name: finalName,
+                hero_id: selectedHeroId,
+                cards: cardsWithMeta,
+                creator: currentUser,
+                date: deckPayload.date,
+                is_official: isOfficial
+              });
+              if (error && error.message && error.message.includes('is_official')) {
+                await supabase.from('saved_decks').upsert({
+                  name: finalName,
+                  hero_id: selectedHeroId,
+                  cards: cardsWithMeta,
+                  creator: currentUser,
+                  date: deckPayload.date
+                });
+              }
+            } catch(e) {
+              try {
+                await supabase.from('saved_decks').upsert({
+                  name: finalName,
+                  hero_id: selectedHeroId,
+                  cards: cardsWithMeta,
+                  creator: currentUser,
+                  date: deckPayload.date
+                });
+              } catch(err2) {
+                console.warn("Could not sync saved deck to cloud:", err2);
+              }
+            }
           }
       };
 
       const toggleDeckOfficial = async (deckName) => {
+          if (currentUser !== 'Gavin') {
+            return triggerToast("Only Gavin can toggle Official / Community deck status.", true);
+          }
           const deckObj = savedDecks[deckName];
           if (!deckObj) return;
-          const overrides = JSON.parse(localStorage.getItem('lorefall_deck_official_overrides') || '{}');
-          const currentStatus = (overrides[deckName] !== undefined)
-              ? overrides[deckName]
-              : (deckObj.isOfficial !== undefined && deckObj.isOfficial !== null
-                  ? Boolean(deckObj.isOfficial)
-                  : (deckObj.creator === 'Gavin'));
+          const currentStatus = getDeckOfficialStatus(deckName, deckObj);
           const newStatus = !currentStatus;
           
+          const overrides = JSON.parse(localStorage.getItem('lorefall_deck_official_overrides') || '{}');
           overrides[deckName] = newStatus;
           localStorage.setItem('lorefall_deck_official_overrides', JSON.stringify(overrides));
+
+          const safeCards = { ...deckObj.cards };
+          delete safeCards._meta;
 
           const updated = {
               ...savedDecks,
               [deckName]: {
                   ...deckObj,
+                  cards: safeCards,
                   isOfficial: newStatus
               }
           };
@@ -4752,10 +4803,21 @@
           }
 
           if (supabase) {
+            const cardsWithMeta = {
+              ...safeCards,
+              _meta: { isOfficial: newStatus }
+            };
             try {
-              await supabase.from('saved_decks').update({ is_official: newStatus }).eq('name', deckName);
+              const { error } = await supabase.from('saved_decks').update({ is_official: newStatus, cards: cardsWithMeta }).eq('name', deckName);
+              if (error && error.message && error.message.includes('is_official')) {
+                await supabase.from('saved_decks').update({ cards: cardsWithMeta }).eq('name', deckName);
+              }
             } catch(e) {
-              console.warn("Could not sync deck official status to cloud:", e);
+              try {
+                await supabase.from('saved_decks').update({ cards: cardsWithMeta }).eq('name', deckName);
+              } catch(err2) {
+                console.warn("Could not sync deck official status to cloud:", err2);
+              }
             }
           }
       };
@@ -4811,7 +4873,8 @@
               let sDeckStrikes = [];
               
               Object.values(sDeck.cards).forEach(item => {
-                  const c = item.card;
+                  const c = item && item.card;
+                  if (!c) return;
                   if (c._type === 'Ally' || c._type === 'Skill') {
                       const dmg = getCardStrike(c, sHeroPower);
                       if (dmg > 0) {
@@ -5424,7 +5487,7 @@
                          .map(([name, deckData]) => {
                          const hero = cards.find(c => c._id === deckData.heroId);
                          const isSelected = selectedSavedDeck === name;
-                         const sDeckTotal = Object.values(deckData.cards).reduce((sum, item) => sum + item.count, 0);
+                         const sDeckTotal = Object.values(deckData.cards || {}).reduce((sum, item) => sum + (item && item.count ? item.count : 0), 0);
                          const isOfficialDeck = getDeckOfficialStatus(name, deckData);
                          return (
                            <div key={name} className={`p-3 rounded-xl border cursor-pointer transition min-w-0 ${isSelected ? 'bg-amber-900/20 border-amber-600' : 'bg-slate-800/80 border-slate-700 hover:border-amber-500/50'}`} onClick={() => setSelectedSavedDeck(name)}>
@@ -5448,7 +5511,7 @@
                     {selectedSavedDeck && savedDecks[selectedSavedDeck] ? (() => {
                        const sDeck = savedDecks[selectedSavedDeck];
                        const hero = cards.find(c => c._id === sDeck.heroId);
-                       const sDeckTotal = Object.values(sDeck.cards).reduce((sum, item) => sum + item.count, 0);
+                       const sDeckTotal = Object.values(sDeck.cards || {}).reduce((sum, item) => sum + (item && item.count ? item.count : 0), 0);
                        return (
                          <div className="min-w-0">
                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5 min-w-0">
@@ -5457,7 +5520,7 @@
                                  <p className="text-xs md:text-sm text-slate-400 mt-0.5">Total Main Deck: <strong className="text-amber-500">{sDeckTotal} / 40 Cards</strong></p>
                              </div>
                              <div className="flex flex-wrap gap-2 shrink-0">
-                                {(() => {
+                                {currentUser === 'Gavin' && (() => {
                                   const isCurrentDeckOfficial = getDeckOfficialStatus(selectedSavedDeck, sDeck);
                                   return (
                                     <button 
@@ -5476,6 +5539,7 @@
 									setSelectedHeroId(sDeck.heroId);
 									const rehydratedDeck = {};
 									Object.entries(sDeck.cards).forEach(([cardId, item]) => {
+										if (cardId.startsWith('_') || !item || !item.card) return;
 										const liveCard = cards.find(c => c._id === (item.card?._id || cardId)) || item.card;
 										rehydratedDeck[cardId] = { card: liveCard, count: item.count };
 									});
@@ -5510,7 +5574,9 @@
                           )}
 
                           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 w-full">
-                            {Object.entries(sDeck.cards).map(([cardId, {card, count}]) => {
+                            {Object.entries(sDeck.cards).map(([cardId, item]) => {
+                               if (cardId.startsWith('_') || !item || !item.card) return null;
+                               const { card, count } = item;
                                const liveCard = cards.find(c => c._id === (card?._id || cardId)) || card;
                                return (
                                  <div key={liveCard._id} className="bg-slate-800/50 p-2.5 rounded-lg border border-slate-700/50 flex justify-between items-center cursor-pointer hover:border-slate-500 transition min-w-0" onClick={() => setModalCard(liveCard)}>

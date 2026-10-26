@@ -5507,6 +5507,14 @@ const SUPABASE_URL_ARENA = 'https://lbqhvrkyfewpevaorepa.supabase.co';
 const SUPABASE_KEY_ARENA = 'sb_publishable_avINSyJpnCibxy2zhjQNig_A2uaTYvh';
 
 function getDeckOfficialStatus(deckKey, recipeOrDeckObj) {
+  if (recipeOrDeckObj) {
+    if (recipeOrDeckObj.isOfficial !== undefined && recipeOrDeckObj.isOfficial !== null) {
+      return Boolean(recipeOrDeckObj.isOfficial);
+    }
+    if (recipeOrDeckObj.cards && recipeOrDeckObj.cards._meta && recipeOrDeckObj.cards._meta.isOfficial !== undefined) {
+      return Boolean(recipeOrDeckObj.cards._meta.isOfficial);
+    }
+  }
   try {
     const raw = localStorage.getItem('lorefall_deck_official_overrides');
     if (raw) {
@@ -5518,10 +5526,9 @@ function getDeckOfficialStatus(deckKey, recipeOrDeckObj) {
   } catch(e) {}
   
   if (recipeOrDeckObj) {
-    if (recipeOrDeckObj.isOfficial !== undefined && recipeOrDeckObj.isOfficial !== null) {
-      return Boolean(recipeOrDeckObj.isOfficial);
-    }
-    return (recipeOrDeckObj.creator === 'Gavin' || recipeOrDeckObj.isBuiltIn || recipeOrDeckObj.creator === 'Built-In Starter');
+    if (recipeOrDeckObj.isBuiltIn || recipeOrDeckObj.creator === 'Built-In Starter') return true;
+    if (recipeOrDeckObj.creator !== 'Gavin') return false;
+    return /Starter/i.test(deckKey);
   }
   return false;
 }
@@ -5550,7 +5557,7 @@ function syncDecksAndCards(cardsList, savedDecksMap) {
         const cardsArr = [];
         if (d.cards && typeof d.cards === 'object') {
           Object.entries(d.cards).forEach(([cId, entry]) => {
-            if (!entry) return;
+            if (!entry || cId === '_meta' || cId.startsWith('_')) return;
             const count = entry.count || 1;
             let resolvedId = cId;
             let resolvedName = null;
@@ -5569,7 +5576,9 @@ function syncDecksAndCards(cardsList, savedDecksMap) {
             });
           });
         }
-        const isOfficial = getDeckOfficialStatus(deckName, d);
+        const isOfficial = (d.isOfficial !== undefined && d.isOfficial !== null)
+          ? Boolean(d.isOfficial)
+          : getDeckOfficialStatus(deckName, d);
 
         DECK_RECIPES[deckName] = {
           name: deckName,
@@ -5742,12 +5751,23 @@ async function loadSavedDecksFromLocalAndCloud() {
     if (Array.isArray(cloudDecksRows) && cloudDecksRows.length > 0) {
       cloudDecksMap = {};
       cloudDecksRows.forEach(row => {
+        let cleanCards = row.cards || {};
+        let isOff = null;
+        if (cleanCards._meta && cleanCards._meta.isOfficial !== undefined) {
+          isOff = Boolean(cleanCards._meta.isOfficial);
+          const { _meta, ...rest } = cleanCards;
+          cleanCards = rest;
+        } else if (row.is_official !== undefined && row.is_official !== null) {
+          isOff = Boolean(row.is_official);
+        } else {
+          isOff = getDeckOfficialStatus(row.name, row);
+        }
         cloudDecksMap[row.name] = {
           heroId: row.hero_id,
           creator: row.creator,
           date: row.date,
-          cards: row.cards,
-          isOfficial: getDeckOfficialStatus(row.name, row)
+          cards: cleanCards,
+          isOfficial: isOff
         };
       });
     }
