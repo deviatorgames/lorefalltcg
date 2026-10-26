@@ -4325,12 +4325,13 @@ function evaluateCondition(condition, card, context) {
   }
   if (condition.type === "isFromAbility") return context.isFromAbility === true;
   if (condition.type === "isAttacker") {
-    if (!gameState.selectedAttacker) return false;
-    if (gameState.selectedAttacker.card === card) return true;
-    if (card.type === "Hero" && gameState.selectedAttacker.type === "skill" && gameState.selectedAttacker.playerIndex === p.index) return true;
+    const curActor = context.aInfo || gameState.selectedAttacker;
+    if (!curActor) return false;
+    if (curActor.card === card || curActor.card?.name === card.name) return true;
+    if (card.type === "Hero" && (curActor.type === "skill" || curActor.type === "hero") && curActor.playerIndex === p.index) return true;
     return false;
   }
-  if (condition.type === "isCounterstriker") return context.counterstriker === card;
+  if (condition.type === "isCounterstriker") return context.counterstriker === card || (context.counterstriker && context.counterstriker.name === card.name);
   if (condition.type === "hasCounter") return (card[condition.counterType + "s"] || 0) >= (condition.value || 1);
   if (condition.type === "isSelfDefeated") return context.defeatedUnit === card;
   if (condition.type === "isFriendlyDefeated") return context.defeatedUnit && context.defeatedUnit !== card;
@@ -4364,7 +4365,8 @@ function evaluateCondition(condition, card, context) {
     let prof = getPlayerProficiency(p);
     if (prof < condition.value) return false;
     if (context.strikeCount !== undefined) {
-        return gameState.selectedAttacker && gameState.selectedAttacker.card === card;
+        const curActor = context.aInfo || gameState.selectedAttacker;
+        return Boolean(curActor && (curActor.card === card || curActor.card?.name === card.name));
     }
     return true;
   }
@@ -5040,8 +5042,10 @@ function getStat(card, statName, player) {
       player.skills.forEach(sk => {
           if (sk && sk.mechanics && sk.mechanics.staticModifiers) {
               const isUsingThisSkill = Boolean(
-                  currentClash && currentClash.aInfo && currentClash.aInfo.type === 'skill' &&
-                  currentClash.attacker === sk && currentClash.attackerPlayer === player
+                  currentClash && (
+                      (currentClash.aInfo && currentClash.aInfo.type === 'skill' && currentClash.attacker === sk && currentClash.attackerPlayer === player) ||
+                      (currentClash.isCounter && currentClash.heroCounterAsset === sk && currentClash.defenderPlayer === player)
+                  )
               );
               if (isUsingThisSkill) {
                   sk.mechanics.staticModifiers.forEach(mod => {
@@ -10652,6 +10656,15 @@ async function executeStrikeResolution(aInfo, defenderPlayer, tType, tSlot, tUni
 
   await dispatchGlobalHook('onStrikeDeclared', { triggerPlayer: attackerPlayer, strikeCount: strikeNum, aInfo: aInfo });
 
+  if (isCounter) {
+      const counterActor = (tType === 'hero' && heroCounterAsset) ? heroCounterAsset : tUnit;
+      const counterType = (tType === 'hero' && heroCounterAsset) ? (heroCounterAsset.type === 'Skill' ? 'skill' : 'equipment') : 'ally';
+      const counterSlot = (tType === 'hero' && heroCounterAsset) ? defenderPlayer.skills.indexOf(heroCounterAsset) : tSlot;
+      const counterAInfo = { card: counterActor, type: counterType, slot: counterSlot, playerIndex: defenderPlayer.index, isCounter: true };
+      await dispatchGlobalHook('onStrikeDeclared', { triggerPlayer: defenderPlayer, strikeCount: strikeNum, aInfo: counterAInfo, isCounter: true });
+      await dispatchGlobalHook('onCounterstrike', { triggerPlayer: defenderPlayer, counterstriker: counterActor, strikeCount: strikeNum, aInfo: counterAInfo });
+  }
+
   if (gameState.irithTokenSpawned) {
       const token = gameState.irithTokenSpawned;
       delete gameState.irithTokenSpawned;
@@ -10784,8 +10797,10 @@ function checkKeyword(card, player, keyword) {
        player.skills.forEach(sk => {
            if (sk && sk.mechanics && sk.mechanics.staticModifiers) {
                const isUsingThisSkill = Boolean(
-                   currentClash && currentClash.aInfo && currentClash.aInfo.type === 'skill' &&
-                   currentClash.attacker === sk && currentClash.attackerPlayer === player
+                   currentClash && (
+                       (currentClash.aInfo && currentClash.aInfo.type === 'skill' && currentClash.attacker === sk && currentClash.attackerPlayer === player) ||
+                       (currentClash.isCounter && currentClash.heroCounterAsset === sk && currentClash.defenderPlayer === player)
+                   )
                );
                if (isUsingThisSkill) {
                    sk.mechanics.staticModifiers.forEach(mod => {
@@ -11271,6 +11286,16 @@ async function rollClashDefender() {
           await performAnimatedRoll("Counterstrike Roll", `<strong>${charName}</strong> rolls Counterstrike! (${cDie})${advText}`, dieRoll1, 0, null, false, rollObj, currentClash.defenderPlayer.index);
           totalDieRoll = dieRoll1;
           
+          const rerollAbility = counterActor.mechanics?.passiveAbilities?.find(a => a.trigger === "onDieRoll" && a.condition?.value === 1 && a.effect?.action === "rerollDie");
+          if (dieRoll1 === 1 && rerollAbility) {
+            let rerollObj = rollDieAdvDetailed(cDie, isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+            let reroll = rerollObj.finalRoll;
+            await performAnimatedRoll("Ability Re-roll", `<strong>${charName}</strong> re-rolls their 1! (${cDie})${advText}`, reroll, 0, null, false, rerollObj, currentClash.defenderPlayer.index);
+            logMsg += `<span style="color:#f59e0b; font-size:0.85rem;">Rolled a 1! Ability Re-roll: ${reroll}</span><br>`;
+            dieRoll1 = reroll;
+            totalDieRoll = dieRoll1;
+          }
+
           let rollDisp = (rollObj && rollObj.allRolls && rollObj.allRolls.length > 1) 
               ? `[${rollObj.allRolls.join(', ')}] &rarr; Highest: ${dieRoll1}` 
               : `${dieRoll1}`;
@@ -11353,8 +11378,6 @@ async function rollClashDefender() {
       
       logMsg += `Power: ${basePow} + Bonus: ${bonusPow}<br>`;
   }
-
-  await dispatchGlobalHook('onCounterstrike', { triggerPlayer: currentClash.defenderPlayer, counterstriker: counterActor });
 
   document.getElementById('clash-log').innerHTML += `<div style="margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #334155;"><strong>Defender Roll:</strong><br>${logMsg}<br>Counter Damage Output: <strong style="color:#10b981; font-size:1.1rem;">${currentClash.defDamage}</strong></div>`;
   document.getElementById('clash-actions').innerHTML = `<button class="btn btn-primary" onclick="resolveClashDamage()">Resolve Strike</button>`;
