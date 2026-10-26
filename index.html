@@ -4174,52 +4174,96 @@
 
         try {
           if (supabase) {
-            // Case A: User entered an email address -> Authenticate directly with Supabase Auth
-            if (identifier.includes('@')) {
-              const { data, error } = await supabase.auth.signInWithPassword({
-                email: identifier,
-                password: pwd
-              });
+            let targetEmail = null;
 
-              if (error) {
-                setAuthError(error.message);
+            // Case A: User entered an email address directly
+            if (identifier.includes('@')) {
+              targetEmail = identifier;
+            } else {
+              // Case B: User entered a username (e.g. 'Gavin')
+              // 1. Check if email is mapped in Supabase profiles table
+              try {
+                const { data: profData } = await supabase.from('profiles').select('*').eq('username', identifier).maybeSingle();
+                if (profData) {
+                  // Legacy PIN fallback in case a profile still uses PIN
+                  if (profData.pin && profData.pin === pwd) {
+                    setCurrentUser(identifier);
+                    localStorage.setItem('lorefall_user', identifier);
+                    setShowAuthModal(false);
+                    setAuthEmailOrUser('');
+                    setAuthPassword('');
+                    triggerToast(`Welcome back, ${identifier}!`, false);
+                    setAuthLoading(false);
+                    return;
+                  }
+                  if (profData.email) {
+                    targetEmail = profData.email;
+                  }
+                }
+              } catch(pErr) {
+                console.warn("Profiles lookup error:", pErr);
+              }
+
+              // 2. Check local device cached email mapping for this username
+              if (!targetEmail) {
+                try {
+                  const map = JSON.parse(localStorage.getItem('lorefall_user_emails') || '{}');
+                  if (map[identifier.toLowerCase()]) {
+                    targetEmail = map[identifier.toLowerCase()];
+                  }
+                } catch(e) {}
+              }
+
+              if (!targetEmail) {
+                setAuthError(`The username "${identifier}" is not linked to an email yet. Please sign in with your email address once to link your username for future logins!`);
                 setAuthLoading(false);
                 return;
               }
+            }
 
-              const u = data.user?.user_metadata?.username || data.user?.email?.split('@')[0] || 'User';
-              setCurrentUser(u);
-              localStorage.setItem('lorefall_user', u);
-              setShowAuthModal(false);
-              setAuthEmailOrUser('');
-              setAuthPassword('');
-              triggerToast(`Logged in as ${u}!`, false);
+            // Authenticate with Supabase Auth using the resolved email
+            const { data, error } = await supabase.auth.signInWithPassword({
+              email: targetEmail,
+              password: pwd
+            });
+
+            if (error) {
+              let msg = error.message;
+              if (msg.toLowerCase().includes('email not confirmed')) {
+                msg = 'Email not confirmed yet. Check your Spam/Junk folder, or uncheck "Confirm email" in Supabase Auth (Providers -> Email) to allow instant logins.';
+              } else if (msg.toLowerCase().includes('invalid login credentials')) {
+                msg = 'Incorrect email/username or password.';
+              }
+              setAuthError(msg);
               setAuthLoading(false);
               return;
             }
 
-            // Case B: User entered a username (e.g. 'Gavin')
-            // First check profiles table to guarantee Gavin and existing users can ALWAYS log in via their PIN
-            try {
-              const { data: profData } = await supabase.from('profiles').select('*').eq('username', identifier).maybeSingle();
-              if (profData) {
-                if (profData.pin && profData.pin === pwd) {
-                  // Legacy PIN match! Log Gavin in immediately!
-                  setCurrentUser(identifier);
-                  localStorage.setItem('lorefall_user', identifier);
-                  setShowAuthModal(false);
-                  setAuthEmailOrUser('');
-                  setAuthPassword('');
-                  triggerToast(`Welcome back, ${identifier}! (Access verified)`, false);
-                  setAuthLoading(false);
-                  return;
-                }
-              }
-            } catch(pErr) {
-              console.warn("Legacy profile lookup:", pErr);
-            }
+            // Determine canonical username
+            const u = data.user?.user_metadata?.username || (!identifier.includes('@') ? identifier : data.user?.email?.split('@')[0]) || 'User';
 
-            setAuthError('Could not sign in with this username/password. If you registered with an email address, please enter your email to sign in, or click "Forgot Password".');
+            // Ensure username and email are linked in profiles & localStorage
+            try {
+              const { error: upErr } = await supabase.from('profiles').upsert({ username: u, email: targetEmail });
+              if (upErr) {
+                await supabase.from('profiles').upsert({ username: u });
+              }
+            } catch(e) {}
+
+            try {
+              const map = JSON.parse(localStorage.getItem('lorefall_user_emails') || '{}');
+              map[u.toLowerCase()] = targetEmail;
+              localStorage.setItem('lorefall_user_emails', JSON.stringify(map));
+            } catch(e) {}
+
+            setCurrentUser(u);
+            localStorage.setItem('lorefall_user', u);
+            setShowAuthModal(false);
+            setAuthEmailOrUser('');
+            setAuthPassword('');
+            triggerToast(`Logged in as ${u}!`, false);
+            setAuthLoading(false);
+            return;
           } else {
             // Offline / Local storage fallback
             const localProfiles = JSON.parse(localStorage.getItem('lorefall_profiles') || '{}');
@@ -4281,7 +4325,7 @@
               }
             } catch(e) {}
 
-            // Register with Supabase Auth (passwords handled securely behind the scenes!)
+            // Register with Supabase Auth
             const { data, error } = await supabase.auth.signUp({
               email: em,
               password: pwd,
@@ -4297,21 +4341,39 @@
               return;
             }
 
-            // Upsert profile username (NO PIN stored - completely secure!)
+            // Supabase returns an empty identities array if this email already exists
+            if (data?.user && data.user.identities && data.user.identities.length === 0) {
+              setAuthError('An account with this email address already exists. Please sign in or use "Forgot Password".');
+              setAuthLoading(false);
+              return;
+            }
+
+            // Link username and email in profiles & local cache
             try {
-              await supabase.from('profiles').upsert({ username: u });
+              const { error: upErr } = await supabase.from('profiles').upsert({ username: u, email: em });
+              if (upErr) {
+                await supabase.from('profiles').upsert({ username: u });
+              }
+            } catch(e) {}
+
+            try {
+              const map = JSON.parse(localStorage.getItem('lorefall_user_emails') || '{}');
+              map[u.toLowerCase()] = em;
+              localStorage.setItem('lorefall_user_emails', JSON.stringify(map));
             } catch(e) {}
 
             if (data?.session) {
+              // Instant login (Confirm email is turned off in Supabase)
               setCurrentUser(u);
               localStorage.setItem('lorefall_user', u);
               setShowAuthModal(false);
               setAuthUsername('');
               setAuthEmail('');
               setAuthPassword('');
-              triggerToast(`Welcome to Lorefall, ${u}! Account secured with Supabase Auth.`, false);
+              triggerToast(`Welcome to Lorefall, ${u}! You are now signed in.`, false);
             } else {
-              setAuthSuccessMsg(`Registration link sent to ${em}! Please check your email to verify your account, then sign in.`);
+              // Email confirmation is still enabled on Supabase project
+              setAuthSuccessMsg(`Account created for ${u}! If confirmation emails are enabled, please check your inbox and Spam/Junk folder. (Tip: Uncheck "Confirm email" in Supabase Auth to enable instant logins without waiting for emails!)`);
             }
           } else {
             // Local fallback
