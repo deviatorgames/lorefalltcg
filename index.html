@@ -4000,6 +4000,9 @@
       const [selectedSavedDeck, setSelectedSavedDeck] = useState(null);
       const [includeCommunityDecks, setIncludeCommunityDecks] = useState(false);
 
+      const OFFICIAL_BUILTIN_DECKS = ['Crusaders Starter (Beta)', 'Dominion Starter (Beta)'];
+      const isDefaultOfficialDeck = (name) => name ? OFFICIAL_BUILTIN_DECKS.includes(name.trim()) : false;
+
       const getDeckOfficialStatus = (deckName, deckObj) => {
         if (deckObj) {
           if (deckObj.isOfficial !== undefined && deckObj.isOfficial !== null) return Boolean(deckObj.isOfficial);
@@ -4016,7 +4019,7 @@
         } catch(e) {}
         if (deckObj) {
           if (deckObj.creator !== 'Gavin') return false;
-          return /Starter/i.test(deckName);
+          return isDefaultOfficialDeck(deckName);
         }
         return false;
       };
@@ -4062,7 +4065,7 @@
                 } else if (existing && existing.isOfficial !== undefined && existing.isOfficial !== null) {
                   isOff = existing.isOfficial;
                 } else {
-                  isOff = (row.creator === 'Gavin' && /Starter/i.test(row.name));
+                  isOff = (row.creator === 'Gavin' && isDefaultOfficialDeck(row.name));
                 }
                 merged[row.name] = {
                   heroId: row.hero_id,
@@ -4711,7 +4714,7 @@
           const isOfficial = (currentUser === 'Gavin')
               ? (existingDeck && existingDeck.isOfficial !== undefined && existingDeck.isOfficial !== null
                   ? Boolean(existingDeck.isOfficial)
-                  : /Starter/i.test(finalName))
+                  : isDefaultOfficialDeck(finalName))
               : false;
 
           const safeDeckCopy = JSON.parse(JSON.stringify(deck));

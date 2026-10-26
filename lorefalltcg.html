@@ -5506,6 +5506,10 @@ async function startGame() {
 const SUPABASE_URL_ARENA = 'https://lbqhvrkyfewpevaorepa.supabase.co';
 const SUPABASE_KEY_ARENA = 'sb_publishable_avINSyJpnCibxy2zhjQNig_A2uaTYvh';
 
+function isDefaultOfficialDeck(name) {
+  return ['Crusaders Starter (Beta)', 'Dominion Starter (Beta)'].includes((name || '').trim());
+}
+
 function getDeckOfficialStatus(deckKey, recipeOrDeckObj) {
   if (recipeOrDeckObj) {
     if (recipeOrDeckObj.isOfficial !== undefined && recipeOrDeckObj.isOfficial !== null) {
@@ -5528,7 +5532,7 @@ function getDeckOfficialStatus(deckKey, recipeOrDeckObj) {
   if (recipeOrDeckObj) {
     if (recipeOrDeckObj.isBuiltIn || recipeOrDeckObj.creator === 'Built-In Starter') return true;
     if (recipeOrDeckObj.creator !== 'Gavin') return false;
-    return /Starter/i.test(deckKey);
+    return isDefaultOfficialDeck(deckKey);
   }
   return false;
 }
