@@ -125,23 +125,23 @@
   .strike-pip { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #f43f5e; }
   .strike-pip.filled { background: #f43f5e; box-shadow: 0 0 8px #f43f5e; }
 
-  .board-container { flex: 1; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 5px; padding: 4px 10px; position: relative; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+  .board-container { flex: 1; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 4px; padding: 2px 8px; position: relative; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
   
-  .player-half { min-height: 0; height: 100%; min-width: 520px; display: flex; flex-direction: row; align-items: stretch; justify-content: center; gap: clamp(4px, 1vw, 10px); background: rgba(18, 24, 34, 0.85); border: 1px solid #1e293b; border-radius: 8px; padding: clamp(3px, 0.6vw, 8px); position: relative; overflow: hidden; }
-  .support-zone { flex: 1; min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 1fr); gap: 2px; background: rgba(0, 0, 0, 0.25); padding: 4px 6px; border-radius: 6px; border: 1px dashed #243042; }
-  .hero-zone { flex: 0 0 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; background: rgba(0, 0, 0, 0.15); border-radius: 6px; padding: 3px 8px; }
-  .board-zone { flex: 1.1; min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 4px; }
-  .side-column { width: clamp(120px, 13vw, 155px); flex-shrink: 0; display: flex; flex-direction: column; gap: 5px; background: rgba(0, 0, 0, 0.3); padding: 6px; border-radius: 6px; }
+  .player-half { min-height: 0; height: 100%; min-width: 520px; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: clamp(4px, 0.8vw, 8px); background: rgba(18, 24, 34, 0.88); border: 1px solid #1e293b; border-radius: 8px; padding: clamp(2px, 0.4vw, 6px); position: relative; overflow: hidden; }
+  .support-zone { flex: 1; min-width: 0; min-height: 0; height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 1fr); gap: 2px; background: rgba(0, 0, 0, 0.25); padding: 3px 6px; border-radius: 6px; border: 1px dashed #243042; align-content: center; }
+  .hero-zone { flex: 0 0 auto; min-width: 0; min-height: 0; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; background: rgba(0, 0, 0, 0.18); border-radius: 8px; padding: 3px 8px; border: 1px solid rgba(255, 215, 0, 0.15); }
+  .board-zone { flex: 1.15; min-width: 0; min-height: 0; height: 100%; display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 3px; align-content: center; }
+  .side-column { width: clamp(120px, 13vw, 155px); flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; background: rgba(0, 0, 0, 0.3); padding: 6px; border-radius: 6px; }
 
-  .zone-label { font-size: 0.62rem; line-height: 1; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
-  .slot-row { min-height: 0; height: 100%; display: flex; justify-content: center; align-items: center; gap: clamp(4px, 0.8vw, 8px); }
-  .battle-slots { min-height: 0; height: 100%; display: flex; justify-content: center; align-items: center; gap: clamp(4px, 0.8vw, 8px); padding: 2px; }
-  .bench-line { min-height: 0; height: 100%; display: flex; justify-content: center; align-items: center; gap: clamp(4px, 0.8vw, 8px); background: rgba(0, 0, 0, 0.2); border-radius: 6px; padding: 2px; border: 1px dashed #1e293b; }
+  .zone-label { font-size: 0.62rem; line-height: 1; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-dim); font-weight: 700; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1px; }
+  .slot-row { min-height: 0; height: 100%; display: flex; justify-content: center; align-items: center; gap: clamp(3px, 0.6vw, 6px); }
+  .battle-slots { min-height: 0; height: 100%; display: flex; justify-content: center; align-items: center; gap: clamp(3px, 0.6vw, 6px); padding: 1px; }
+  .bench-line { min-height: 0; height: 100%; display: flex; justify-content: center; align-items: center; gap: clamp(3px, 0.6vw, 6px); background: rgba(0, 0, 0, 0.2); border-radius: 6px; padding: 1px; border: 1px dashed #1e293b; }
 
-  /* All Board Slots in strict 5:7 (2.5" x 3.5") Aspect Ratio */
+  /* All Board Slots in strict 10:7 Aspect Ratio (captured from pixels 60 to 760, except Heroes which remain 5:7) */
   .card-slot {
     height: 100%;
-    aspect-ratio: 5 / 7;
+    aspect-ratio: 10 / 7;
     width: auto;
     flex: 0 0 auto;
     border: 1px dashed var(--slot-border);
@@ -155,20 +155,30 @@
     cursor: pointer;
   }
   .card-slot:not(.hero-card-slot) {
-    max-height: clamp(82px, 15vh, 132px);
+    aspect-ratio: 10 / 7 !important;
+    max-height: clamp(68px, 12.5vh, 100px);
   }
   .card-slot:hover { border-color: rgba(255,255,255,0.35); }
   .card-slot.valid-target { border-color: var(--mana); background: rgba(56, 189, 248, 0.15); box-shadow: inset 0 0 15px rgba(56, 189, 248, 0.4); animation: pulseMana 1.5s infinite alternate;}
 
-  /* Scaled Hero Slot (always slightly bigger than ally/board slots, but compressed from old 225px) */
+  /* Scaled Hero Slot (substantially enlarged centerpiece in 5:7 format) */
   .hero-card-slot {
-    height: clamp(106px, 19.5vh, 168px) !important;
-    max-height: calc(100% - 14px) !important;
-    aspect-ratio: 5 / 7;
+    height: clamp(140px, 23vh, 215px) !important;
+    max-height: calc(100% - 10px) !important;
+    aspect-ratio: 5 / 7 !important;
     width: auto;
     flex: 0 0 auto;
     position: relative;
+    border: 2px solid rgba(255, 215, 0, 0.4);
+    box-shadow: 0 0 14px rgba(0, 0, 0, 0.8), 0 0 8px rgba(255, 215, 0, 0.15);
   }
+  .hero-card-slot .mini-mana { width: 32px; height: 32px; font-size: 1.45rem; }
+  .hero-card-slot .mini-gold { width: 30px; height: 30px; font-size: 1.35rem; }
+  .hero-card-slot .mini-dex { width: 30px; height: 32px; font-size: 1.45rem; }
+  .hero-card-slot .mini-hp { width: 32px; height: 35px; font-size: 1.45rem; }
+  .hero-card-slot .mini-pow { width: 32px; height: 32px; font-size: 1.45rem; }
+  .hero-card-slot .mini-atk-icon, .hero-card-slot .mini-atk-badge { width: 32px; height: 32px; }
+  .hero-card-slot .mini-atk-icon span, .hero-card-slot .mini-atk-badge span { font-size: 1.45rem; }
   
   .equip-tab {
       position: absolute; right: -25px; top: 50%; transform: translateY(-50%);
@@ -189,18 +199,18 @@
   .pile-box.loot-pile { background-image: linear-gradient(rgba(12,15,20,0.55), rgba(12,15,20,0.75)), url('https://raw.githubusercontent.com/deviatorgames/Lorefall-Card-Art/main/Lorefall%20Cardback.png'); background-size: cover; background-position: center; border-color: var(--gold); cursor: default; }
   body.test-mode .pile-box.loot-pile { cursor: pointer; }
 
-  /* Player Bottom Bar & Relocated Piles (Lower-Left Corner) */
+  /* Player Bottom Bar & Relocated Piles (Lower-Left Corner) - Enlarged */
   .player-bottom-bar {
     display: flex;
     align-items: center;
-    height: 122px;
+    height: 148px;
     flex-shrink: 0;
-    background: linear-gradient(180deg, rgba(13,18,25,0.92) 0%, #07090e 100%);
+    background: linear-gradient(180deg, rgba(13,18,25,0.94) 0%, #07090e 100%);
     border-top: 1px solid #1e293b;
-    padding: 0 12px;
+    padding: 0 14px;
     position: relative;
     z-index: 25;
-    gap: 10px;
+    gap: 12px;
   }
   .player-bottom-piles {
     display: flex;
@@ -214,15 +224,15 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.5);
   }
   .player-bottom-piles .pile-box {
-    width: 58px;
-    height: 86px;
-    flex: 0 0 58px;
+    width: 64px;
+    height: 98px;
+    flex: 0 0 64px;
     border-radius: 6px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    font-size: 0.65rem;
+    font-size: 0.68rem;
     font-weight: 700;
     cursor: pointer;
     box-shadow: 0 4px 10px rgba(0,0,0,0.7);
@@ -250,14 +260,14 @@
     border-color: #64748b;
   }
   .player-bottom-piles .pile-box.hand-counter-box {
-    width: 46px;
-    flex: 0 0 46px;
+    width: 50px;
+    flex: 0 0 50px;
     background: rgba(26, 36, 52, 0.65);
     border-color: #334155;
     cursor: default;
   }
   .player-bottom-piles .pile-label {
-    font-size: 0.62rem;
+    font-size: 0.65rem;
     letter-spacing: 0.5px;
     color: #94a3b8;
     text-transform: uppercase;
@@ -267,14 +277,14 @@
     text-shadow: 0 1px 3px #000;
   }
   .player-bottom-piles .pile-count {
-    font-size: 1.05rem;
+    font-size: 1.15rem;
     font-weight: 800;
     color: #fff;
     margin-top: 3px;
     text-shadow: 0 1px 4px rgba(0,0,0,0.9);
   }
 
-  /* Hand (MTG Arena style compression & dynamic fanning) */
+  /* Hand (MTG Arena style compression & dynamic fanning) - Enlarged */
   .hand-container {
     flex: 1;
     min-width: 0;
@@ -282,14 +292,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 6px 14px;
+    padding: 6px 16px;
     overflow-x: auto;
     overflow-y: visible;
     position: relative;
     z-index: 25;
   }
   .hand-card {
-    height: 108px;
+    height: 126px;
     aspect-ratio: 5 / 7;
     width: auto;
     background: #0c0f14;
@@ -301,7 +311,7 @@
     flex: 0 0 auto;
     overflow: hidden;
     box-shadow: -3px 4px 12px rgba(0,0,0,0.75);
-    margin-left: var(--hand-overlap, -32px);
+    margin-left: var(--hand-overlap, -36px);
     transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), margin 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.16s, box-shadow 0.16s;
   }
   .hand-card:first-child {
@@ -314,16 +324,16 @@
     margin-left: 0 !important;
   }
   .hand-card:hover {
-    transform: translateY(-24px) scale(1.22);
+    transform: translateY(-26px) scale(1.24);
     border-color: var(--mana);
-    box-shadow: 0 14px 28px rgba(0,0,0,0.85), 0 0 16px rgba(56, 189, 248, 0.55);
+    box-shadow: 0 16px 32px rgba(0,0,0,0.9), 0 0 18px rgba(56, 189, 248, 0.6);
     z-index: 60 !important;
-    margin-left: 10px !important;
-    margin-right: 14px !important;
+    margin-left: 14px !important;
+    margin-right: 18px !important;
   }
   .hand-card:first-child:hover {
     margin-left: 0 !important;
-    margin-right: 14px !important;
+    margin-right: 18px !important;
   }
   .hand-card.classic-hand-card {
     background: var(--bg-card);
@@ -340,54 +350,514 @@
   #p1-action-controls { display: flex; flex-direction: column; gap: 4px; margin-top: auto; }
   #p1-action-controls button { width: 100%; padding: 7px 10px; font-size: 0.78rem; }
 
-  /* Mobile & Small Screen Responsive Enhancements */
-  @media (max-width: 900px), (max-height: 650px) {
+  /* Mobile Hand Drawer & Floating Pill Elements */
+  .mobile-hand-backdrop {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
+    z-index: 340;
+    opacity: 0;
+    transition: opacity 0.22s ease;
+    pointer-events: none;
+  }
+  .mobile-hand-backdrop.active {
+    display: block;
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .mobile-drawer-header {
+    display: none;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3px 10px;
+    background: rgba(15, 23, 42, 0.96);
+    border-bottom: 1px solid #334155;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--mana);
+    flex-shrink: 0;
+  }
+  .mobile-drawer-content {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    gap: 8px;
+  }
+  .mobile-hand-pill {
+    display: none;
+    position: fixed;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border: 1.5px solid var(--mana);
+    color: #fff;
+    border-radius: 22px;
+    padding: 5px 14px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+    z-index: 320;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.8), 0 0 10px rgba(56, 189, 248, 0.35);
+    align-items: center;
+    gap: 7px;
+    transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.16s;
+    user-select: none;
+    letter-spacing: 0.3px;
+  }
+  .mobile-hand-pill:active {
+    transform: translateX(-50%) scale(0.95);
+  }
+  .mobile-hand-pill.has-playable-cards {
+    border-color: #38bdf8;
+    animation: pulsePillMana 2s infinite ease-in-out;
+  }
+  @keyframes pulsePillMana {
+    0%, 100% { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.8), 0 0 8px rgba(56, 189, 248, 0.4); }
+    50% { box-shadow: 0 4px 22px rgba(0, 0, 0, 0.9), 0 0 16px rgba(56, 189, 248, 0.85); border-color: #7dd3fc; }
+  }
+  .mhp-icon { font-size: 0.95rem; line-height: 1; }
+  .mhp-label { font-weight: 700; color: #f1f5f9; }
+  .mhp-divider { color: #475569; font-weight: normal; margin: 0 1px; }
+  .mhp-res { font-weight: 800; font-size: 0.75rem; display: flex; align-items: center; gap: 2px; }
+
+  /* Ensure game battle HUD elements are NEVER shown outside an active game session */
+  #game-screen:not(.active) .mobile-hand-pill,
+  #game-screen:not(.active) .mobile-hand-backdrop,
+  #game-screen:not(.active) .player-bottom-bar,
+  #game-screen:not(.active) .log-toggle-btn,
+  #game-screen:not(.active) .combat-log-pane,
+  #menu-screen.active ~ #game-screen .mobile-hand-pill,
+  #menu-screen.active ~ #game-screen .log-toggle-btn,
+  #menu-screen.active ~ #game-screen .combat-log-pane,
+  #menu-screen.active ~ #game-screen #mobile-hand-backdrop,
+  #menu-screen.active ~ * .mobile-hand-pill,
+  #menu-screen.active ~ * .log-toggle-btn,
+  #menu-screen.active ~ * .combat-log-pane,
+  #menu-screen.active ~ * .mobile-hand-backdrop {
+    display: none !important;
+  }
+
+  /* Medium Screens / Desktop Compact */
+  @media (max-width: 900px) and (min-height: 561px), (max-height: 650px) and (min-height: 561px) {
     .top-bar { height: 36px; padding: 0 10px; font-size: 0.8rem; }
     .phase-tracker { gap: 4px; }
     .phase-step { padding: 2px 8px; font-size: 0.72rem; }
-    .card-slot:not(.hero-card-slot) { max-height: clamp(65px, 12vh, 90px); }
-    .hero-card-slot { height: clamp(82px, 15vh, 115px) !important; max-height: calc(100% - 10px) !important; }
-    .player-bottom-bar { height: 94px; padding: 0 8px; gap: 8px; }
-    .player-bottom-piles .pile-box { width: 48px; height: 68px; flex: 0 0 48px; }
+    .card-slot:not(.hero-card-slot) { max-height: clamp(55px, 10.5vh, 75px); aspect-ratio: 10 / 7 !important; }
+    .hero-card-slot { height: clamp(110px, 18vh, 150px) !important; max-height: calc(100% - 10px) !important; }
+    .player-bottom-bar { height: 115px; padding: 0 8px; gap: 8px; }
+    .player-bottom-piles .pile-box { width: 50px; height: 72px; flex: 0 0 50px; }
     .player-bottom-piles .pile-label { font-size: 0.55rem; }
-    .player-bottom-piles .pile-count { font-size: 0.88rem; }
-    .player-bottom-piles .pile-box.hand-counter-box { width: 40px; flex: 0 0 40px; }
-    .hand-card { height: 82px; margin-left: var(--hand-overlap, -24px); }
-    .hand-container:hover .hand-card { margin-left: var(--hand-hover-overlap, -4px); }
-    .hand-card:hover { transform: translateY(-14px) scale(1.18); margin-left: 6px !important; margin-right: 8px !important; }
+    .player-bottom-piles .pile-count { font-size: 0.95rem; }
+    .player-bottom-piles .pile-box.hand-counter-box { width: 42px; flex: 0 0 42px; }
+    .hand-card { height: 98px; margin-left: var(--hand-overlap, -28px); }
+    .hand-container:hover .hand-card { margin-left: var(--hand-hover-overlap, -5px); }
+    .hand-card:hover { transform: translateY(-16px) scale(1.2); margin-left: 8px !important; margin-right: 10px !important; }
     .side-column { width: 125px; padding: 5px; gap: 4px; }
     .stats-card { padding: 4px 6px; gap: 2px; }
     .stat-badge { font-size: 0.68rem; }
     #p1-action-controls button { padding: 5px 6px; font-size: 0.7rem; }
   }
 
-  @media (max-width: 600px), (max-height: 480px) {
-    .top-bar { height: 30px; padding: 0 6px; font-size: 0.72rem; }
-    .phase-step { padding: 2px 5px; font-size: 0.65rem; }
-    .player-bottom-bar { height: 78px; padding: 0 4px; gap: 4px; }
-    .player-bottom-piles { gap: 4px; padding: 2px 4px; }
-    .player-bottom-piles .pile-box { width: 38px; height: 56px; flex: 0 0 38px; font-size: 0.55rem; }
-    .player-bottom-piles .pile-label { font-size: 0.48rem; }
-    .player-bottom-piles .pile-count { font-size: 0.76rem; }
-    .player-bottom-piles .pile-box.hand-counter-box { width: 34px; flex: 0 0 34px; }
-    .hand-card { height: 68px; margin-left: var(--hand-overlap, -20px); }
-    .hand-container:hover .hand-card { margin-left: var(--hand-hover-overlap, -3px); }
-    .hand-card:hover { transform: translateY(-10px) scale(1.15); margin-left: 4px !important; margin-right: 6px !important; }
-    .card-slot:not(.hero-card-slot) { max-height: clamp(55px, 10vh, 70px); }
-    .hero-card-slot { height: clamp(70px, 13vh, 88px) !important; max-height: calc(100% - 8px) !important; }
-    #arena-hover-preview { display: none !important; }
+  /* Mobile Landscape / Ultra-Compact Layout (Phones in Landscape & Compressed Heights) */
+  @media (max-height: 560px), ((max-width: 950px) and (orientation: landscape)) {
+    #game-screen {
+      height: 100dvh !important;
+      max-height: 100dvh !important;
+      overflow: hidden !important;
+    }
+    .top-bar {
+      height: 28px !important;
+      min-height: 28px !important;
+      padding: 0 8px !important;
+      font-size: 0.72rem !important;
+    }
+    .phase-tracker { gap: 3px !important; }
+    .phase-step { padding: 1px 6px !important; font-size: 0.65rem !important; }
+    .strike-counter { gap: 4px !important; font-size: 0.72rem !important; }
+    .strike-pip { width: 8px !important; height: 8px !important; }
+    #turn-indicator { font-size: 0.74rem !important; }
+    #btn-fullscreen-toggle, #btn-audio-settings-bar, #btn-quit-match, #btn-session-exit {
+      padding: 2px 7px !important;
+      font-size: 0.68rem !important;
+      gap: 3px !important;
+    }
+
+    .board-container {
+      height: calc(100dvh - 28px) !important;
+      max-height: calc(100dvh - 28px) !important;
+      overflow: hidden !important;
+      display: grid !important;
+      grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) !important;
+      gap: 2px !important;
+      padding: 1px 4px !important;
+    }
+
+    .player-half {
+      height: 100% !important;
+      min-height: 0 !important;
+      min-width: 0 !important;
+      padding: 2px 4px !important;
+      gap: 4px !important;
+      border-radius: 4px !important;
+    }
+    .support-zone {
+      padding: 2px 4px !important;
+      gap: 1px !important;
+    }
+    .hero-zone {
+      padding: 1px 4px !important;
+    }
+    .board-zone {
+      gap: 2px !important;
+    }
+    .side-column {
+      width: 105px !important;
+      padding: 3px !important;
+      gap: 2px !important;
+    }
+    .stats-card {
+      padding: 2px 4px !important;
+      gap: 1px !important;
+    }
+    .stat-badge {
+      font-size: 0.62rem !important;
+    }
+    #p1-action-controls button, #p2-action-controls button {
+      padding: 3px 5px !important;
+      font-size: 0.68rem !important;
+    }
+    .zone-label {
+      font-size: 0.52rem !important;
+      margin-bottom: 0 !important;
+    }
+    .slot-row, .battle-slots, .bench-line {
+      gap: 3px !important;
+    }
+
+    .card-slot:not(.hero-card-slot) {
+      height: 100% !important;
+      max-height: clamp(48px, 16vh, 74px) !important;
+      aspect-ratio: 10 / 7 !important;
+      border-radius: 4px !important;
+    }
+    .hero-card-slot {
+      height: 98% !important;
+      max-height: clamp(105px, 34vh, 155px) !important;
+      aspect-ratio: 5 / 7 !important;
+      border-radius: 5px !important;
+    }
+
+    .hero-card-slot .mini-mana, .hero-card-slot .mini-gold, .hero-card-slot .mini-dex,
+    .hero-card-slot .mini-hp, .hero-card-slot .mini-pow, .hero-card-slot .mini-atk-icon,
+    .hero-card-slot .mini-charge-icon, .hero-card-slot .charge-meter {
+      width: 22px !important;
+      height: 22px !important;
+    }
+    .hero-card-slot .mini-mana span, .hero-card-slot .mini-gold span, .hero-card-slot .mini-dex span,
+    .hero-card-slot .mini-hp span, .hero-card-slot .mini-pow span, .hero-card-slot .mini-atk-icon span {
+      font-size: 0.95rem !important;
+    }
+    .hero-card-slot .mini-charge-icon span, .hero-card-slot .charge-meter span {
+      font-size: 0.68rem !important;
+      line-height: 1 !important;
+    }
+
+    .card-slot:not(.hero-card-slot) .mini-mana, .card-slot:not(.hero-card-slot) .mini-gold, .card-slot:not(.hero-card-slot) .mini-dex,
+    .card-slot:not(.hero-card-slot) .mini-hp, .card-slot:not(.hero-card-slot) .mini-pow, .card-slot:not(.hero-card-slot) .mini-atk-icon,
+    .card-slot:not(.hero-card-slot) .mini-charge-icon, .card-slot:not(.hero-card-slot) .charge-meter {
+      width: 17px !important;
+      height: 17px !important;
+    }
+    .card-slot:not(.hero-card-slot) .mini-mana span, .card-slot:not(.hero-card-slot) .mini-gold span, .card-slot:not(.hero-card-slot) .mini-dex span,
+    .card-slot:not(.hero-card-slot) .mini-hp span, .card-slot:not(.hero-card-slot) .mini-pow span, .card-slot:not(.hero-card-slot) .mini-atk-icon span {
+      font-size: 0.72rem !important;
+    }
+    .card-slot:not(.hero-card-slot) .mini-charge-icon span, .card-slot:not(.hero-card-slot) .charge-meter span {
+      font-size: 0.54rem !important;
+      line-height: 1 !important;
+    }
+
+    /* Live Charge & Overlays on Card Detail & Hover Preview on Mobile */
+    .fc-container .fc-icon-charge,
+    #arena-hover-preview .fc-icon-charge {
+      width: clamp(22px, 6.8vh, 34px) !important;
+      height: clamp(22px, 6.8vh, 34px) !important;
+    }
+    .fc-container .fc-icon-charge span,
+    #arena-hover-preview .fc-icon-charge span {
+      font-size: clamp(0.68rem, 2vh, 0.98rem) !important;
+      line-height: 1 !important;
+    }
+
+    /* Player Bottom Bar as Slide-Up Mobile Drawer */
+    .player-bottom-bar {
+      position: fixed !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: -320px !important;
+      height: clamp(130px, 46vh, 185px) !important;
+      z-index: 350 !important;
+      flex-direction: column !important;
+      padding: 0 !important;
+      gap: 0 !important;
+      background: linear-gradient(180deg, #111827 0%, #07090e 100%) !important;
+      border-top: 2px solid var(--mana) !important;
+      box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.92) !important;
+      transition: bottom 0.26s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s ease !important;
+    }
+    .player-bottom-bar.drawer-open {
+      bottom: 0 !important;
+    }
+    body.mobile-hand-dragging .player-bottom-bar {
+      transform: translateY(75%) !important;
+      opacity: 0.55 !important;
+      pointer-events: none !important;
+    }
+    .mobile-drawer-header {
+      display: flex !important;
+    }
+    .mobile-drawer-content {
+      display: flex !important;
+      padding: 4px 10px !important;
+    }
+    .player-bottom-piles {
+      padding: 2px 4px !important;
+      gap: 4px !important;
+    }
+    .player-bottom-piles .pile-box {
+      width: 44px !important;
+      height: 64px !important;
+      flex: 0 0 44px !important;
+      font-size: 0.58rem !important;
+    }
+    .player-bottom-piles .pile-label {
+      font-size: 0.48rem !important;
+    }
+    .player-bottom-piles .pile-count {
+      font-size: 0.85rem !important;
+    }
+    .player-bottom-piles .pile-box.hand-counter-box {
+      display: none !important;
+    }
+    .hand-card {
+      height: clamp(75px, 30vh, 105px) !important;
+      margin-left: var(--hand-overlap, -24px) !important;
+    }
+    .hand-card:hover {
+      transform: translateY(-12px) scale(1.15) !important;
+    }
+
+    /* Floating Pill Display (only when game screen is active) */
+    #game-screen.active .mobile-hand-pill {
+      display: flex !important;
+    }
+
+    /* Floating Previews & Modals Sized to Viewport Without Scrolling */
+    #arena-hover-preview {
+      width: clamp(140px, 22vh, 190px) !important;
+      left: 10px !important;
+    }
+    .fc-modal-layout {
+      flex-direction: row !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 10px !important;
+      max-height: 96vh !important;
+      max-width: 98vw !important;
+      overflow: hidden !important;
+    }
+    .fc-card-col {
+      max-height: 92vh !important;
+      flex-shrink: 0 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    .fc-container {
+      width: auto !important;
+      height: clamp(150px, 86vh, 390px) !important;
+      aspect-ratio: 5 / 7 !important;
+      padding: 4px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: center !important;
+    }
+    .fc-card-art-frame {
+      height: 100% !important;
+      width: auto !important;
+      aspect-ratio: 5 / 7 !important;
+    }
+    .fc-card-full-img {
+      height: 100% !important;
+      width: 100% !important;
+      object-fit: contain !important;
+    }
+    .fc-side-panel {
+      max-height: clamp(150px, 88vh, 410px) !important;
+      width: clamp(220px, 36vw, 340px) !important;
+      padding: 8px 12px !important;
+      font-size: 0.78rem !important;
+    }
+    .fc-side-header {
+      padding-bottom: 5px !important;
+      margin-bottom: 6px !important;
+    }
+    .fc-side-card-name {
+      font-size: 0.95rem !important;
+    }
+    .fc-side-card-meta {
+      font-size: 0.68rem !important;
+    }
+    .fc-side-abilities-list {
+      gap: 5px !important;
+      margin-bottom: 6px !important;
+    }
+    .fc-side-ability-card {
+      padding: 5px 7px !important;
+      font-size: 0.72rem !important;
+    }
+    .fc-actions {
+      margin-top: 6px !important;
+      padding-top: 6px !important;
+      gap: 4px !important;
+    }
+    .fc-actions button {
+      padding: 6px 8px !important;
+      font-size: 0.75rem !important;
+    }
+    .log-toggle-btn {
+      bottom: 6px !important;
+      right: 6px !important;
+      padding: 4px 10px !important;
+      font-size: 0.68rem !important;
+    }
+    .combat-log-pane {
+      right: 6px !important;
+      bottom: 34px !important;
+      width: 280px !important;
+      max-height: 180px !important;
+      font-size: 0.72rem !important;
+    }
   }
 
-  /* Card Mini Render (Full 5:7 Card Art + Stat Icon Overlays, or Classic Pre-Image Fallback) */
-  .card-mini { width: 100%; height: 100%; aspect-ratio: 5 / 7; border-radius: 6px; background: #0c0f14; border: 1.5px solid var(--card-border); display: flex; flex-direction: column; padding: 0; font-size: 0.72rem; position: relative; pointer-events: none; box-shadow: 0 3px 10px rgba(0,0,0,0.6); overflow: visible; }
-  .card-mini.classic-mini { background: var(--bg-card); border: 1px solid var(--card-border); justify-content: space-between; padding: 5px; overflow: hidden; }
-  .card-mini .card-header { display: flex; justify-content: space-between; align-items: flex-start; font-weight: 700; color: #fff; gap: 2px; }
-  .card-mini .card-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; font-size: 0.65rem; }
-  .card-mini .card-type-tag { font-size: 0.58rem; color: var(--text-dim); text-transform: uppercase; }
-  .card-mini .card-stats { display: flex; flex-direction: column; gap: 2px; font-weight: 700; background: rgba(0,0,0,0.4); padding: 3px 4px; border-radius: 3px; margin-top: auto; font-size: 0.58rem; }
-  .card-mini .card-stats-row { display: flex; justify-content: space-between; width: 100%; gap: 2px; }
-  .card-mini.classic-mini .charge-meter { top: -4px; right: -4px; transform: none; background: #2e1065; border: 1px solid var(--charge); color: #e9d5ff; padding: 1px 5px; border-radius: 8px; font-size: 0.6rem; }
-  .card-mini.classic-mini .health-bar-container { position: relative; width: 100%; height: 4px; background: #334155; border-radius: 2px; overflow: hidden; margin-top: 2px; }
+  /* Card Mini Render (10:7 for Board Slots [pixels 60 to 760], 5:7 for Hero Slot) */
+  .card-mini {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 10 / 7;
+    border-radius: 6px;
+    background: #0c0f14;
+    border: 1.5px solid var(--card-border);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    font-size: 0.72rem;
+    position: relative;
+    pointer-events: none;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.6);
+    overflow: hidden;
+  }
+  .hero-card-slot .card-mini {
+    aspect-ratio: 5 / 7 !important;
+  }
+  .card-mini.classic-mini {
+    background: linear-gradient(145deg, #16202c, #0e1520);
+    border: 1.5px solid var(--card-border);
+    justify-content: space-between;
+    padding: 4px 6px;
+    overflow: hidden;
+    aspect-ratio: 10 / 7;
+    box-sizing: border-box;
+  }
+  .hero-card-slot .card-mini.classic-mini {
+    aspect-ratio: 5 / 7 !important;
+    padding: 6px 8px;
+  }
+  .card-mini.classic-mini .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 700;
+    color: #fff;
+    gap: 4px;
+    width: 100%;
+  }
+  .card-mini.classic-mini .card-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    font-size: 0.68rem;
+    color: #f8fafc;
+    font-weight: 700;
+  }
+  .card-mini.classic-mini .card-type-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    font-size: 0.58rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin: 1px 0;
+  }
+  .card-mini.classic-mini .card-type-tag {
+    font-size: 0.58rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-mini.classic-mini .card-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    font-weight: 700;
+    background: rgba(0,0,0,0.45);
+    padding: 2px 4px;
+    border-radius: 4px;
+    margin-top: auto;
+    font-size: 0.62rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .card-mini.classic-mini .card-stats-row {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    gap: 2px;
+  }
+  .card-mini.classic-mini .charge-meter {
+    top: -4px;
+    right: -4px;
+    transform: none;
+    background: #2e1065;
+    border: 1px solid var(--charge);
+    color: #e9d5ff;
+    padding: 1px 5px;
+    border-radius: 8px;
+    font-size: 0.6rem;
+  }
+  .card-mini.classic-mini .health-bar-container {
+    position: relative;
+    width: 100%;
+    height: 4px;
+    background: #334155;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 2px;
+  }
+
   .card-slot:hover .card-mini { border-color: var(--mana); box-shadow: 0 4px 14px rgba(56, 189, 248, 0.4); transform: translateY(-2px); }
   .card-mini.exhausted { opacity: 0.6; filter: grayscale(0.5); transform: rotate(3deg); }
   .card-slot.targetable .card-mini { border-color: #f43f5e; box-shadow: 0 0 12px rgba(244, 63, 94, 0.85); animation: pulseRed 1s infinite alternate; }
@@ -411,6 +881,8 @@
   @keyframes pulseStrike { from { box-shadow: 0 0 6px rgba(244, 63, 94, 0.5); } to { box-shadow: 0 0 18px rgba(244, 63, 94, 0.95); } }
 
   .card-mini-img { width: 100%; height: 100%; object-fit: fill; position: absolute; inset: 0; z-index: 1; pointer-events: none; display: block; border-radius: 5px; }
+  /* Precise crop from pixel 60 to 760 of full 1000x1400 card art (capturing card name banner + artwork) */
+  .card-mini-img.board-crop-img { position: absolute; left: 0; top: -8.5714%; width: 100%; height: 200%; object-fit: fill; border-radius: 0; }
   .mini-stat-overlay { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: visible; }
 
   /* Board State Live Stats: compact card-accurate icons with large legible numbers */
@@ -511,15 +983,15 @@
     right: 2px;
     transform: translateY(-50%);
     z-index: 4;
-    width: 25px;
-    height: 25px;
+    width: 24px;
+    height: 24px;
     background: var(--icon-charge) center / contain no-repeat !important;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1rem;
+    font-size: 0.8rem;
     font-weight: 800;
     border: none !important;
     border-radius: 0 !important;
@@ -527,6 +999,13 @@
     box-shadow: none !important;
     text-shadow: 0 1px 3px #000, 0 0 3px #000;
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.95));
+  }
+  .mini-charge-icon span, .charge-meter span {
+    font-size: 0.72rem;
+    line-height: 1;
+    font-weight: 800;
+    display: inline-block;
+    text-align: center;
   }
   .mini-hp {
     position: absolute;
@@ -1007,24 +1486,29 @@
   /* Card Animations */
   @keyframes cardFlipDeploy {
     0% {
-      transform: perspective(600px) rotateY(90deg) scale(0.7) translateY(-20px);
-      opacity: 0;
+      transform: perspective(1000px) translateY(-14px) rotateX(24deg) scale(0.94);
+      opacity: 0.2;
+      filter: brightness(1.25);
+    }
+    40% {
+      opacity: 1;
     }
     60% {
-      transform: perspective(600px) rotateY(-10deg) scale(1.04);
-      opacity: 1;
+      transform: perspective(1000px) translateY(-2px) rotateX(-4deg) scale(1.02);
+      filter: brightness(1.1);
     }
     80% {
-      transform: perspective(600px) rotateY(4deg) scale(0.98);
+      transform: perspective(1000px) translateY(1px) rotateX(2deg) scale(0.99);
     }
     100% {
-      transform: perspective(600px) rotateY(0deg) scale(1) translateY(0);
+      transform: perspective(1000px) translateY(0) rotateX(0deg) scale(1);
       opacity: 1;
+      filter: brightness(1);
     }
   }
   .anim-flip-deploy {
-    animation: cardFlipDeploy 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards !important;
-    transform-origin: center center;
+    animation: cardFlipDeploy 0.42s cubic-bezier(0.2, 0.85, 0.25, 1) forwards !important;
+    transform-origin: center bottom;
   }
 
   @keyframes cardSlotSlide {
@@ -1439,7 +1923,7 @@
     font-style: italic;
     padding: 6px 0;
   }
-  @media (max-width: 768px) {
+  @media (max-width: 768px) and (orientation: portrait) {
     .fc-modal-layout {
       flex-direction: column;
       align-items: center;
@@ -2156,8 +2640,9 @@
       <div class="strike-pip filled" id="strike-pip-2"></div>
       <div class="strike-pip filled" id="strike-pip-3"></div>
     </div>
-    <div style="display:flex; align-items:center; gap:10px;">
+    <div style="display:flex; align-items:center; gap:8px;">
       <div id="turn-indicator" style="font-size: 0.85rem; font-weight: 600; color: var(--mana);">Turn 1 &bull; Player 1</div>
+      <button id="btn-fullscreen-toggle" class="btn btn-secondary" style="padding:4px 9px; font-size:0.75rem; background:#1e293b; color:#38bdf8; border-color:#38bdf855; display:flex; align-items:center; gap:4px;" onclick="toggleFullscreen()" title="Toggle Fullscreen Mode">⛶ Fullscreen</button>
       <button id="btn-audio-settings-bar" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem; background:#1e293b; color:#fbbf24; border-color:#d9770666;" onclick="openAudioSettingsModal()" title="Sound & Volume Settings">🔊 Sound</button>
       <button id="btn-quit-match" class="btn btn-secondary" style="padding:4px 11px; font-size:0.75rem; background:#1e293b; color:#f43f5e; border-color:#f43f5e55; display:flex; align-items:center; gap:4px;" onclick="promptQuitBattle()" title="Forfeit Battle and Return to Menu">🏳️ Forfeit</button>
       <button id="btn-session-exit" class="btn btn-secondary" style="display:none; padding:4px 10px; font-size:0.72rem; background:#1e293b; color:#f43f5e; border-color:#f43f5e55;" onclick="exitOnlineSession()">Surrender</button>
@@ -2270,30 +2755,50 @@
   </div>
 
   <div class="player-bottom-bar" id="player-bottom-bar">
-    <div class="player-bottom-piles" id="p1-bottom-piles">
-      <div class="pile-box loot-pile" onclick="showDeckInspect(0)" title="Loot Deck (Click in test mode to search)">
-        <span class="pile-label">LOOT</span>
-        <span class="pile-count" id="p1-loot-count">32</span>
+    <div class="mobile-drawer-header" id="mobile-drawer-header">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-weight:800; font-size:0.78rem; color:var(--gold); letter-spacing:0.5px;">🃏 YOUR HAND (<span id="mdh-hand-count">0</span>)</span>
+        <span style="font-size:0.68rem; color:#94a3b8;">(Tap card to inspect/play • Drag to slot)</span>
       </div>
-      <div class="pile-box discard-pile" id="p1-discard-pile-box" onclick="showDiscardInspect(0)" title="View Your Discard Pile">
-        <span class="pile-label">DISCARD</span>
-        <span class="pile-count" id="p1-discard-count">0</span>
-      </div>
-      <div class="pile-box hand-counter-box" id="p1-hand-pile-box" title="Cards in Hand">
-        <span class="pile-label">HAND</span>
-        <span class="pile-count" id="p1-hand-count">8</span>
-      </div>
+      <button class="btn btn-secondary drawer-close-btn" style="padding:2px 8px; font-size:0.7rem; background:#1e293b; color:#fff;" onclick="toggleMobileHandDrawer(false)">✕ Close Hand</button>
     </div>
-    <div class="hand-container" id="player-hand-container">
-       <!-- Hand renders here -->
+    <div class="mobile-drawer-content" id="mobile-drawer-content">
+      <div class="player-bottom-piles" id="p1-bottom-piles">
+        <div class="pile-box loot-pile" onclick="showDeckInspect(0)" title="Loot Deck (Click in test mode to search)">
+          <span class="pile-label">LOOT</span>
+          <span class="pile-count" id="p1-loot-count">32</span>
+        </div>
+        <div class="pile-box discard-pile" id="p1-discard-pile-box" onclick="showDiscardInspect(0)" title="View Your Discard Pile">
+          <span class="pile-label">DISCARD</span>
+          <span class="pile-count" id="p1-discard-count">0</span>
+        </div>
+        <div class="pile-box hand-counter-box" id="p1-hand-pile-box" onclick="toggleMobileHandDrawer()" title="Cards in Hand (Click to toggle Hand)">
+          <span class="pile-label">HAND</span>
+          <span class="pile-count" id="p1-hand-count">8</span>
+        </div>
+      </div>
+      <div class="hand-container" id="player-hand-container">
+         <!-- Hand renders here -->
+      </div>
     </div>
   </div>
-</div>
 
-<button class="log-toggle-btn" onclick="toggleLog()">📜 Battle Log</button>
-<div class="combat-log-pane" id="combat-log-box">
-  <h4>Tactical Battle Log <span style="cursor:pointer;" onclick="toggleLog()">✕</span></h4>
-  <div id="log-entries"></div>
+  <div id="mobile-hand-backdrop" class="mobile-hand-backdrop" onclick="toggleMobileHandDrawer(false)"></div>
+
+  <!-- Floating Mobile Hand Pill (Shown on mobile landscape / compact screens) -->
+  <button id="mobile-hand-toggle-btn" class="mobile-hand-pill" onclick="toggleMobileHandDrawer()" title="View and play cards in hand">
+    <span class="mhp-icon">🃏</span>
+    <span class="mhp-label">Hand (<strong id="mobile-hand-count-pill">0</strong>)</span>
+    <span class="mhp-divider">|</span>
+    <span class="mhp-res" style="color:var(--mana);">⚡<span id="mobile-mana-pill">0</span></span>
+    <span class="mhp-res" style="color:var(--gold);">🪙<span id="mobile-gold-pill">0</span></span>
+  </button>
+
+  <button class="log-toggle-btn" onclick="toggleLog()">📜 Battle Log</button>
+  <div class="combat-log-pane" id="combat-log-box">
+    <h4>Tactical Battle Log <span style="cursor:pointer;" onclick="toggleLog()">✕</span></h4>
+    <div id="log-entries"></div>
+  </div>
 </div>
 
 <div id="notification-banner"></div>
@@ -5338,7 +5843,7 @@ async function runScoutPhase(player) {
               </div>
             `;
           } else {
-            let costStr = card.manaCost !== undefined ? `${card.manaCost} M` : (card.goldCost !== undefined ? `${card.goldCost} G` : (card.skillLevel ? `Lv.${card.skillLevel}` : ''));
+            let costStr = card.manaCost !== undefined ? `${card.manaCost} M` : (card.goldCost !== undefined ? `${card.goldCost}` : (card.skillLevel ? `Lv.${card.skillLevel}` : ''));
             let costColor = card.goldCost !== undefined ? 'var(--gold)' : 'var(--mana)';
             let statLine = [];
             if (card.health) statLine.push(`❤️${card.health}`);
@@ -5888,6 +6393,10 @@ let currentMenuCategory = 'SINGLE';
 let selectedTutorialMode = 'TUTORIAL';
 
 function showMainMenu() {
+  if (typeof toggleMobileHandDrawer === 'function') toggleMobileHandDrawer(false);
+  const combatLog = document.getElementById('combat-log-box');
+  if (combatLog) combatLog.style.display = 'none';
+
   const mainMenu = document.getElementById('arena-main-menu');
   const panelSingle = document.getElementById('cat-panel-single');
   const panelMulti = document.getElementById('cat-panel-multi');
@@ -6570,6 +7079,9 @@ function exitOnlineSession(force = false) {
     onlineSession.channel = null;
   }
   onlineSession.active = false;
+  if (typeof toggleMobileHandDrawer === 'function') toggleMobileHandDrawer(false);
+  const combatLog = document.getElementById('combat-log-box');
+  if (combatLog) combatLog.style.display = 'none';
 
   const modal = document.getElementById('game-modal');
   const modalContent = document.getElementById('modal-content');
@@ -6625,6 +7137,9 @@ function quitBattleToMenu() {
   if (typeof cancelTargeting === 'function') {
     cancelTargeting(true);
   }
+  if (typeof toggleMobileHandDrawer === 'function') toggleMobileHandDrawer(false);
+  const combatLog = document.getElementById('combat-log-box');
+  if (combatLog) combatLog.style.display = 'none';
 
   document.getElementById('game-screen').classList.remove('active');
   document.getElementById('menu-screen').classList.add('active');
@@ -6981,7 +7496,7 @@ function startOnlineScoutPhase() {
           </div>
         `;
       } else {
-        let costStr = card.manaCost !== undefined ? `${card.manaCost} M` : (card.goldCost !== undefined ? `${card.goldCost} G` : (card.skillLevel ? `Lv.${card.skillLevel}` : ''));
+        let costStr = card.manaCost !== undefined ? `${card.manaCost} M` : (card.goldCost !== undefined ? `${card.goldCost}` : (card.skillLevel ? `Lv.${card.skillLevel}` : ''));
         let costColor = card.goldCost !== undefined ? 'var(--gold)' : 'var(--mana)';
         let statLine = [];
         if (card.health) statLine.push(`❤️${card.health}`);
@@ -7421,11 +7936,16 @@ async function refreshGitHubArtList() {
           if (!f || !f.name) return;
           // Card Art discovery
           if (f.name.toLowerCase().endsWith('.png') && f.name !== 'Lorefall Cardback.png') {
-            const baseName = f.name.replace(/\.png$/i, '');
-            KNOWN_GITHUB_ART_MAP[baseName] = f.name;
-            if (baseName.endsWith(' copy')) {
-              const trimmed = baseName.replace(/\s+copy$/i, '');
-              if (!KNOWN_GITHUB_ART_MAP[trimmed]) KNOWN_GITHUB_ART_MAP[trimmed] = f.name;
+            if (/\s-\sboard\.png$/i.test(f.name)) {
+              const cardName = f.name.replace(/\s-\sboard\.png$/i, '');
+              KNOWN_BOARD_ART_MAP[cardName] = { file: f.name, isFullCard: true };
+            } else {
+              const baseName = f.name.replace(/\.png$/i, '');
+              KNOWN_GITHUB_ART_MAP[baseName] = f.name;
+              if (baseName.endsWith(' copy')) {
+                const trimmed = baseName.replace(/\s+copy$/i, '');
+                if (!KNOWN_GITHUB_ART_MAP[trimmed]) KNOWN_GITHUB_ART_MAP[trimmed] = f.name;
+              }
             }
           }
           // BGM discovery: The Weight of the Draw
@@ -7464,6 +7984,90 @@ function hasCardArt(card) {
   return Boolean(KNOWN_GITHUB_ART_MAP[card.name]);
 }
 
+// 10:7 Aspect Ratio Board Card Art System (pixels 60 to 760 crop from 1000x1400 cards)
+const KNOWN_BOARD_ART_MAP = {
+  "Apprentice's Linen Robe": { file: "Apprentice's Linen Robe - Board.png", isFullCard: true },
+  "Astute Cleric": { file: "Astute Cleric - Board.png", isFullCard: true },
+  "Athran, Prince of Korvas": { file: "Athran, Prince of Korvas - Board.png", isFullCard: true },
+  "Bash": { file: "Bash - Board.png", isFullCard: true },
+  "Bastion Defender": { file: "Bastion Defender - Board.png", isFullCard: true },
+  "Behemoth Leviathan": { file: "Behemoth Leviathan - Board.png", isFullCard: true },
+  "Brother-In-Arms": { file: "Brother-In-Arms - Board.png", isFullCard: true },
+  "Korvas Soldier": { file: "Brother-In-Arms - Board.png", isFullCard: true },
+  "Dantalion's Might": { file: "Dantalion's Might - Board.png", isFullCard: true },
+  "Favar Dahv, Scholar": { file: "Favar Dahv, Scholar - Board.png", isFullCard: true },
+  "Favar's Scepter": { file: "Favar's Scepter - Board.png", isFullCard: true },
+  "Fleetfoot Skirmisher": { file: "Fleetfoot Skirmisher - Board.png", isFullCard: true },
+  "Frost": { file: "Frost - Board.png", isFullCard: true },
+  "Gladeweaver": { file: "Gladeweaver - Board.png", isFullCard: true },
+  "Elf Companion": { file: "Gladeweaver - Board.png", isFullCard: true },
+  "Gotterdammerung Serpent": { file: "Gotterdammerung Serpent - Board.png", isFullCard: true },
+  "Iceshard Barrage": { file: "Iceshard Barrage - Board.png", isFullCard: true },
+  "Indignant Water Sprite": { file: "Indignant Water Sprite - Board.png", isFullCard: true },
+  "Inspiring Commander": { file: "Inspiring Commander - Board.png", isFullCard: true },
+  "Keen Visionary": { file: "Keen Visionary - Board.png", isFullCard: true },
+  "Leaping Strike": { file: "Leaping Strike - Board.png", isFullCard: true },
+  "Leather Tunic": { file: "Leather Tunic - Board.png", isFullCard: true },
+  "Legion Captain": { file: "Legion Captain - Board.png", isFullCard: true },
+  "Neophyte Seeress": { file: "Neophyte Seeress - Board.png", isFullCard: true },
+  "Pivot Swing": { file: "Pivot Swing - Board.png", isFullCard: true },
+  "Pummel": { file: "Pummel - Board.png", isFullCard: true },
+  "Rune-Fortified Vest": { file: "Rune-Fortified Vest - Board.png", isFullCard: true },
+  "Sharpened Broadsword": { file: "Sharpened Broadsword - Board.png", isFullCard: true },
+  "Slash": { file: "Slash - Board.png", isFullCard: true },
+  "Splashing Imp": { file: "Splashing Imp - Board.png", isFullCard: true },
+  "Stonekeep Sentry": { file: "Stonekeep Sentry - Board.png", isFullCard: true },
+  "Torrential Surge": { file: "Torrential Surge - Board.png", isFullCard: true },
+  "Tsunami": { file: "Tsunami - Board.png", isFullCard: true },
+  "Windrider Sniper": { file: "Windrider Sniper - Board.png", isFullCard: true }
+};
+const missingBoardArtSet = new Set();
+
+function getBoardCardInfo(card) {
+  if (!card || !card.name) return null;
+  const info = KNOWN_BOARD_ART_MAP[card.name];
+  if (!info) return null;
+  if (typeof info === 'string') return { file: info, isFullCard: true };
+  return info;
+}
+
+function hasBoardCardArt(card) {
+  if (!card || !card.name) return false;
+  if (missingBoardArtSet.has(card.name)) return false;
+  if (card.board_image_url) return true;
+  return Boolean(KNOWN_BOARD_ART_MAP[card.name]);
+}
+
+function getBoardCardArtUrl(card) {
+  if (!card || !card.name) return null;
+  if (card.board_image_url) {
+    const formatted = formatArenaImageUrl(card.board_image_url);
+    if (formatted) {
+      preloadImageUrl(formatted);
+      return formatted;
+    }
+  }
+  const info = getBoardCardInfo(card);
+  const fileName = info ? info.file : `${card.name} - Board.png`;
+  const localUrl = `Board Cards/${encodeURIComponent(fileName)}`;
+  preloadImageUrl(localUrl);
+  return localUrl;
+}
+
+function handleBoardCardArtError(cardName, imgEl) {
+  const info = getBoardCardInfo({ name: cardName });
+  const fileName = info ? info.file : `${cardName} - Board.png`;
+  if (imgEl && cardName && !imgEl.dataset.triedRepoFallback) {
+    imgEl.dataset.triedRepoFallback = "1";
+    imgEl.src = `${GITHUB_CARD_ART_BASE}${encodeURIComponent(fileName)}`;
+    return;
+  }
+  if (cardName) missingBoardArtSet.add(cardName);
+  if (gameState.players && gameState.players.length > 0) {
+    renderAll();
+  }
+}
+
 const preloadedImageCache = new Map();
 
 function preloadImageUrl(url) {
@@ -7489,6 +8093,13 @@ function preloadAllDeckImages() {
     }
     if (typeof KNOWN_GITHUB_ART_MAP === 'object') {
       Object.values(KNOWN_GITHUB_ART_MAP).forEach(fileName => {
+        preloadImageUrl(GITHUB_CARD_ART_BASE + encodeURIComponent(fileName));
+      });
+    }
+    if (typeof KNOWN_BOARD_ART_MAP === 'object') {
+      Object.values(KNOWN_BOARD_ART_MAP).forEach(item => {
+        const fileName = typeof item === 'string' ? item : item.file;
+        preloadImageUrl(`Board Cards/${encodeURIComponent(fileName)}`);
         preloadImageUrl(GITHUB_CARD_ART_BASE + encodeURIComponent(fileName));
       });
     }
@@ -7770,6 +8381,7 @@ async function onBoardSlotDrop(e, pIdx, toZone, toSlot) {
   if (window.draggedHandCard) {
     const { pIdx: handPIdx, cardIndex } = window.draggedHandCard;
     window.draggedHandCard = null;
+    toggleMobileHandDrawer(false);
     if (handPIdx !== pIdx) {
       showToast("Cannot deploy onto opponent's board!");
       return;
@@ -7812,12 +8424,14 @@ function onHandCardDragStart(e, pIdx, cardIndex) {
   try { e.dataTransfer.setData('text/plain', `hand:${cardIndex}`); } catch (err) {}
   const el = e.currentTarget;
   if (el) el.classList.add('hand-is-dragging');
+  document.body.classList.add('mobile-hand-dragging');
 }
 
 function onHandCardDragEnd(e) {
   document.querySelectorAll('.hand-is-dragging').forEach(el => el.classList.remove('hand-is-dragging'));
   document.querySelectorAll('.slot-drag-hover').forEach(el => el.classList.remove('slot-drag-hover'));
   window.draggedHandCard = null;
+  document.body.classList.remove('mobile-hand-dragging');
 }
 
 function animateCardGlide(fromEl, toEl, options = {}) {
@@ -7832,45 +8446,75 @@ function animateCardGlide(fromEl, toEl, options = {}) {
       return;
     }
 
+    const fromAspect = fromRect.width / fromRect.height;
+    const toAspect = toRect.width / toRect.height;
+    const isAspectChanging = Math.abs(fromAspect - toAspect) > 0.15;
+
+    // Use uniform scale to NEVER squash or stretch card artwork
+    const uniformScale = toRect.width / fromRect.width;
+    const targetHeight = isAspectChanging ? (toRect.height / uniformScale) : fromRect.height;
+
+    // Center-to-center delta for pixel-perfect placement with center transform-origin
+    const fromCenterX = fromRect.left + fromRect.width / 2;
+    const fromCenterY = fromRect.top + fromRect.height / 2;
+    const toCenterX = toRect.left + toRect.width / 2;
+    const toCenterY = toRect.top + toRect.height / 2;
+    const dx = toCenterX - fromCenterX;
+    const dy = toCenterY - fromCenterY;
+
+    // Create wrapper container to manage clipping without distorting inner content
+    const container = document.createElement('div');
+    container.id = 'floating-glide-' + Math.random().toString(36).substr(2, 9);
+    container.style.position = 'fixed';
+    container.style.top = fromRect.top + 'px';
+    container.style.left = fromRect.left + 'px';
+    container.style.width = fromRect.width + 'px';
+    container.style.height = fromRect.height + 'px';
+    container.style.zIndex = '99999';
+    container.style.pointerEvents = 'none';
+    container.style.margin = '0';
+    container.style.borderRadius = '8px';
+    container.style.overflow = 'hidden';
+    container.style.boxShadow = '0 18px 40px rgba(0,0,0,0.92), 0 0 25px rgba(56, 189, 248, 0.75)';
+    container.style.transformOrigin = 'center center';
+    container.style.transition = 'transform 0.42s cubic-bezier(0.2, 0.9, 0.3, 1), height 0.42s cubic-bezier(0.2, 0.9, 0.3, 1), border-radius 0.42s ease, box-shadow 0.42s ease';
+
     const visualEl = fromEl.querySelector('.card-mini, .hand-card-img, .hand-card') || fromEl;
-    const clone = visualEl.cloneNode(true);
-    clone.id = 'floating-glide-' + Math.random().toString(36).substr(2, 9);
-    clone.style.position = 'fixed';
-    clone.style.top = fromRect.top + 'px';
-    clone.style.left = fromRect.left + 'px';
-    clone.style.width = fromRect.width + 'px';
-    clone.style.height = fromRect.height + 'px';
-    clone.style.zIndex = '99999';
-    clone.style.pointerEvents = 'none';
-    clone.style.margin = '0';
-    clone.style.borderRadius = '10px';
-    clone.style.boxShadow = '0 18px 40px rgba(0,0,0,0.92), 0 0 25px rgba(56, 189, 248, 0.75)';
-    clone.style.transformOrigin = 'center center';
-    clone.style.transition = 'transform 0.42s cubic-bezier(0.2, 0.9, 0.3, 1), box-shadow 0.42s ease';
+    const innerContent = visualEl.cloneNode(true);
+    if (visualEl.classList && visualEl.classList.contains('card-mini')) {
+      innerContent.style.width = '100%';
+      innerContent.style.height = '100%';
+    } else {
+      innerContent.style.width = '100%';
+      innerContent.style.height = 'auto';
+    }
+    innerContent.style.display = 'block';
+    innerContent.style.pointerEvents = 'none';
+    innerContent.style.margin = '0';
+    container.appendChild(innerContent);
 
     if (options.flip) {
-      clone.style.transform = 'perspective(800px) scale(1.15) rotateY(180deg) translateY(-14px)';
+      container.style.transform = 'perspective(1000px) translateY(-16px) rotateX(15deg) scale(1.08)';
     } else {
-      clone.style.transform = 'scale(1.12) translateY(-12px)';
+      container.style.transform = 'scale(1.08) translateY(-10px)';
     }
 
-    document.body.appendChild(clone);
+    document.body.appendChild(container);
     fromEl.style.opacity = '0.1';
 
-    const dx = toRect.left - fromRect.left;
-    const dy = toRect.top - fromRect.top;
-    const scaleX = toRect.width / fromRect.width;
-    const scaleY = toRect.height / fromRect.height;
-
-    void clone.offsetHeight;
+    void container.offsetHeight;
 
     requestAnimationFrame(() => {
-      clone.style.transform = `translate(${dx}px, ${dy}px) scale(${scaleX}, ${scaleY}) perspective(800px) rotateY(0deg)`;
-      clone.style.boxShadow = '0 6px 14px rgba(0,0,0,0.6)';
+      container.style.transform = `translate(${dx}px, ${dy}px) scale(${uniformScale}) perspective(1000px) rotateX(0deg)`;
+      if (isAspectChanging) {
+        container.style.height = targetHeight + 'px';
+        container.style.borderRadius = '6px';
+      }
+      container.style.boxShadow = '0 6px 14px rgba(0,0,0,0.6)';
     });
 
     setTimeout(() => {
-      if (clone.parentNode) clone.parentNode.removeChild(clone);
+      if (container.parentNode) container.parentNode.removeChild(container);
       fromEl.style.opacity = '';
       resolve();
     }, 430);
@@ -8220,12 +8864,12 @@ function renderHand() {
   const isCommand = (PHASES[gameState.currentPhaseIndex] === "COMMAND");
 
   const cardCount = p.hand.length;
-  // MTG Arena dynamic overlap scaling based on hand size
-  let baseOverlap = 32;
+  // MTG Arena dynamic overlap scaling based on hand size (adjusted for enlarged hand cards)
+  let baseOverlap = 36;
   let hoverOverlap = 6;
-  if (cardCount > 7) {
-    baseOverlap = Math.min(54, 30 + (cardCount - 7) * 4);
-    hoverOverlap = Math.min(24, 6 + Math.round((cardCount - 7) * 2.5));
+  if (cardCount > 6) {
+    baseOverlap = Math.min(62, 36 + (cardCount - 6) * 5);
+    hoverOverlap = Math.min(26, 8 + Math.round((cardCount - 6) * 3));
   }
   handBox.style.setProperty('--hand-overlap', `-${baseOverlap}px`);
   handBox.style.setProperty('--hand-hover-overlap', `-${hoverOverlap}px`);
@@ -8245,13 +8889,13 @@ function renderHand() {
       el.className = 'hand-card classic-hand-card';
       let costBadge = "";
       if (card.manaCost !== undefined) costBadge = `<div class="card-cost">${card.manaCost}</div>`;
-      else if (card.goldCost !== undefined) costBadge = `<div class="card-cost gold-cost">${card.goldCost}G</div>`;
+      else if (card.goldCost !== undefined) costBadge = `<div class="card-cost gold-cost">${card.goldCost}</div>`;
       let statsHTML = "";
       if (card.health) statsHTML += `<span>❤️${card.health}</span>`;
       if (card.attack || card.rangedAttack) statsHTML += `<span>⚔️${card.attack || card.rangedAttack}</span>`;
       if (card.power) statsHTML += `<span>💥${card.power}</span>`;
       else if (card.powerModifier) statsHTML += `<span>💥+${card.powerModifier}</span>`;
-      if (card.dexterity) statsHTML += `<span>⚡${card.dexterity}</span>`;
+      if (card.dexterity && card.type !== "Equipment") statsHTML += `<span>⚡${card.dexterity}</span>`;
       if (card.defenseModifier) statsHTML += `<span>🛡️+${card.defenseModifier}</span>`;
       el.innerHTML = `
         <div>
@@ -8273,6 +8917,26 @@ function renderHand() {
     el.onclick = () => { hideArenaPreview(); openCardDetail(myIdx, 'hand', idx); };
     handBox.appendChild(el);
   });
+
+  // Update mobile drawer & floating pill counts and indicators
+  const pillCount = document.getElementById('mobile-hand-count-pill');
+  if (pillCount) pillCount.innerText = cardCount;
+  const headerCount = document.getElementById('mdh-hand-count');
+  if (headerCount) headerCount.innerText = cardCount;
+  const pillMana = document.getElementById('mobile-mana-pill');
+  if (pillMana) pillMana.innerText = p.manaPool ?? 0;
+  const pillGold = document.getElementById('mobile-gold-pill');
+  if (pillGold) pillGold.innerText = p.gold ?? 0;
+
+  const pillBtn = document.getElementById('mobile-hand-toggle-btn');
+  if (pillBtn) {
+    const hasPlayable = isMyTurn && isCommand && p.hand.some(c => {
+      if (c.manaCost !== undefined && p.manaPool < c.manaCost) return false;
+      if (c.goldCost !== undefined && p.gold < c.goldCost) return false;
+      return true;
+    });
+    pillBtn.classList.toggle('has-playable-cards', Boolean(hasPlayable));
+  }
 }
 
 function createCardHTML(card, pIdx, zone, slot) {
@@ -8297,66 +8961,131 @@ function createCardHTML(card, pIdx, zone, slot) {
   const hasReadyAbility = Boolean(p && pIdx === gameState.activePlayerIndex && !p.isAI && (zone === 'bz' || zone === 'bench' || zone === 'skill' || zone === 'hero') && acts.some(ab => canActivateAbility(card, ab, p, zone, currentPhase, false)));
   const activatableClass = hasReadyAbility ? "has-activatable-ability" : "";
 
-  if (!hasCardArt(card)) {
-    // Classic pre-image board miniature layout for cards without images
-    let stats = "";
-    if (card.type === "Hero" || card.type === "Ally") {
-      let atk = card.attack ? (card.temp_overrideAttackDie || card.attack) : (card.rangedAttack !== undefined ? getStat(card, 'rangedAttack', p) : '-');
+  // 1. HERO SLOT: Heroes remain in classic large portrait format (5:7 aspect ratio)
+  if (zone === 'hero') {
+    if (!hasCardArt(card) && !hasBoardCardArt(card)) {
+      let atk = card.attack ? (card.temp_overrideAttackDie || card.attack) : '-';
       let pow = getStat(card, 'power', p);
-      stats = `<div class="card-stats-row"><span>❤️${card.currentHealth}</span><span>⚔️${atk}</span></div><div class="card-stats-row"><span>💥${pow}</span><span>⚡${getStat(card, 'dexterity', p)}</span></div>`;
-    } else if (card.type === "Skill") {
-      let atk = card.attack ? (card.temp_overrideAttackDie || card.attack) : (card.rangedAttack !== undefined ? getStat(card, 'rangedAttack', p) : '-');
-      stats = `<div class="card-stats-row"><span>⚔️${atk}</span><span>💥${getStat(card, 'power', p)}</span></div>`;
+      let stats = `<div class="card-stats-row"><span>❤️${card.currentHealth}</span><span>⚔️${atk}</span></div><div class="card-stats-row"><span>💥${pow}</span><span>⚡${getStat(card, 'dexterity', p)}</span></div>`;
+      return `<div class="card-mini classic-mini ${ex} ${sel} ${deployAnimClass} ${activatableClass}"><div class="card-header"><div class="card-name">${card.name}</div></div><div class="card-stats" style="margin-bottom:3px;">${stats}</div>${hpBar}</div>`;
     }
-    let ch = (card.chargeReq !== undefined && card.type !== "Hero")
-      ? `<div class="mini-charge-icon charge-meter" style="top:-4px; right:-4px; transform:none;"><span>${card.charge || 0}/${card.chargeReq}</span></div>`
-      : "";
-    let eqBadge = (card.equipment && card.equipment.length > 0 && zone !== 'hero')
-      ? `<div style="position:absolute; top:20px; left:2px; background:rgba(15,23,42,0.9); color:var(--gold); border:1px solid var(--gold); border-radius:3px; font-size:0.5rem; font-weight:bold; padding:0px 3px; z-index:4;">🛡️${card.equipment.length}</div>`
-      : "";
-    return `<div class="card-mini classic-mini ${ex} ${sel} ${deployAnimClass} ${activatableClass}"><div class="card-header"><div class="card-name">${card.name}</div></div>${ch}${eqBadge}<div class="card-stats" style="margin-bottom:3px;">${stats}</div>${hpBar}</div>`;
+    const artUrl = hasBoardCardArt(card) ? getBoardCardArtUrl(card) : getCardArtUrl(card);
+    const safeName = (card.name || "").replace(/'/g, "\\'");
+    const dexVal = card.dexterity !== undefined ? getStat(card, 'dexterity', p) : "";
+    const hpVal = card.currentHealth !== undefined ? card.currentHealth : (card.health !== undefined ? card.health : "");
+    const powVal = getStat(card, 'power', p);
+    const atkVal = card.attack ? (card.temp_overrideAttackDie || card.attack) : "";
+    const atkClass = (card.attackType === "Ranged") ? "mini-atk-ranged" : "mini-atk-melee";
+    const atkBadgeHTML = atkVal !== "" ? `<div class="mini-atk-icon mini-atk-badge ${atkClass}"><span>${atkVal}</span></div>` : '';
+
+    return `
+      <div class="card-mini ${ex} ${sel} ${deployAnimClass} ${activatableClass}">
+        <img class="card-mini-img" src="${artUrl}" alt="${card.name}" decoding="async" onerror="${hasBoardCardArt(card) ? `handleBoardCardArtError('${safeName}', this)` : `handleCardArtError('${safeName}', this)`}">
+        <div class="mini-stat-overlay">
+          ${dexVal !== "" ? `<div class="mini-dex">${dexVal}</div>` : ''}
+          ${atkBadgeHTML}
+          ${hpVal !== "" ? `<div class="mini-hp">${hpVal}</div>` : ''}
+          ${powVal !== "" ? `<div class="mini-pow">${powVal}</div>` : ''}
+        </div>
+        ${hpBar}
+      </div>
+    `;
   }
 
-  const artUrl = getCardArtUrl(card);
-  const safeName = (card.name || "").replace(/'/g, "\\'");
+  // 2. NON-HERO BOARD SLOTS (Battle Zone, Bench, Skill, Synergy) - 10:7 aspect ratio (pixels 60 to 760 crop)
+  if (hasBoardCardArt(card)) {
+    const artUrl = getBoardCardArtUrl(card);
+    const safeName = (card.name || "").replace(/'/g, "\\'");
+    const boardInfo = getBoardCardInfo(card);
+    const isFullCard = boardInfo ? Boolean(boardInfo.isFullCard) : false;
 
-  const isNonUnitCard = card.type === "Synergy" || card.type === "Skill" || card.type === "Equipment" || zone === 'synergy' || zone === 'skill' || zone === 'equip';
+    const isNonUnitCard = card.type === "Synergy" || card.type === "Skill" || card.type === "Equipment" || zone === 'synergy' || zone === 'skill' || zone === 'equip';
+    const manaVal = (!isNonUnitCard && card.manaCost !== undefined) ? card.manaCost : (!isNonUnitCard && card.goldCost !== undefined ? card.goldCost : (!isNonUnitCard && card.mana !== undefined ? card.mana : ""));
+    const dexVal = (!isNonUnitCard && card.dexterity !== undefined && card.type !== "Equipment") ? getStat(card, 'dexterity', p) : "";
+    const hpVal = card.currentHealth !== undefined ? card.currentHealth : (card.health !== undefined ? card.health : "");
+    const powVal = (card.type === "Hero" || card.type === "Ally") ? getStat(card, 'power', p) : (card.powerModifier ? `+${card.powerModifier}` : "");
+    const atkVal = (card.attack || card.rangedAttack !== undefined)
+      ? (card.attackType === "Ranged" ? getStat(card, 'rangedAttack', p) : (card.temp_overrideAttackDie || card.attack))
+      : (card.type === "Equipment" && card.powerModifier ? `+${card.powerModifier}` : "");
 
-  // Live stat overlays on the miniature board card where stats sit on the card frame
-  // Synergies, skills, and equipment do NOT need the gold and dexterity overlays
-  const manaVal = (!isNonUnitCard && card.manaCost !== undefined) ? card.manaCost : (!isNonUnitCard && card.goldCost !== undefined ? card.goldCost + "G" : (!isNonUnitCard && card.mana !== undefined ? card.mana : ""));
-  const dexVal = (!isNonUnitCard && card.dexterity !== undefined) ? getStat(card, 'dexterity', p) : "";
-  const hpVal = card.currentHealth !== undefined ? card.currentHealth : (card.health !== undefined ? card.health : "");
-  const powVal = (card.type === "Hero" || card.type === "Ally") ? getStat(card, 'power', p) : (card.powerModifier ? `+${card.powerModifier}` : "");
-  const atkVal = (card.attack || card.rangedAttack !== undefined)
-    ? (card.attackType === "Ranged" ? getStat(card, 'rangedAttack', p) : (card.temp_overrideAttackDie || card.attack))
-    : (card.type === "Equipment" && card.powerModifier ? `+${card.powerModifier}` : "");
+    let chBadge = (card.chargeReq !== undefined && card.type !== "Hero")
+      ? `<div class="mini-charge-icon charge-meter"><span>${card.charge || 0}/${card.chargeReq}</span></div>`
+      : "";
+    let eqBadge = (card.equipment && card.equipment.length > 0 && zone !== 'hero')
+      ? `<div style="position:absolute; top:20%; left:4px; background:rgba(15,23,42,0.92); color:var(--gold); border:1px solid var(--gold); border-radius:4px; font-size:0.55rem; font-weight:800; padding:1px 3px; z-index:4;">🛡️${card.equipment.length}</div>`
+      : "";
 
-  let chBadge = (card.chargeReq !== undefined && card.type !== "Hero")
-    ? `<div class="mini-charge-icon charge-meter"><span>${card.charge || 0}/${card.chargeReq}</span></div>`
+    const isGoldCost = card.goldCost !== undefined;
+    const costClass = isGoldCost ? 'mini-gold' : 'mini-mana';
+    const atkClass = (card.attackType === "Ranged") ? "mini-atk-ranged" : "mini-atk-melee";
+    const atkBadgeHTML = atkVal !== "" ? `<div class="mini-atk-icon mini-atk-badge ${atkClass}"><span>${atkVal}</span></div>` : '';
+
+    return `
+      <div class="card-mini ${ex} ${sel} ${deployAnimClass} ${activatableClass}">
+        <img class="card-mini-img ${isFullCard ? 'board-crop-img' : ''}" src="${artUrl}" alt="${card.name}" decoding="async" onload="if(this.naturalHeight > this.naturalWidth * 1.2) this.classList.add('board-crop-img');" onerror="handleBoardCardArtError('${safeName}', this)">
+        <div class="mini-stat-overlay">
+          ${manaVal !== "" ? `<div class="${costClass}">${manaVal}</div>` : ''}
+          ${dexVal !== "" ? `<div class="mini-dex">${dexVal}</div>` : ''}
+          ${chBadge}
+          ${eqBadge}
+          ${atkBadgeHTML}
+          ${hpVal !== "" ? `<div class="mini-hp">${hpVal}</div>` : ''}
+          ${powVal !== "" ? `<div class="mini-pow">${powVal}</div>` : ''}
+        </div>
+        ${hpBar}
+      </div>
+    `;
+  }
+
+  // 3. NON-HERO BOARD SLOTS WITHOUT UPDATED BOARD ART:
+  // Procedural / styled layout adapted for the new 10:7 aspect ratio
+  let stats = "";
+  if (card.type === "Hero" || card.type === "Ally") {
+    let atk = card.attack ? (card.temp_overrideAttackDie || card.attack) : (card.rangedAttack !== undefined ? getStat(card, 'rangedAttack', p) : '-');
+    let pow = getStat(card, 'power', p);
+    stats = `<div class="card-stats-row"><span>❤️${card.currentHealth}</span><span>⚔️${atk}</span></div><div class="card-stats-row"><span>💥${pow}</span><span>⚡${getStat(card, 'dexterity', p)}</span></div>`;
+  } else if (card.type === "Skill") {
+    let atk = card.attack ? (card.temp_overrideAttackDie || card.attack) : (card.rangedAttack !== undefined ? getStat(card, 'rangedAttack', p) : '-');
+    stats = `<div class="card-stats-row"><span>⚔️${atk}</span><span>💥${getStat(card, 'power', p)}</span></div>`;
+  } else if (card.type === "Equipment") {
+    let statBonus = [];
+    if (card.powerModifier) statBonus.push(`💥+${card.powerModifier}`);
+    if (card.defenseModifier) statBonus.push(`🛡️+${card.defenseModifier}`);
+    stats = `<div class="card-stats-row" style="justify-content:center;"><span>${statBonus.join(' ') || 'Equipment'}</span></div>`;
+  } else if (card.type === "Synergy") {
+    stats = `<div class="card-stats-row" style="justify-content:center;"><span style="color:var(--gold); font-size:0.6rem;">⚡ SYNERGY</span></div>`;
+  }
+
+  let ch = (card.chargeReq !== undefined && card.type !== "Hero")
+    ? `<div class="mini-charge-icon charge-meter" style="position:static; transform:none; width:22px; height:22px; font-size:0.8rem;"><span>${card.charge || 0}/${card.chargeReq}</span></div>`
     : "";
   let eqBadge = (card.equipment && card.equipment.length > 0 && zone !== 'hero')
-    ? `<div style="position:absolute; top:22%; left:4px; background:rgba(15,23,42,0.92); color:var(--gold); border:1px solid var(--gold); border-radius:4px; font-size:0.55rem; font-weight:800; padding:1px 3px; z-index:4;">🛡️${card.equipment.length}</div>`
+    ? `<span style="background:rgba(15,23,42,0.9); color:var(--gold); border:1px solid var(--gold); border-radius:3px; font-size:0.55rem; font-weight:bold; padding:0 3px;">🛡️${card.equipment.length}</span>`
     : "";
 
-  const isGoldCost = card.goldCost !== undefined || (typeof manaVal === 'string' && manaVal.endsWith('G'));
-  const costClass = isGoldCost ? 'mini-gold' : 'mini-mana';
-  const atkClass = (card.attackType === "Ranged") ? "mini-atk-ranged" : "mini-atk-melee";
+  let costBadge = "";
+  if (card.manaCost !== undefined && zone !== 'skill' && zone !== 'synergy') {
+    costBadge = `<span style="color:var(--mana); font-size:0.68rem; font-weight:bold; font-family:'Runa Serif',Georgia,serif;">${card.manaCost}M</span>`;
+  } else if (card.goldCost !== undefined) {
+    costBadge = `<span style="color:var(--gold); font-size:0.68rem; font-weight:bold; font-family:'Runa Serif',Georgia,serif;">${card.goldCost}</span>`;
+  }
 
-  const atkBadgeHTML = atkVal !== "" ? `<div class="mini-atk-icon mini-atk-badge ${atkClass}"><span>${atkVal}</span></div>` : '';
+  const subType = card.skillLevel ? `Skill Lv.${card.skillLevel}` : (card.class ? `${card.type || ''} • ${card.class}` : (card.type || ''));
 
   return `
-    <div class="card-mini ${ex} ${sel} ${deployAnimClass} ${activatableClass}">
-      <img class="card-mini-img" src="${artUrl}" alt="${card.name}" decoding="async" onerror="handleCardArtError('${safeName}', this)">
-      <div class="mini-stat-overlay">
-        ${manaVal !== "" ? `<div class="${costClass}">${manaVal}</div>` : ''}
-        ${dexVal !== "" ? `<div class="mini-dex">${dexVal}</div>` : ''}
-        ${chBadge}
-        ${eqBadge}
-        ${atkBadgeHTML}
-        ${hpVal !== "" ? `<div class="mini-hp">${hpVal}</div>` : ''}
-        ${powVal !== "" ? `<div class="mini-pow">${powVal}</div>` : ''}
+    <div class="card-mini classic-mini ${ex} ${sel} ${deployAnimClass} ${activatableClass}">
+      <div class="card-header">
+        <div class="card-name" title="${card.name}">${card.name}</div>
+        ${costBadge}
       </div>
+      <div class="card-type-row">
+        <span class="card-type-tag">${subType}</span>
+        <div style="display:flex; align-items:center; gap:2px;">
+          ${ch}
+          ${eqBadge}
+        </div>
+      </div>
+      <div class="card-stats">${stats}</div>
       ${hpBar}
     </div>
   `;
@@ -8759,8 +9488,8 @@ function renderAbilityBoxesHTML(card, p, zone, slot, phase, omitActions, disable
 }
 
 function generateClassicFullCardView(card, p, zone, slot, isMyTurn, phase, omitActions = false) {
-  const manaCost = card.manaCost !== undefined ? card.manaCost : (card.goldCost !== undefined ? card.goldCost + "G" : (card.mana !== undefined ? card.mana : ""));
-  const dex = card.dexterity !== undefined ? getStat(card, 'dexterity', p) : "";
+  const manaCost = card.manaCost !== undefined ? card.manaCost : (card.goldCost !== undefined ? card.goldCost : (card.mana !== undefined ? card.mana : ""));
+  const dex = (card.dexterity !== undefined && card.type !== "Equipment" && card.type !== "Synergy") ? getStat(card, 'dexterity', p) : "";
   let typeStr = `${card.type.toUpperCase()}`;
   if (card.race) typeStr += ` - ${card.race.toUpperCase()}`;
   if (card.unitClass) typeStr += ` ${card.unitClass.toUpperCase()}`;
@@ -8864,7 +9593,7 @@ function generateClassicFullCardView(card, p, zone, slot, isMyTurn, phase, omitA
     `;
   }
 
-  const isGoldCost = card.goldCost !== undefined || (typeof manaCost === 'string' && manaCost.endsWith('G'));
+  const isGoldCost = card.goldCost !== undefined;
   const costIconClass = isGoldCost ? 'fc-icon-gold' : 'fc-icon-mana';
 
   return `
@@ -8898,9 +9627,12 @@ function generateFullCardView(card, p, zone, slot, isMyTurn, phase, omitActions 
         return generateClassicFullCardView(card, p, zone, slot, isMyTurn, phase, omitActions);
     }
 
-    const artUrl = getCardArtUrl(card);
-    const safeName = (card.name || "").replace(/'/g, "\\'");
     const isInPlay = (zone === 'hero' || zone === 'bz' || zone === 'ally' || zone === 'bench' || zone === 'skill' || zone === 'synergy' || zone === 'equip');
+    const boardInfo = getBoardCardInfo(card);
+    const artUrl = (isInPlay && boardInfo && boardInfo.isFullCard && !missingBoardArtSet.has(card.name))
+      ? getBoardCardArtUrl(card)
+      : getCardArtUrl(card);
+    const safeName = (card.name || "").replace(/'/g, "\\'");
 
     // Hand / Scout / non-play previews show ONLY the card image itself
     if (!isInPlay) {
@@ -8912,10 +9644,10 @@ function generateFullCardView(card, p, zone, slot, isMyTurn, phase, omitActions 
     }
 
     // Cards IN PLAY: overlay live stats where stats normally go (card text area remains 100% clean and unblocked)
-    const manaCost = card.manaCost !== undefined ? card.manaCost : (card.goldCost !== undefined ? card.goldCost + "G" : (card.mana !== undefined ? card.mana : ""));
-    const isGoldCost = card.goldCost !== undefined || (typeof manaCost === 'string' && manaCost.endsWith('G'));
+    const manaCost = card.manaCost !== undefined ? card.manaCost : (card.goldCost !== undefined ? card.goldCost : (card.mana !== undefined ? card.mana : ""));
+    const isGoldCost = card.goldCost !== undefined;
     const costIconClass = isGoldCost ? 'fc-icon-gold' : 'fc-icon-mana';
-    const dex = card.dexterity !== undefined ? getStat(card, 'dexterity', p) : "";
+    const dex = (card.dexterity !== undefined && card.type !== "Equipment" && card.type !== "Synergy") ? getStat(card, 'dexterity', p) : "";
     
     let attackBadgeHTML = ""; let canStrike = false;
     let isExhausted = (zone === 'skill' || zone === 'hero') ? p.hero.isExhausted : card.isExhausted;
@@ -8956,7 +9688,7 @@ function generateFullCardView(card, p, zone, slot, isMyTurn, phase, omitActions 
 
     return `
       <div class="fc-card-art-frame">
-        <img src="${artUrl}" class="fc-card-full-img" alt="${card.name}" onerror="handleCardArtError('${safeName}', this)">
+        <img src="${artUrl}" class="fc-card-full-img" alt="${card.name}" onerror="${(isInPlay && boardInfo) ? `handleBoardCardArtError('${safeName}', this)` : `handleCardArtError('${safeName}', this)`}">
         ${manaCost !== "" ? `<div class="fc-live-stat fc-overlay-mana ${costIconClass}" title="Mana / Cost"><span>${manaCost}</span></div>` : ''}
         ${dex !== "" ? `<div class="fc-live-stat fc-overlay-dex fc-icon-dex" title="Live Dexterity"><span>${dex}</span></div>` : ''}
         ${attackBadgeHTML}
@@ -9361,8 +10093,8 @@ function closeCardDetail() {
   if (typeof onTutorialAction === 'function') onTutorialAction('CARD_DETAIL_CLOSED');
   if (typeof updateTutorialUI === 'function') setTimeout(updateTutorialUI, 40);
 }
-function playFromHandDetail(slot) { closeCardDetail(); playCardFromHand(slot); }
-function playFlashFromHandDetail(pIdx, slot) { closeCardDetail(); playFlashCard(gameState.players[pIdx], slot); }
+function playFromHandDetail(slot) { closeCardDetail(); toggleMobileHandDrawer(false); playCardFromHand(slot); }
+function playFlashFromHandDetail(pIdx, slot) { closeCardDetail(); toggleMobileHandDrawer(false); playFlashCard(gameState.players[pIdx], slot); }
 function modifyChargeFromDetail(pIdx, zone, slot, delta) { 
   if (zone === 'equip' && currentEquipContext) {
     const p = gameState.players[pIdx];
@@ -9824,6 +10556,7 @@ async function resolveEndPhase() {
 }
 
 async function playCardFromHand(cardIndex) {
+  toggleMobileHandDrawer(false);
   if (onlineSession.active) {
     if (gameState.activePlayerIndex !== onlineSession.myPlayerIndex) {
       showToast("It is not your turn!");
@@ -12872,6 +13605,71 @@ async function performAnimatedRoll(title, text, finalRoll, modifier, targetVal, 
 }
 
 function toggleLog() { const pane = document.getElementById('combat-log-box'); pane.style.display = pane.style.display === 'block' ? 'none' : 'block'; }
+
+function toggleMobileHandDrawer(forceState) {
+  const bottomBar = document.getElementById('player-bottom-bar');
+  const backdrop = document.getElementById('mobile-hand-backdrop');
+  if (!bottomBar) return;
+  const shouldOpen = (forceState !== undefined) ? Boolean(forceState) : !bottomBar.classList.contains('drawer-open');
+  if (shouldOpen) {
+    bottomBar.classList.add('drawer-open');
+    if (backdrop) backdrop.classList.add('active');
+  } else {
+    bottomBar.classList.remove('drawer-open');
+    if (backdrop) backdrop.classList.remove('active');
+  }
+}
+
+function isFullscreenActive() {
+  return Boolean(
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.mozFullScreenElement ||
+    document.msFullscreenElement
+  );
+}
+
+function toggleFullscreen() {
+  try {
+    if (!isFullscreenActive()) {
+      const docEl = document.documentElement;
+      if (docEl.requestFullscreen) {
+        docEl.requestFullscreen();
+      } else if (docEl.webkitRequestFullscreen) {
+        docEl.webkitRequestFullscreen();
+      } else if (docEl.mozRequestFullScreen) {
+        docEl.mozRequestFullScreen();
+      } else if (docEl.msRequestFullscreen) {
+        docEl.msRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
+    }
+  } catch (err) {
+    console.warn("Fullscreen toggle:", err);
+  }
+  setTimeout(updateFullscreenBtn, 120);
+}
+
+function updateFullscreenBtn() {
+  const btn = document.getElementById('btn-fullscreen-toggle');
+  if (!btn) return;
+  const active = isFullscreenActive();
+  btn.innerHTML = active ? '🗗 Exit Full' : '⛶ Fullscreen';
+  btn.title = active ? 'Exit Fullscreen Mode' : 'Enter Fullscreen Mode';
+}
+
+['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
+  document.addEventListener(evt, updateFullscreenBtn);
+});
 let toastTimeout = null;
 function showToast(m) {
   const t = document.getElementById('notification-banner');
@@ -15848,6 +16646,9 @@ function exitTutorialMode() {
   if (clashModal) clashModal.style.display = 'none';
   const detailModal = document.getElementById('card-detail-modal');
   if (detailModal) detailModal.style.display = 'none';
+  if (typeof toggleMobileHandDrawer === 'function') toggleMobileHandDrawer(false);
+  const combatLog = document.getElementById('combat-log-box');
+  if (combatLog) combatLog.style.display = 'none';
   document.getElementById('game-screen').classList.remove('active');
   document.getElementById('menu-screen').classList.add('active');
   setGameMode('AI');
