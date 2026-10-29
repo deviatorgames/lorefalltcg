@@ -375,13 +375,119 @@
     width: 100%;
     align-items: center;
     justify-content: space-between;
-    padding: 3px 10px;
-    background: rgba(15, 23, 42, 0.96);
+    padding: 3px 8px;
+    background: linear-gradient(90deg, #1e293b, #0f172a);
     border-bottom: 1px solid #334155;
     font-size: 0.76rem;
     font-weight: 700;
     color: var(--mana);
     flex-shrink: 0;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    gap: 6px;
+    box-sizing: border-box;
+  }
+  .player-bottom-bar.is-being-dragged .mobile-drawer-header {
+    cursor: grabbing !important;
+  }
+  .drawer-header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .drawer-drag-handle {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    background: #0f172a;
+    border: 1px solid #475569;
+    border-radius: 4px;
+    color: var(--mana);
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    cursor: grab;
+  }
+  .player-bottom-bar.is-being-dragged .drawer-drag-handle {
+    background: var(--mana);
+    color: #000;
+    cursor: grabbing;
+  }
+  .mdh-hand-title {
+    font-weight: 800;
+    font-size: 0.74rem;
+    color: var(--gold);
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+  .drawer-header-center {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .doh-label {
+    font-size: 0.62rem;
+    font-weight: 800;
+    color: #94a3b8;
+    letter-spacing: 0.4px;
+  }
+  .doh-pile {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.65rem;
+    color: #cbd5e1;
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid #334155;
+    padding: 1px 5px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .doh-discard {
+    cursor: pointer;
+    border-color: #f43f5e55;
+    color: #fda4af;
+  }
+  .doh-discard:hover {
+    background: rgba(244, 63, 94, 0.2);
+    border-color: #f43f5e;
+  }
+  .doh-inspect-badge {
+    font-size: 0.6rem;
+  }
+  .drawer-header-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .drawer-dock-btn {
+    padding: 2px 7px;
+    font-size: 0.66rem;
+    border-radius: 4px;
+    line-height: 1.2;
+    background: #1e293b;
+    color: #38bdf8;
+    border: 1px solid #38bdf855;
+    cursor: pointer;
+  }
+  .drawer-dock-btn:hover {
+    background: #0284c7;
+    color: #fff;
+  }
+  .drawer-close-btn {
+    padding: 2px 7px;
+    font-size: 0.66rem;
+    border-radius: 4px;
+    line-height: 1.2;
+    background: #1e293b;
+    color: #fff;
+    cursor: pointer;
   }
   .mobile-drawer-content {
     display: flex;
@@ -524,6 +630,18 @@
       padding: 3px !important;
       gap: 2px !important;
     }
+    #p2-board-deck-piles {
+      display: none !important;
+    }
+    #half-p2 .side-column {
+      justify-content: flex-start !important;
+    }
+    #p1-side-col {
+      justify-content: flex-start !important;
+      margin-bottom: 26px !important;
+      padding-bottom: 26px !important;
+      gap: 2px !important;
+    }
     .stats-card {
       padding: 2px 4px !important;
       gap: 1px !important;
@@ -531,9 +649,23 @@
     .stat-badge {
       font-size: 0.62rem !important;
     }
-    #p1-action-controls button, #p2-action-controls button {
-      padding: 3px 5px !important;
-      font-size: 0.68rem !important;
+    #p1-action-controls {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 3px !important;
+      margin-top: 2px !important;
+      width: 100% !important;
+    }
+    #btn-trade {
+      padding: 2px 4px !important;
+      font-size: 0.62rem !important;
+      white-space: nowrap !important;
+    }
+    #btn-next-phase {
+      padding: 4px 6px !important;
+      font-size: 0.72rem !important;
+      font-weight: 800 !important;
+      white-space: nowrap !important;
     }
     .zone-label {
       font-size: 0.52rem !important;
@@ -617,6 +749,14 @@
     .player-bottom-bar.drawer-open {
       bottom: 0 !important;
     }
+    .player-bottom-bar.is-being-dragged {
+      transition: none !important;
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.65) !important;
+    }
+    .mobile-hand-backdrop {
+      background: rgba(0, 0, 0, 0.22) !important;
+      backdrop-filter: none !important;
+    }
     body.mobile-hand-dragging .player-bottom-bar {
       transform: translateY(75%) !important;
       opacity: 0.55 !important;
@@ -665,6 +805,7 @@
     #arena-hover-preview {
       width: clamp(140px, 22vh, 190px) !important;
       left: 10px !important;
+      pointer-events: auto !important;
     }
     .fc-modal-layout {
       flex-direction: row !important;
@@ -735,17 +876,293 @@
       font-size: 0.75rem !important;
     }
     .log-toggle-btn {
-      bottom: 6px !important;
-      right: 6px !important;
-      padding: 4px 10px !important;
-      font-size: 0.68rem !important;
+      bottom: 4px !important;
+      right: 4px !important;
+      padding: 2px 8px !important;
+      font-size: 0.65rem !important;
+      height: 22px !important;
+      line-height: 1 !important;
+      z-index: 200 !important;
     }
     .combat-log-pane {
-      right: 6px !important;
-      bottom: 34px !important;
-      width: 280px !important;
-      max-height: 180px !important;
+      right: 4px !important;
+      bottom: 28px !important;
+      width: 270px !important;
+      max-height: 175px !important;
       font-size: 0.72rem !important;
+    }
+
+    /* Menu Screen & Elements on Mobile Landscape */
+    #menu-screen {
+      padding: 3px 8px !important;
+      gap: 3px !important;
+      justify-content: flex-start !important;
+      height: 100dvh !important;
+      max-height: 100dvh !important;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+    }
+    .menu-top-bar {
+      height: 26px !important;
+      min-height: 26px !important;
+      padding: 1px 8px !important;
+      margin-bottom: 1px !important;
+      border-radius: 6px !important;
+    }
+    .menu-brand-icon {
+      font-size: 0.92rem !important;
+    }
+    .menu-brand-title {
+      font-size: 0.76rem !important;
+      letter-spacing: 0.8px !important;
+    }
+    .menu-ctrl-btn {
+      padding: 2px 7px !important;
+      font-size: 0.68rem !important;
+      gap: 3px !important;
+      border-radius: 5px !important;
+    }
+    .mobile-guidance-banner {
+      padding: 2px 8px !important;
+      gap: 6px !important;
+      margin-bottom: 2px !important;
+      border-radius: 6px !important;
+    }
+    .mgb-icon {
+      font-size: 0.9rem !important;
+    }
+    .mgb-text {
+      font-size: 0.65rem !important;
+      line-height: 1.15 !important;
+    }
+    .mgb-title {
+      font-size: 0.68rem !important;
+    }
+    .mgb-action-btn {
+      padding: 2px 8px !important;
+      font-size: 0.65rem !important;
+    }
+    .title-logo {
+      margin: 1px 0 !important;
+    }
+    .title-logo h1 {
+      font-size: 1.15rem !important;
+      letter-spacing: 2px !important;
+      margin: 0 !important;
+      line-height: 1 !important;
+    }
+    .title-logo h2 {
+      font-size: 0.62rem !important;
+      letter-spacing: 1px !important;
+      margin: 0 !important;
+    }
+    .arena-menu-cards-row {
+      display: flex !important;
+      flex-direction: row !important;
+      flex-wrap: nowrap !important;
+      gap: 6px !important;
+      width: 100% !important;
+      max-width: 98vw !important;
+      margin: 2px 0 0 !important;
+      padding: 0 !important;
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+    }
+    .arena-menu-card {
+      flex: 1 1 0 !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      height: auto !important;
+      min-height: clamp(120px, 42vh, 175px) !important;
+      max-height: clamp(135px, 48vh, 190px) !important;
+      padding: 6px 8px !important;
+      border-radius: 8px !important;
+      border-width: 1.5px !important;
+      justify-content: space-between !important;
+    }
+    .arena-menu-card .menu-card-icon {
+      font-size: 1.35rem !important;
+      margin-bottom: 1px !important;
+    }
+    .arena-menu-card .menu-card-title {
+      font-size: 0.8rem !important;
+      margin-bottom: 1px !important;
+      line-height: 1.1 !important;
+    }
+    .arena-menu-card .menu-card-desc {
+      font-size: 0.6rem !important;
+      line-height: 1.18 !important;
+      margin: 2px 0 4px !important;
+      display: -webkit-box !important;
+      -webkit-line-clamp: 2 !important;
+      -webkit-box-orient: vertical !important;
+      overflow: hidden !important;
+    }
+    .arena-menu-card .menu-card-btn {
+      font-size: 0.64rem !important;
+      padding: 3px 6px !important;
+      letter-spacing: 0.4px !important;
+      margin-top: auto !important;
+    }
+
+    /* Submenus: Single Player, Multiplayer, Tutorial */
+    #cat-panel-single, #cat-panel-multi, #cat-panel-tut {
+      gap: 4px !important;
+      padding: 2px 0 !important;
+      max-height: calc(100dvh - 36px) !important;
+    }
+    .submenu-header-bar {
+      padding: 2px 6px !important;
+      height: 26px !important;
+      margin-bottom: 1px !important;
+    }
+    .submenu-header-bar button {
+      padding: 2px 8px !important;
+      font-size: 0.7rem !important;
+    }
+    .submenu-header-bar div {
+      font-size: 0.82rem !important;
+    }
+    .mode-select {
+      gap: 4px !important;
+      margin: 2px 0 !important;
+    }
+    .mode-select button {
+      padding: 3px 8px !important;
+      font-size: 0.7rem !important;
+    }
+    #opponent-deck-row {
+      padding: 2px 8px !important;
+      gap: 6px !important;
+      font-size: 0.7rem !important;
+    }
+    #opponent-deck-row span {
+      font-size: 0.68rem !important;
+    }
+    #opponent-deck-select {
+      padding: 2px 8px !important;
+      font-size: 0.72rem !important;
+    }
+    #btn-start-battle {
+      padding: 5px 22px !important;
+      font-size: 0.82rem !important;
+      margin-top: 2px !important;
+    }
+    .deck-selection-box {
+      gap: 6px !important;
+      max-height: clamp(80px, 30vh, 135px) !important;
+      padding: 3px !important;
+      margin-top: 1px !important;
+    }
+    .deck-card-option {
+      width: clamp(130px, 22vw, 175px) !important;
+      padding: 5px 8px !important;
+      border-radius: 6px !important;
+    }
+    .deck-card-option h3 {
+      font-size: 0.78rem !important;
+      margin-bottom: 1px !important;
+    }
+    .deck-card-option p {
+      font-size: 0.62rem !important;
+      margin-bottom: 2px !important;
+      line-height: 1.2 !important;
+    }
+    .deck-card-option .hero-badge {
+      font-size: 0.58rem !important;
+      padding: 1px 5px !important;
+    }
+
+    /* Modal Dialogs (Scout Hand, Dialogs) on Mobile Landscape */
+    .modal-overlay {
+      padding: 4px !important;
+    }
+    .modal-box {
+      padding: 8px 12px !important;
+      gap: 6px !important;
+      max-height: 96vh !important;
+      max-width: 96vw !important;
+      border-radius: 8px !important;
+    }
+    .modal-box h3 {
+      font-size: 0.9rem !important;
+      margin: 0 !important;
+    }
+    .modal-box.wide-modal {
+      max-width: 96vw !important;
+      width: 96vw !important;
+    }
+    #modal-body {
+      font-size: 0.74rem !important;
+      line-height: 1.25 !important;
+    }
+    .scout-header-row {
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      gap: 6px !important;
+      margin-bottom: 2px !important;
+    }
+    .scout-instruction-text {
+      font-size: 0.68rem !important;
+      line-height: 1.18 !important;
+      color: #cbd5e1 !important;
+    }
+    .scout-btn-row {
+      display: flex !important;
+      gap: 4px !important;
+      flex-shrink: 0 !important;
+    }
+    .scout-quick-btn {
+      padding: 2px 7px !important;
+      font-size: 0.65rem !important;
+    }
+    .scout-grid {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      -webkit-overflow-scrolling: touch !important;
+      gap: 6px !important;
+      max-height: clamp(100px, 44vh, 155px) !important;
+      padding: 2px 4px !important;
+      margin-top: 2px !important;
+    }
+    .scout-card {
+      flex: 0 0 clamp(72px, 15vw, 100px) !important;
+      width: auto !important;
+      min-height: 0 !important;
+      padding: 3px !important;
+      border-radius: 6px !important;
+    }
+    .scout-card img {
+      max-height: clamp(68px, 30vh, 110px) !important;
+      width: auto !important;
+      object-fit: contain !important;
+    }
+    .scout-badge {
+      font-size: 0.56rem !important;
+      padding: 1px 4px !important;
+      margin-top: 2px !important;
+    }
+    #modal-actions {
+      gap: 6px !important;
+      margin-top: 2px !important;
+    }
+    #modal-actions button {
+      padding: 4px 12px !important;
+      font-size: 0.74rem !important;
+    }
+    #audio-settings-modal .modal-box {
+      max-height: 96vh !important;
+      max-width: 440px !important;
+      padding: 8px 12px !important;
+      gap: 6px !important;
+      overflow-y: auto !important;
+    }
+    #audio-settings-modal .audio-control-card {
+      padding: 5px 10px !important;
+      border-radius: 6px !important;
     }
   }
 
@@ -1068,11 +1485,73 @@
   }
   #arena-hover-preview.active {
     display: flex;
+    pointer-events: auto;
   }
   #arena-hover-preview.side-right,
   #arena-hover-preview.preview-right {
     left: auto;
     right: 205px;
+  }
+
+  /* Card Magnifier Loupe (Touch & Hold on Card Previews to Zoom) */
+  .card-magnifier-loupe {
+    position: fixed;
+    width: 154px;
+    height: 154px;
+    border-radius: 50%;
+    border: 3px solid var(--gold);
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.95), 0 0 18px rgba(245, 158, 11, 0.65), inset 0 0 25px rgba(0, 0, 0, 0.65);
+    pointer-events: none;
+    z-index: 10000;
+    display: none;
+    overflow: hidden;
+    background-color: #0b0f19;
+    background-repeat: no-repeat;
+    transform: translate(-50%, -50%);
+    will-change: transform, left, top, background-position;
+  }
+  .card-magnifier-loupe.active {
+    display: block;
+    animation: loupePopIn 0.14s cubic-bezier(0.18, 0.9, 0.32, 1);
+  }
+  @keyframes loupePopIn {
+    0% { transform: translate(-50%, -50%) scale(0.65); opacity: 0; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  }
+  .card-magnifier-loupe::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.05) 45%, transparent 65%);
+    pointer-events: none;
+  }
+  .loupe-tag {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    font-size: 0.56rem;
+    font-weight: 800;
+    padding: 1px 7px;
+    border-radius: 8px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    z-index: 2;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+  }
+
+  /* Sifting Card Highlight on Mobile Touch */
+  .hand-card.touch-sifting-card {
+    transform: translateY(-16px) scale(1.16) !important;
+    z-index: 90 !important;
+    box-shadow: 0 0 22px rgba(56, 189, 248, 0.95), 0 10px 28px rgba(0, 0, 0, 0.95) !important;
+    border-color: #38bdf8 !important;
+    filter: brightness(1.22) !important;
+    transition: transform 0.12s cubic-bezier(0.2, 0.9, 0.3, 1), box-shadow 0.12s ease !important;
   }
 
   /* Modals */
@@ -1089,6 +1568,10 @@
   .scout-badge { font-size: 0.68rem; font-weight: 800; padding: 3px 8px; border-radius: 8px; text-transform: uppercase; letter-spacing: 0.5px; text-align: center; }
   .scout-card.kept .scout-badge { background: #065f46; color: #6ee7b7; border: 1px solid #10b981; }
   .scout-card.unwanted .scout-badge { background: #4c0519; color: #fda4af; border: 1px solid #f43f5e; }
+  .scout-header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+  .scout-instruction-text { font-size: 0.86rem; color: #cbd5e1; line-height: 1.35; }
+  .scout-btn-row { display: flex; gap: 6px; }
+  .scout-quick-btn { padding: 5px 10px; font-size: 0.74rem; }
   .rolloff-arena { display: flex; justify-content: space-around; align-items: center; gap: 16px; margin: 14px 0; background: rgba(0,0,0,0.35); padding: 16px; border-radius: 10px; border: 1px solid #2e3e52; }
   .rolloff-combatant { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; }
   .rolloff-die { width: 76px; height: 76px; border-radius: 14px; background: #1e293b; border: 2px solid var(--mana); display: flex; align-items: center; justify-content: center; font-size: 2.2rem; font-weight: 800; color: #fff; box-shadow: 0 6px 16px rgba(0,0,0,0.6); transition: transform 0.15s ease, border-color 0.2s ease; }
@@ -2100,6 +2583,141 @@
     box-shadow: 0 4px 14px rgba(245, 158, 11, 0.25);
   }
 
+  /* Menu Top Controls Bar */
+  .menu-top-bar {
+    width: 100%;
+    max-width: 1060px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 12px;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid #2e3e52;
+    border-radius: 10px;
+    margin-bottom: 4px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+  }
+  .menu-top-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .menu-brand-icon {
+    font-size: 1.15rem;
+  }
+  .menu-brand-title {
+    font-weight: 800;
+    font-size: 0.9rem;
+    color: var(--gold);
+    letter-spacing: 1.2px;
+  }
+  .menu-top-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .menu-ctrl-btn {
+    padding: 6px 14px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 8px;
+    background: #141d2b;
+    border: 1px solid #334155;
+    color: #e2e8f0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .menu-ctrl-btn:hover {
+    border-color: var(--mana);
+    color: #fff;
+    transform: translateY(-1px);
+  }
+  #btn-fullscreen-toggle-menu {
+    border-color: #38bdf855;
+    color: #38bdf8;
+  }
+  #btn-audio-settings-menu {
+    border-color: #d9770655;
+    color: #fbbf24;
+  }
+
+  /* Mobile Attention Guidance Banner */
+  .mobile-guidance-banner {
+    display: none;
+    width: 100%;
+    max-width: 1060px;
+    background: linear-gradient(90deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+    border: 1.5px solid #f59e0b;
+    border-radius: 10px;
+    padding: 6px 14px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    box-shadow: 0 4px 18px rgba(245, 158, 11, 0.22);
+    box-sizing: border-box;
+    flex-shrink: 0;
+    animation: bannerPulse 2.5s infinite ease-in-out;
+  }
+  @keyframes bannerPulse {
+    0%, 100% { border-color: #f59e0b; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.2); }
+    50% { border-color: #38bdf8; box-shadow: 0 4px 18px rgba(56, 189, 248, 0.35); }
+  }
+  .mobile-guidance-banner.is-active {
+    border-color: #10b981;
+    animation: none;
+    box-shadow: 0 2px 10px rgba(16, 185, 129, 0.2);
+  }
+  .mgb-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .mgb-icon {
+    font-size: 1.2rem;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .mgb-text {
+    font-size: 0.78rem;
+    color: #e2e8f0;
+    line-height: 1.3;
+  }
+  .mgb-title {
+    font-weight: 800;
+    color: #fbbf24;
+    margin-right: 4px;
+  }
+  .mgb-action-btn {
+    background: linear-gradient(135deg, #0284c7, #0369a1);
+    color: #fff;
+    border: 1px solid #38bdf8;
+    padding: 5px 14px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    transition: transform 0.15s, background 0.15s;
+  }
+  .mgb-action-btn:hover {
+    background: #38bdf8;
+    color: #0c0f14;
+  }
+  @media (max-width: 950px), (max-height: 600px) {
+    .mobile-guidance-banner {
+      display: flex;
+    }
+  }
+
   /* 1 Main Menu & Submenu Navigation Styles */
   .arena-menu-cards-row {
     display: flex;
@@ -2369,11 +2987,36 @@
 <body>
 
 <div id="menu-screen" class="screen active">
-  <div style="position:absolute; top:18px; right:24px; z-index:120;">
-    <button class="btn btn-secondary" onclick="openAudioSettingsModal()" style="padding:7px 15px; font-size:0.84rem; display:flex; align-items:center; gap:6px; background:#141d2b; border:1px solid #334155; color:#fbbf24; border-radius:8px;" title="Adjust Music and Sound Effects">
-      <span>🔊</span><span>Audio Settings</span>
+  <!-- Menu Top Controls Bar (Integrated Header - Replaces Floating Audio Button) -->
+  <div class="menu-top-bar" id="menu-top-bar">
+    <div class="menu-top-brand">
+      <span class="menu-brand-icon">⚔️</span>
+      <span class="menu-brand-title">LOREFALL TCG</span>
+    </div>
+    <div class="menu-top-controls">
+      <button id="btn-fullscreen-toggle-menu" class="btn btn-secondary menu-ctrl-btn" onclick="toggleFullscreen()" title="Toggle Fullscreen Mode">
+        <span>⛶</span><span>Fullscreen</span>
+      </button>
+      <button id="btn-audio-settings-menu" class="btn btn-secondary menu-ctrl-btn" onclick="openAudioSettingsModal()" title="Sound & Volume Settings">
+        <span>🔊</span><span>Audio</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Attention Guidance Banner for Mobile Players -->
+  <div id="mobile-orientation-banner" class="mobile-guidance-banner">
+    <div class="mgb-content">
+      <span class="mgb-icon">📱</span>
+      <div class="mgb-text">
+        <span class="mgb-title">Mobile Tip:</span>
+        <span class="mgb-body">For best gameplay, play in <strong>Landscape</strong> mode and tap <strong>Fullscreen</strong>!</span>
+      </div>
+    </div>
+    <button class="mgb-action-btn" onclick="toggleFullscreen()" title="Enter Fullscreen Mode">
+      <span>⛶</span><span>Fullscreen</span>
     </button>
   </div>
+
   <div class="title-logo">
     <h1>Lorefall</h1>
     <h2>Realms of Viridian &bull; Tactical Arena</h2>
@@ -2704,7 +3347,7 @@
           <div class="stat-badge stat-gold"><span>Gold Tokens</span><span id="p2-gold-val">3</span></div>
           <div class="stat-badge stat-def"><span>Defense</span><span id="p2-def-val">0</span></div>
         </div>
-        <div class="deck-piles">
+        <div class="deck-piles" id="p2-board-deck-piles">
           <div class="pile-box loot-pile">LOOT<br><span id="p2-loot-count">40</span></div>
           <div class="pile-box">HAND<br><span id="p2-hand-count">8</span></div>
           <div class="pile-box discard-pile" id="p2-discard-pile-box" onclick="showDiscardInspect(1)" title="View Opponent's Discard Pile">DISCARD<br><span id="p2-discard-count">0</span></div>
@@ -2756,11 +3399,31 @@
 
   <div class="player-bottom-bar" id="player-bottom-bar">
     <div class="mobile-drawer-header" id="mobile-drawer-header">
-      <div style="display:flex; align-items:center; gap:8px;">
-        <span style="font-weight:800; font-size:0.78rem; color:var(--gold); letter-spacing:0.5px;">🃏 YOUR HAND (<span id="mdh-hand-count">0</span>)</span>
-        <span style="font-size:0.68rem; color:#94a3b8;">(Tap card to inspect/play • Drag to slot)</span>
+      <div class="drawer-header-left">
+        <div class="drawer-drag-handle" id="drawer-drag-handle" title="Hold & drag anywhere on this header to move Hand module">
+          <span>⠿</span><span>MOVE</span>
+        </div>
+        <span class="mdh-hand-title">🃏 HAND (<strong id="mdh-hand-count">0</strong>)</span>
       </div>
-      <button class="btn btn-secondary drawer-close-btn" style="padding:2px 8px; font-size:0.7rem; background:#1e293b; color:#fff;" onclick="toggleMobileHandDrawer(false)">✕ Close Hand</button>
+
+      <!-- Opponent Deck Piles Section (Loot, Hand, Discard on Mobile) -->
+      <div class="drawer-header-center drawer-opp-piles" id="drawer-opp-header-piles" title="Opponent's Deck & Discard Status">
+        <span class="doh-label">OPPONENT:</span>
+        <div class="doh-pile doh-loot" title="Opponent Loot Deck Size">
+          <span>🎴 Loot:</span> <strong id="p2-drawer-loot-count">40</strong>
+        </div>
+        <div class="doh-pile doh-hand" title="Opponent Hand Size">
+          <span>✋ Hand:</span> <strong id="p2-drawer-hand-count">8</strong>
+        </div>
+        <div class="doh-pile doh-discard" onclick="showDiscardInspect(1)" title="Tap to inspect opponent's discard pile">
+          <span>🪦 Discard:</span> <strong id="p2-drawer-discard-count">0</strong> <span class="doh-inspect-badge">🔍</span>
+        </div>
+      </div>
+
+      <div class="drawer-header-right">
+        <button class="btn btn-secondary drawer-dock-btn" onclick="resetMobileDrawerPosition()" title="Reset Hand position back to bottom">⤓ Dock</button>
+        <button class="btn btn-secondary drawer-close-btn" onclick="toggleMobileHandDrawer(false)" title="Close Hand">✕ Close</button>
+      </div>
     </div>
     <div class="mobile-drawer-content" id="mobile-drawer-content">
       <div class="player-bottom-piles" id="p1-bottom-piles">
@@ -2882,6 +3545,9 @@
 
 <div id="arena-hover-preview"></div>
 <div id="card-detail-modal"></div>
+<div id="card-magnifier-loupe" class="card-magnifier-loupe">
+  <span class="loupe-tag">🔍 2.5×</span>
+</div>
 
 <!-- Action Showcase Overlay (MTG Arena Style) -->
 <div id="action-showcase-overlay" class="action-showcase-overlay" style="display:none;" onclick="dismissActionShowcase()">
@@ -5867,14 +6533,13 @@ async function runScoutPhase(player) {
         }).join('');
 
         document.getElementById('modal-body').innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-            <div style="font-size:0.88rem; color:#cbd5e1;">
-              Click cards to toggle between <strong style="color:#6ee7b7;">✓ Keep</strong> and <strong style="color:#fda4af;">↻ Shuffle Back</strong> (hover to preview).<br>
-              ${nextMax >= 1 ? `Scouting shuffles unwanted cards into your Loot and draws your hand up to <strong>${nextMax} cards</strong>.` : `Minimum Scout hand size (1) reached.`}
+          <div class="scout-header-row">
+            <div class="scout-instruction-text">
+              Click cards to toggle <strong style="color:#6ee7b7;">✓ Keep</strong> and <strong style="color:#fda4af;">↻ Shuffle Back</strong> (hover to preview). ${nextMax >= 1 ? `Scout draws up to <strong>${nextMax} cards</strong>.` : `Min Scout hand size (1) reached.`}
             </div>
-            <div style="display:flex; gap:6px;">
-              <button class="btn btn-secondary" style="padding:5px 10px; font-size:0.72rem;" onclick="window.setAllScoutCards(true)">Keep All</button>
-              <button class="btn btn-secondary" style="padding:5px 10px; font-size:0.72rem;" onclick="window.setAllScoutCards(false)">Shuffle All</button>
+            <div class="scout-btn-row">
+              <button class="btn btn-secondary scout-quick-btn" onclick="window.setAllScoutCards(true)">Keep All</button>
+              <button class="btn btn-secondary scout-quick-btn" onclick="window.setAllScoutCards(false)">Shuffle All</button>
             </div>
           </div>
           <div class="scout-grid">${cardsHTML}</div>
@@ -5972,6 +6637,8 @@ async function startGame() {
   if (exitBtn) exitBtn.style.display = 'none';
 
   document.getElementById('menu-screen').classList.remove('active'); document.getElementById('game-screen').classList.add('active');
+  if (typeof initMobileHandDrawerDrag === 'function') initMobileHandDrawerDrag();
+  if (typeof resetMobileDrawerPosition === 'function') resetMobileDrawerPosition();
   const sbToolbar = document.getElementById('sandbox-toolbar');
   if (sbToolbar) sbToolbar.style.display = (gameState.gameMode === "TEST") ? 'flex' : 'none';
   const p1IsAI = false; const p2IsAI = (gameState.gameMode === "AI");
@@ -7520,14 +8187,13 @@ function startOnlineScoutPhase() {
     }).join('');
 
     document.getElementById('modal-body').innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-        <div style="font-size:0.88rem; color:#cbd5e1;">
-          Click cards to toggle between <strong style="color:#6ee7b7;">✓ Keep</strong> and <strong style="color:#fda4af;">↻ Shuffle Back</strong> (hover to preview).<br>
-          ${nextMax >= 1 ? `Scouting shuffles unwanted cards into your Loot and draws your hand up to <strong>${nextMax} cards</strong>.` : `Minimum Scout hand size (1) reached.`}
+      <div class="scout-header-row">
+        <div class="scout-instruction-text">
+          Click cards to toggle <strong style="color:#6ee7b7;">✓ Keep</strong> and <strong style="color:#fda4af;">↻ Shuffle Back</strong> (hover to preview). ${nextMax >= 1 ? `Scout draws up to <strong>${nextMax} cards</strong>.` : `Min Scout hand size (1) reached.`}
         </div>
-        <div style="display:flex; gap:6px;">
-          <button class="btn btn-secondary" style="padding:5px 10px; font-size:0.72rem;" onclick="window.setAllOnlineScoutCards(true)">Keep All</button>
-          <button class="btn btn-secondary" style="padding:5px 10px; font-size:0.72rem;" onclick="window.setAllOnlineScoutCards(false)">Shuffle All</button>
+        <div class="scout-btn-row">
+          <button class="btn btn-secondary scout-quick-btn" onclick="window.setAllOnlineScoutCards(true)">Keep All</button>
+          <button class="btn btn-secondary scout-quick-btn" onclick="window.setAllOnlineScoutCards(false)">Shuffle All</button>
         </div>
       </div>
       <div class="scout-grid">${cardsHTML}</div>
@@ -8181,8 +8847,9 @@ function showArenaPreview(event, pIdx, zone, slot, directCard = null) {
   const badgeColor = isInPlay ? "#38bdf8" : "#94a3b8";
 
   previewEl.innerHTML = `
-    <div style="background:rgba(9,13,22,0.92); border:1px solid ${badgeColor}; color:${badgeColor}; font-size:0.65rem; font-weight:900; letter-spacing:1.2px; padding:3px 10px; border-radius:999px; margin-bottom:6px; text-align:center; text-transform:uppercase; box-shadow:0 4px 12px rgba(0,0,0,0.6);">
-      ${badgeText}
+    <div style="background:rgba(9,13,22,0.92); border:1px solid ${badgeColor}; color:${badgeColor}; font-size:0.62rem; font-weight:900; letter-spacing:1px; padding:2px 8px; border-radius:999px; margin-bottom:4px; text-align:center; text-transform:uppercase; box-shadow:0 4px 12px rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; gap:6px;">
+      <span>${badgeText}</span>
+      <span style="color:#fbbf24; font-size:0.55rem; font-weight:700; opacity:0.9;">🔍 Hold to Zoom</span>
     </div>
     ${generateFullCardView(card, p, zone, slot, isMyTurn, phase, true)}
   `;
@@ -8737,10 +9404,21 @@ function renderPlayer(pIdx) {
     }
   }
   document.getElementById(prx + "-def-val").innerText = getStat(p.hero, "defense", p);
-  document.getElementById(prx + "-loot-count").innerText = p.deck.length;
-  document.getElementById(prx + "-hand-count").innerText = p.hand.length;
+  const lootCountEl = document.getElementById(prx + "-loot-count");
+  if (lootCountEl) lootCountEl.innerText = p.deck.length;
+  const handCountEl = document.getElementById(prx + "-hand-count");
+  if (handCountEl) handCountEl.innerText = p.hand.length;
   const discardEl = document.getElementById(prx + "-discard-count");
   if (discardEl) discardEl.innerText = (p.discard || []).length;
+
+  if (prx === 'p2') {
+    const oppLootD = document.getElementById('p2-drawer-loot-count');
+    if (oppLootD) oppLootD.innerText = p.deck.length;
+    const oppHandD = document.getElementById('p2-drawer-hand-count');
+    if (oppHandD) oppHandD.innerText = p.hand.length;
+    const oppDiscD = document.getElementById('p2-drawer-discard-count');
+    if (oppDiscD) oppDiscD.innerText = (p.discard || []).length;
+  }
   
   const eqTabHTML = (p.hero.equipment && p.hero.equipment.length > 0) ? `<div id="${prx}-equip-tab" class="equip-tab" onclick="openEquipmentDetail(${pIdx}, 'hero', 0, 0, event)" onmouseenter="showArenaPreview(event, ${pIdx}, 'equip', 0)" onmouseleave="hideArenaPreview()">Equip (${p.hero.equipment.length})</div>` : "";
   const heroSlotEl = document.getElementById(prx + "-hero-slot");
@@ -8936,6 +9614,10 @@ function renderHand() {
       return true;
     });
     pillBtn.classList.toggle('has-playable-cards', Boolean(hasPlayable));
+  }
+
+  if (typeof initMobileHandTouchSift === 'function') {
+    initMobileHandTouchSift();
   }
 }
 
@@ -13606,6 +14288,76 @@ async function performAnimatedRoll(title, text, finalRoll, modifier, targetVal, 
 
 function toggleLog() { const pane = document.getElementById('combat-log-box'); pane.style.display = pane.style.display === 'block' ? 'none' : 'block'; }
 
+let drawerDragState = {
+  isDragging: false,
+  startX: 0,
+  startY: 0,
+  currX: 0,
+  currY: 0
+};
+
+function resetMobileDrawerPosition() {
+  const bottomBar = document.getElementById('player-bottom-bar');
+  if (bottomBar) {
+    bottomBar.style.transform = '';
+    drawerDragState.currX = 0;
+    drawerDragState.currY = 0;
+  }
+}
+
+function initMobileHandDrawerDrag() {
+  const header = document.getElementById('mobile-drawer-header');
+  const bar = document.getElementById('player-bottom-bar');
+  if (!header || !bar || header._dragInitialized) return;
+  header._dragInitialized = true;
+
+  const onPointerDown = (e) => {
+    // Only drag when interacting with the header or drag handle, not interactive controls
+    if (e.target.closest('button') || e.target.closest('.card-slot') || e.target.closest('.hand-card') || e.target.closest('.pile-box') || e.target.closest('.doh-discard')) return;
+
+    drawerDragState.isDragging = true;
+    drawerDragState.startX = e.clientX - drawerDragState.currX;
+    drawerDragState.startY = e.clientY - drawerDragState.currY;
+    bar.style.transition = 'none';
+    bar.classList.add('is-being-dragged');
+    try { header.setPointerCapture(e.pointerId); } catch(err) {}
+    e.preventDefault();
+  };
+
+  const onPointerMove = (e) => {
+    if (!drawerDragState.isDragging) return;
+    const newX = e.clientX - drawerDragState.startX;
+    const newY = e.clientY - drawerDragState.startY;
+
+    // Bounds check so it cannot be dragged completely off screen
+    const maxUp = -(window.innerHeight - 36);
+    const maxDown = 0;
+    const maxLeft = -(window.innerWidth - 80);
+    const maxRight = (window.innerWidth - 80);
+
+    const clampedX = Math.max(maxLeft, Math.min(maxRight, newX));
+    const clampedY = Math.max(maxUp, Math.min(maxDown, newY));
+
+    drawerDragState.currX = clampedX;
+    drawerDragState.currY = clampedY;
+
+    bar.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
+  };
+
+  const onPointerUp = (e) => {
+    if (!drawerDragState.isDragging) return;
+    drawerDragState.isDragging = false;
+    bar.classList.remove('is-being-dragged');
+    bar.style.transition = 'transform 0.15s ease, bottom 0.26s cubic-bezier(0.16, 1, 0.3, 1)';
+    try { header.releasePointerCapture(e.pointerId); } catch(err) {}
+  };
+
+  header.addEventListener('pointerdown', onPointerDown);
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('pointercancel', onPointerUp);
+}
+
 function toggleMobileHandDrawer(forceState) {
   const bottomBar = document.getElementById('player-bottom-bar');
   const backdrop = document.getElementById('mobile-hand-backdrop');
@@ -13617,7 +14369,234 @@ function toggleMobileHandDrawer(forceState) {
   } else {
     bottomBar.classList.remove('drawer-open');
     if (backdrop) backdrop.classList.remove('active');
+    resetMobileDrawerPosition();
   }
+}
+
+/* =========================================================================
+   MOBILE TOUCH CARD SIFTING (Hand Cards)
+   ========================================================================= */
+let handTouchSift = {
+  isSifting: false,
+  activeIdx: -1,
+  startX: 0,
+  startY: 0,
+  startTime: 0,
+  hasMoved: false
+};
+
+function initMobileHandTouchSift() {
+  const handBox = document.getElementById('player-hand-container');
+  if (!handBox || handBox._touchSiftInit) return;
+  handBox._touchSiftInit = true;
+
+  const getHandCardFromPoint = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    return el ? el.closest('.hand-card') : null;
+  };
+
+  const setSiftCard = (cardEl, touch) => {
+    if (!cardEl) return;
+    const idxStr = cardEl.dataset.handIndex;
+    if (idxStr === undefined) return;
+    const idx = parseInt(idxStr, 10);
+    if (idx === handTouchSift.activeIdx) return;
+
+    handTouchSift.activeIdx = idx;
+
+    // Remove active class from other hand cards
+    document.querySelectorAll('.hand-card.touch-sifting-card').forEach(c => c.classList.remove('touch-sifting-card'));
+    cardEl.classList.add('touch-sifting-card');
+
+    const bottomIdx = (gameState.gameMode === "TEST" && gameState.activePlayerIndex === 1) ? 1 : 0;
+    showArenaPreview({ clientX: touch.clientX, clientY: touch.clientY, currentTarget: cardEl }, bottomIdx, 'hand', idx);
+
+    if (typeof AudioManager !== 'undefined' && typeof AudioManager.playHover === 'function') {
+      AudioManager.playHover();
+    }
+  };
+
+  const clearSift = () => {
+    document.querySelectorAll('.hand-card.touch-sifting-card').forEach(c => c.classList.remove('touch-sifting-card'));
+    handTouchSift.activeIdx = -1;
+    handTouchSift.isSifting = false;
+  };
+
+  handBox.addEventListener('touchstart', (e) => {
+    if (!e.touches || e.touches.length === 0) return;
+    const touch = e.touches[0];
+    handTouchSift.isSifting = true;
+    handTouchSift.startX = touch.clientX;
+    handTouchSift.startY = touch.clientY;
+    handTouchSift.startTime = Date.now();
+    handTouchSift.hasMoved = false;
+
+    const cardEl = getHandCardFromPoint(touch.clientX, touch.clientY);
+    if (cardEl) {
+      setSiftCard(cardEl, touch);
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e) => {
+    if (!handTouchSift.isSifting || !e.touches || e.touches.length === 0) return;
+    const touch = e.touches[0];
+    const dist = Math.hypot(touch.clientX - handTouchSift.startX, touch.clientY - handTouchSift.startY);
+    if (dist > 8) {
+      handTouchSift.hasMoved = true;
+    }
+
+    const cardEl = getHandCardFromPoint(touch.clientX, touch.clientY);
+    if (cardEl) {
+      setSiftCard(cardEl, touch);
+      if (e.cancelable) e.preventDefault();
+    } else {
+      const inHandBox = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('#player-hand-container');
+      if (!inHandBox && handTouchSift.hasMoved) {
+        clearSift();
+        hideArenaPreview();
+      }
+    }
+  }, { passive: false });
+
+  const endTouch = (e) => {
+    if (!handTouchSift.isSifting) return;
+    const duration = Date.now() - handTouchSift.startTime;
+    const wasQuickTap = !handTouchSift.hasMoved && duration < 320;
+    const tappedIdx = handTouchSift.activeIdx;
+
+    clearSift();
+
+    if (wasQuickTap && tappedIdx >= 0) {
+      const bottomIdx = (gameState.gameMode === "TEST" && gameState.activePlayerIndex === 1) ? 1 : 0;
+      hideArenaPreview();
+      openCardDetail(bottomIdx, 'hand', tappedIdx);
+    }
+  };
+
+  window.addEventListener('touchend', endTouch, { passive: true });
+  window.addEventListener('touchcancel', endTouch, { passive: true });
+}
+
+/* =========================================================================
+   MOBILE CARD PREVIEW TOUCH-AND-HOLD MAGNIFIER LOUPE
+   ========================================================================= */
+let loupeState = {
+  active: false,
+  timer: null,
+  targetImg: null,
+  zoom: 2.5,
+  radius: 77,
+  startX: 0,
+  startY: 0
+};
+
+function initCardMagnifierLoupe() {
+  const loupe = document.getElementById('card-magnifier-loupe');
+  if (!loupe || window._loupeInitialized) return;
+  window._loupeInitialized = true;
+
+  const getImgFromTarget = (target) => {
+    if (!target) return null;
+    if (target.tagName === 'IMG' && target.closest('#arena-hover-preview, #card-detail-modal, .fc-container, .scout-card, .clash-arena, .action-showcase-overlay')) {
+      return target;
+    }
+    const container = target.closest('#arena-hover-preview, #card-detail-modal, .fc-container, .scout-card, .clash-arena, .action-showcase-overlay');
+    if (container) {
+      return container.querySelector('img.fc-card-full-img, .fc-card-art-frame img, img');
+    }
+    return null;
+  };
+
+  const updateLoupeAt = (clientX, clientY) => {
+    if (!loupeState.active || !loupeState.targetImg) return;
+    const img = loupeState.targetImg;
+    const rect = img.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+
+    const loupeRadius = loupeState.radius;
+    let loupeX = clientX;
+    let loupeY = clientY - 95;
+
+    // If near the top, float to the side instead so it stays completely on-screen
+    if (loupeY - loupeRadius < 5) {
+      loupeY = clientY;
+      loupeX = (clientX < window.innerWidth / 2) ? clientX + 105 : clientX - 105;
+    }
+    loupeX = Math.max(loupeRadius + 5, Math.min(window.innerWidth - loupeRadius - 5, loupeX));
+    loupeY = Math.max(loupeRadius + 5, Math.min(window.innerHeight - loupeRadius - 5, loupeY));
+
+    loupe.style.left = `${loupeX}px`;
+    loupe.style.top = `${loupeY}px`;
+
+    const relX = clientX - rect.left;
+    const relY = clientY - rect.top;
+    const bgW = rect.width * loupeState.zoom;
+    const bgH = rect.height * loupeState.zoom;
+
+    const bgX = -(relX * loupeState.zoom - loupeRadius);
+    const bgY = -(relY * loupeState.zoom - loupeRadius);
+
+    loupe.style.backgroundSize = `${bgW}px ${bgH}px`;
+    loupe.style.backgroundPosition = `${bgX}px ${bgY}px`;
+  };
+
+  const startLoupe = (img, clientX, clientY) => {
+    if (!img) return;
+    const src = img.currentSrc || img.src;
+    if (!src) return;
+
+    loupeState.active = true;
+    loupeState.targetImg = img;
+    loupe.style.backgroundImage = `url("${src}")`;
+    loupe.classList.add('active');
+    updateLoupeAt(clientX, clientY);
+
+    if (navigator.vibrate) {
+      try { navigator.vibrate(15); } catch(err) {}
+    }
+  };
+
+  const stopLoupe = () => {
+    if (loupeState.timer) {
+      clearTimeout(loupeState.timer);
+      loupeState.timer = null;
+    }
+    if (loupeState.active) {
+      loupeState.active = false;
+      loupeState.targetImg = null;
+      loupe.classList.remove('active');
+    }
+  };
+
+  document.addEventListener('pointerdown', (e) => {
+    const img = getImgFromTarget(e.target);
+    if (!img) return;
+
+    loupeState.startX = e.clientX;
+    loupeState.startY = e.clientY;
+
+    if (loupeState.timer) clearTimeout(loupeState.timer);
+    loupeState.timer = setTimeout(() => {
+      startLoupe(img, e.clientX, e.clientY);
+    }, 140);
+  }, { passive: true });
+
+  document.addEventListener('pointermove', (e) => {
+    if (loupeState.timer && !loupeState.active) {
+      const dist = Math.hypot(e.clientX - loupeState.startX, e.clientY - loupeState.startY);
+      if (dist > 14) {
+        clearTimeout(loupeState.timer);
+        loupeState.timer = null;
+      }
+    }
+    if (loupeState.active) {
+      updateLoupeAt(e.clientX, e.clientY);
+      if (e.cancelable) e.preventDefault();
+    }
+  }, { passive: false });
+
+  document.addEventListener('pointerup', stopLoupe, { passive: true });
+  document.addEventListener('pointercancel', stopLoupe, { passive: true });
 }
 
 function isFullscreenActive() {
@@ -13630,6 +14609,12 @@ function isFullscreenActive() {
 }
 
 function toggleFullscreen() {
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'LOREFALL_TOGGLE_FULLSCREEN' }, '*');
+    }
+  } catch(e) {}
+
   try {
     if (!isFullscreenActive()) {
       const docEl = document.documentElement;
@@ -13660,15 +14645,31 @@ function toggleFullscreen() {
 }
 
 function updateFullscreenBtn() {
-  const btn = document.getElementById('btn-fullscreen-toggle');
-  if (!btn) return;
   const active = isFullscreenActive();
-  btn.innerHTML = active ? '🗗 Exit Full' : '⛶ Fullscreen';
-  btn.title = active ? 'Exit Fullscreen Mode' : 'Enter Fullscreen Mode';
+  const gameBtn = document.getElementById('btn-fullscreen-toggle');
+  if (gameBtn) {
+    gameBtn.innerHTML = active ? '🗗 Exit Full' : '⛶ Fullscreen';
+    gameBtn.title = active ? 'Exit Fullscreen Mode' : 'Enter Fullscreen Mode';
+  }
+  const menuBtn = document.getElementById('btn-fullscreen-toggle-menu');
+  if (menuBtn) {
+    menuBtn.innerHTML = active ? '<span>🗗</span><span>Exit Full</span>' : '<span>⛶</span><span>Fullscreen</span>';
+    menuBtn.title = active ? 'Exit Fullscreen Mode' : 'Enter Fullscreen Mode';
+  }
+  const bannerBtn = document.querySelector('#mobile-orientation-banner .mgb-action-btn');
+  if (bannerBtn) {
+    bannerBtn.innerHTML = active ? '<span>🗗</span><span>Exit Full</span>' : '<span>⛶</span><span>Fullscreen</span>';
+    bannerBtn.title = active ? 'Exit Fullscreen Mode' : 'Enter Fullscreen Mode';
+  }
 }
 
 ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
   document.addEventListener(evt, updateFullscreenBtn);
+});
+window.addEventListener('message', (ev) => {
+  if (ev.data && ev.data.type === 'LOREFALL_FULLSCREEN_CHANGED') {
+    setTimeout(updateFullscreenBtn, 80);
+  }
 });
 let toastTimeout = null;
 function showToast(m) {
@@ -17163,6 +18164,18 @@ function initArenaStartup() {
         AudioManager.init(); 
         probeAndUpgradeBgmTrack();
       } catch (e) { console.warn("AudioManager.init:", e); }
+    }
+
+    if (typeof initMobileHandDrawerDrag === 'function') {
+      try { initMobileHandDrawerDrag(); } catch (e) { console.warn("initMobileHandDrawerDrag:", e); }
+    }
+
+    if (typeof initMobileHandTouchSift === 'function') {
+      try { initMobileHandTouchSift(); } catch (e) { console.warn("initMobileHandTouchSift:", e); }
+    }
+
+    if (typeof initCardMagnifierLoupe === 'function') {
+      try { initCardMagnifierLoupe(); } catch (e) { console.warn("initCardMagnifierLoupe:", e); }
     }
 
     if (typeof preloadAllDeckImages === 'function') {
