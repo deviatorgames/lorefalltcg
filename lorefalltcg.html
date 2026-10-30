@@ -518,9 +518,19 @@
     transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.16s;
     user-select: none;
     letter-spacing: 0.3px;
+    touch-action: none;
+    cursor: grab;
   }
   .mobile-hand-pill:active {
     transform: translateX(-50%) scale(0.95);
+  }
+  .mobile-hand-pill.is-being-dragged {
+    cursor: grabbing !important;
+    opacity: 0.92 !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.9), 0 0 16px rgba(56, 189, 248, 0.8) !important;
+    transform: scale(1.05) !important;
+    transition: none !important;
+    z-index: 350 !important;
   }
   .mobile-hand-pill.has-playable-cards {
     border-color: #38bdf8;
@@ -957,7 +967,7 @@
       margin: 0 !important;
     }
     .arena-menu-cards-row {
-      display: flex !important;
+      display: flex;
       flex-direction: row !important;
       flex-wrap: nowrap !important;
       gap: 6px !important;
@@ -967,6 +977,12 @@
       padding: 0 !important;
       flex: 1 1 auto !important;
       min-height: 0 !important;
+    }
+    #arena-main-menu[style*="display: none"],
+    #arena-main-menu[style*="display:none"],
+    #arena-main-menu.menu-hidden,
+    .menu-hidden {
+      display: none !important;
     }
     .arena-menu-card {
       flex: 1 1 0 !important;
@@ -1073,28 +1089,102 @@
       padding: 1px 5px !important;
     }
 
+    /* Clash Screen UI Overrides on Mobile Landscape */
+    #clash-modal .clash-box {
+      width: 98vw !important;
+      max-width: 98vw !important;
+      max-height: 98vh !important;
+      padding: 4px 8px !important;
+      gap: 4px !important;
+      overflow-y: auto !important;
+    }
+    .clash-arena {
+      gap: 6px !important;
+      margin-top: 2px !important;
+      align-items: center !important;
+    }
+    .clash-combatant {
+      width: clamp(95px, 20vw, 135px) !important;
+      gap: 2px !important;
+    }
+    .clash-combatant h3 {
+      font-size: 0.72rem !important;
+      margin: 0 !important;
+      line-height: 1.1 !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      max-width: 100% !important;
+    }
+    .clash-card-wrapper {
+      min-height: 0 !important;
+      height: auto !important;
+      margin: 2px 0 !important;
+    }
+    .clash-card-wrapper .fc-container {
+      width: 100% !important;
+      max-width: 130px !important;
+      padding: 3px !important;
+      font-size: 0.65rem !important;
+    }
+    .clash-card-wrapper .fc-art {
+      height: clamp(55px, 24vh, 85px) !important;
+    }
+    .clash-center {
+      min-width: 130px !important;
+      padding: 4px 8px !important;
+      gap: 4px !important;
+    }
+    .clash-log {
+      font-size: 0.72rem !important;
+      min-height: 28px !important;
+      margin-bottom: 4px !important;
+      line-height: 1.2 !important;
+    }
+    .dice-btn {
+      font-size: 0.78rem !important;
+      padding: 5px 10px !important;
+      border-radius: 6px !important;
+    }
+    .clash-hp-bar {
+      height: 14px !important;
+    }
+    .clash-hp-text {
+      font-size: 0.65rem !important;
+      line-height: 14px !important;
+    }
+
     /* Modal Dialogs (Scout Hand, Dialogs) on Mobile Landscape */
     .modal-overlay {
       padding: 4px !important;
     }
     .modal-box {
-      padding: 8px 12px !important;
-      gap: 6px !important;
-      max-height: 96vh !important;
-      max-width: 96vw !important;
+      padding: 6px 10px !important;
+      gap: 4px !important;
+      max-height: 98vh !important;
+      max-width: 98vw !important;
       border-radius: 8px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
     }
     .modal-box h3 {
-      font-size: 0.9rem !important;
+      font-size: 0.84rem !important;
       margin: 0 !important;
+      line-height: 1.15 !important;
     }
     .modal-box.wide-modal {
-      max-width: 96vw !important;
-      width: 96vw !important;
+      max-width: 98vw !important;
+      width: 98vw !important;
     }
     #modal-body {
-      font-size: 0.74rem !important;
-      line-height: 1.25 !important;
+      font-size: 0.72rem !important;
+      line-height: 1.2 !important;
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
     }
     .scout-header-row {
       display: flex !important;
@@ -1102,11 +1192,15 @@
       align-items: center !important;
       gap: 6px !important;
       margin-bottom: 2px !important;
+      flex-shrink: 0 !important;
     }
     .scout-instruction-text {
-      font-size: 0.68rem !important;
-      line-height: 1.18 !important;
+      font-size: 0.65rem !important;
+      line-height: 1.15 !important;
       color: #cbd5e1 !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
     }
     .scout-btn-row {
       display: flex !important;
@@ -1114,8 +1208,8 @@
       flex-shrink: 0 !important;
     }
     .scout-quick-btn {
-      padding: 2px 7px !important;
-      font-size: 0.65rem !important;
+      padding: 2px 6px !important;
+      font-size: 0.62rem !important;
     }
     .scout-grid {
       display: flex !important;
@@ -1123,35 +1217,37 @@
       overflow-x: auto !important;
       overflow-y: hidden !important;
       -webkit-overflow-scrolling: touch !important;
-      gap: 6px !important;
-      max-height: clamp(100px, 44vh, 155px) !important;
+      gap: 5px !important;
+      flex: 1 1 auto !important;
+      max-height: clamp(75px, 38vh, 120px) !important;
       padding: 2px 4px !important;
       margin-top: 2px !important;
     }
     .scout-card {
-      flex: 0 0 clamp(72px, 15vw, 100px) !important;
+      flex: 0 0 clamp(68px, 14vw, 92px) !important;
       width: auto !important;
       min-height: 0 !important;
-      padding: 3px !important;
+      padding: 2px !important;
       border-radius: 6px !important;
     }
     .scout-card img {
-      max-height: clamp(68px, 30vh, 110px) !important;
+      max-height: clamp(55px, 26vh, 90px) !important;
       width: auto !important;
       object-fit: contain !important;
     }
     .scout-badge {
-      font-size: 0.56rem !important;
-      padding: 1px 4px !important;
+      font-size: 0.54rem !important;
+      padding: 1px 3px !important;
       margin-top: 2px !important;
     }
     #modal-actions {
       gap: 6px !important;
       margin-top: 2px !important;
+      flex-shrink: 0 !important;
     }
     #modal-actions button {
-      padding: 4px 12px !important;
-      font-size: 0.74rem !important;
+      padding: 3px 10px !important;
+      font-size: 0.72rem !important;
     }
     #audio-settings-modal .modal-box {
       max-height: 96vh !important;
@@ -1163,6 +1259,30 @@
     #audio-settings-modal .audio-control-card {
       padding: 5px 10px !important;
       border-radius: 6px !important;
+    }
+
+    /* Targeting Banner mobile landscape overrides */
+    #targeting-banner {
+      top: 32px !important;
+      padding: 4px 10px !important;
+      gap: 6px !important;
+      max-width: 94vw !important;
+      border-radius: 6px !important;
+    }
+    #targeting-card-preview {
+      width: 32px !important;
+      height: 44px !important;
+    }
+    #targeting-text {
+      font-size: 0.76rem !important;
+    }
+    #targeting-ability {
+      font-size: 0.65rem !important;
+      max-width: 240px !important;
+    }
+    #targeting-banner button {
+      padding: 3px 8px !important;
+      font-size: 0.7rem !important;
     }
   }
 
@@ -1297,9 +1417,25 @@
   @keyframes pulseMana { from { box-shadow: inset 0 0 4px var(--mana); } to { box-shadow: inset 0 0 20px var(--mana); } }
   @keyframes pulseStrike { from { box-shadow: 0 0 6px rgba(244, 63, 94, 0.5); } to { box-shadow: 0 0 18px rgba(244, 63, 94, 0.95); } }
 
-  .card-mini-img { width: 100%; height: 100%; object-fit: fill; position: absolute; inset: 0; z-index: 1; pointer-events: none; display: block; border-radius: 5px; }
+  .card-mini-img { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: fill; 
+    position: absolute; 
+    inset: 0; 
+    z-index: 1; 
+    pointer-events: none; 
+    display: block; 
+    border-radius: 5px; 
+    transform: translateZ(0); 
+    backface-visibility: hidden; 
+  }
   /* Precise crop from pixel 60 to 760 of full 1000x1400 card art (capturing card name banner + artwork) */
-  .card-mini-img.board-crop-img { position: absolute; left: 0; top: -8.5714%; width: 100%; height: 200%; object-fit: fill; border-radius: 0; }
+  .card-mini-img.board-crop-img { position: absolute; left: 0; top: -8.5714%; width: 100%; height: 200%; object-fit: fill; border-radius: 0; transform: translateZ(0); backface-visibility: hidden; }
+  .card-slot {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
   .mini-stat-overlay { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: visible; }
 
   /* Board State Live Stats: compact card-accurate icons with large legible numbers */
@@ -2471,22 +2607,25 @@
   #targeting-banner { 
     display: none; 
     position: fixed; 
-    bottom: 132px; 
-    left: 20px; 
-    transform: none; 
-    background: rgba(15, 23, 42, 0.95); 
+    top: 42px; 
+    left: 50%; 
+    transform: translateX(-50%); 
+    background: rgba(15, 23, 42, 0.96); 
     border: 2px solid var(--mana); 
-    padding: 10px 16px; 
+    padding: 8px 16px; 
     border-radius: 10px; 
     color: #fff; 
-    z-index: 450; 
-    box-shadow: 0 8px 30px rgba(0,0,0,0.85); 
+    z-index: 550; 
+    box-shadow: 0 8px 30px rgba(0,0,0,0.85), 0 0 15px rgba(56, 189, 248, 0.35); 
     align-items: center; 
     gap: 12px; 
-    max-width: 420px;
+    max-width: 480px;
+    width: max-content;
   }
-  #targeting-card-preview { width: 70px; height: 98px; pointer-events: none; flex-shrink: 0; }
-  #targeting-info-col { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+  #targeting-card-preview { width: 44px; height: 60px; pointer-events: none; flex-shrink: 0; border-radius: 4px; overflow: hidden; }
+  #targeting-info-col { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+  #targeting-text { font-size: 0.95rem; font-weight: 700; color: #fff; line-height: 1.2; }
+  #targeting-ability { font-size: 0.78rem; font-style: italic; color: #cbd5e1; max-width: 360px; line-height: 1.25; }
 
   /* Audio Settings Modal & Slider Styles */
   #audio-settings-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 700; }
@@ -7069,10 +7208,23 @@ function showMainMenu() {
   const panelMulti = document.getElementById('cat-panel-multi');
   const panelTut = document.getElementById('cat-panel-tut');
 
-  if (mainMenu) mainMenu.style.display = 'flex';
-  if (panelSingle) panelSingle.style.display = 'none';
-  if (panelMulti) panelMulti.style.display = 'none';
-  if (panelTut) panelTut.style.display = 'none';
+  if (mainMenu) {
+    mainMenu.classList.remove('menu-hidden');
+    mainMenu.style.removeProperty('display');
+    mainMenu.style.display = 'flex';
+  }
+  if (panelSingle) {
+    panelSingle.style.setProperty('display', 'none', 'important');
+    panelSingle.classList.add('menu-hidden');
+  }
+  if (panelMulti) {
+    panelMulti.style.setProperty('display', 'none', 'important');
+    panelMulti.classList.add('menu-hidden');
+  }
+  if (panelTut) {
+    panelTut.style.setProperty('display', 'none', 'important');
+    panelTut.classList.add('menu-hidden');
+  }
 
   if (onlineSession.active) {
     cancelOnlineSession(true);
@@ -7081,16 +7233,47 @@ function showMainMenu() {
 
 function openMenuSubmenu(cat) {
   const mainMenu = document.getElementById('arena-main-menu');
-  if (mainMenu) mainMenu.style.display = 'none';
+  if (mainMenu) {
+    mainMenu.style.setProperty('display', 'none', 'important');
+    mainMenu.classList.add('menu-hidden');
+  }
 
   currentMenuCategory = cat;
 
   const panelSingle = document.getElementById('cat-panel-single');
   const panelMulti = document.getElementById('cat-panel-multi');
   const panelTut = document.getElementById('cat-panel-tut');
-  if (panelSingle) panelSingle.style.display = (cat === 'SINGLE') ? 'flex' : 'none';
-  if (panelMulti) panelMulti.style.display = (cat === 'MULTI') ? 'flex' : 'none';
-  if (panelTut) panelTut.style.display = (cat === 'TUTORIAL') ? 'flex' : 'none';
+  
+  if (panelSingle) {
+    if (cat === 'SINGLE') {
+      panelSingle.style.removeProperty('display');
+      panelSingle.style.display = 'flex';
+      panelSingle.classList.remove('menu-hidden');
+    } else {
+      panelSingle.style.setProperty('display', 'none', 'important');
+      panelSingle.classList.add('menu-hidden');
+    }
+  }
+  if (panelMulti) {
+    if (cat === 'MULTI') {
+      panelMulti.style.removeProperty('display');
+      panelMulti.style.display = 'flex';
+      panelMulti.classList.remove('menu-hidden');
+    } else {
+      panelMulti.style.setProperty('display', 'none', 'important');
+      panelMulti.classList.add('menu-hidden');
+    }
+  }
+  if (panelTut) {
+    if (cat === 'TUTORIAL') {
+      panelTut.style.removeProperty('display');
+      panelTut.style.display = 'flex';
+      panelTut.classList.remove('menu-hidden');
+    } else {
+      panelTut.style.setProperty('display', 'none', 'important');
+      panelTut.classList.add('menu-hidden');
+    }
+  }
 
   if (cat === 'MULTI') {
     setGameMode('ONLINE');
@@ -9370,6 +9553,13 @@ async function swapPlayerSlots(pIdx, fromZone, fromSlot, toZone, toSlot) {
   }
 }
 
+function updateSlotContentSafe(el, newHTML) {
+  if (!el) return;
+  if (el._currentCardHTML === newHTML) return;
+  el._currentCardHTML = newHTML;
+  el.innerHTML = newHTML;
+}
+
 function renderPlayer(pIdx) {
   const p = gameState.players[pIdx]; 
   if (!p) return;
@@ -9422,7 +9612,8 @@ function renderPlayer(pIdx) {
   
   const eqTabHTML = (p.hero.equipment && p.hero.equipment.length > 0) ? `<div id="${prx}-equip-tab" class="equip-tab" onclick="openEquipmentDetail(${pIdx}, 'hero', 0, 0, event)" onmouseenter="showArenaPreview(event, ${pIdx}, 'equip', 0)" onmouseleave="hideArenaPreview()">Equip (${p.hero.equipment.length})</div>` : "";
   const heroSlotEl = document.getElementById(prx + "-hero-slot");
-  heroSlotEl.innerHTML = createCardHTML(p.hero, pIdx, 'hero', 0) + eqTabHTML;
+  const heroHTML = createCardHTML(p.hero, pIdx, 'hero', 0) + eqTabHTML;
+  updateSlotContentSafe(heroSlotEl, heroHTML);
   heroSlotEl.onclick = (e) => { if(e.target.className !== 'equip-tab') handleCardInteraction(pIdx, 'hero', 0); };
   heroSlotEl.onmouseenter = (e) => showArenaPreview(e, pIdx, 'hero', 0);
   heroSlotEl.onmouseleave = () => hideArenaPreview();
@@ -9437,7 +9628,8 @@ function renderPlayer(pIdx) {
       elBz.classList.remove('anim-card-die');
       elBz.style.opacity = '1';
     }
-    elBz.innerHTML = unitBz ? createCardHTML(unitBz, pIdx, 'bz', s) : `<span style='position:absolute; font-size:0.6rem; color:#475569; pointer-events:none;'>${s===0?'VANGUARD':s===1?'FLANK':'REAR'}</span>`; 
+    const bzHTML = unitBz ? createCardHTML(unitBz, pIdx, 'bz', s) : `<span style='position:absolute; font-size:0.6rem; color:#475569; pointer-events:none;'>${s===0?'VANGUARD':s===1?'FLANK':'REAR'}</span>`; 
+    updateSlotContentSafe(elBz, bzHTML);
     elBz.onclick = () => handleCardInteraction(pIdx, 'bz', s);
     elBz.onmouseenter = unitBz ? (e) => showArenaPreview(e, pIdx, 'bz', s) : null;
     elBz.onmouseleave = unitBz ? () => hideArenaPreview() : null;
@@ -9469,7 +9661,8 @@ function renderPlayer(pIdx) {
       elB.classList.remove('anim-card-die');
       elB.style.opacity = '1';
     }
-    elB.innerHTML = unitB ? createCardHTML(unitB, pIdx, 'bench', s) : ""; 
+    const benchHTML = unitB ? createCardHTML(unitB, pIdx, 'bench', s) : ""; 
+    updateSlotContentSafe(elB, benchHTML);
     elB.onclick = () => handleCardInteraction(pIdx, 'bench', s);
     elB.onmouseenter = unitB ? (e) => showArenaPreview(e, pIdx, 'bench', s) : null;
     elB.onmouseleave = unitB ? () => hideArenaPreview() : null;
@@ -9500,7 +9693,9 @@ function renderPlayer(pIdx) {
   let prof = 0;
   for (let s = 0; s < 3; s++) {
     const elSk = document.getElementById(prx + "-skill-" + s); const sk = p.skills[s];
-    if (sk) { prof++; elSk.innerHTML = createCardHTML(sk, pIdx, 'skill', s); } else elSk.innerHTML = "";
+    const skHTML = sk ? createCardHTML(sk, pIdx, 'skill', s) : "";
+    if (sk) prof++;
+    updateSlotContentSafe(elSk, skHTML);
     elSk.onclick = () => handleCardInteraction(pIdx, 'skill', s);
     elSk.onmouseenter = sk ? (e) => showArenaPreview(e, pIdx, 'skill', s) : null;
     elSk.onmouseleave = sk ? () => hideArenaPreview() : null;
@@ -9515,7 +9710,8 @@ function renderPlayer(pIdx) {
     }
     
     const elSyn = document.getElementById(prx + "-synergy-" + s); const syn = p.synergies[s];
-    if (syn) { elSyn.innerHTML = createCardHTML(syn, pIdx, 'synergy', s); } else elSyn.innerHTML = "";
+    const synHTML = syn ? createCardHTML(syn, pIdx, 'synergy', s) : "";
+    updateSlotContentSafe(elSyn, synHTML);
     elSyn.onclick = () => handleCardInteraction(pIdx, 'synergy', s);
     elSyn.onmouseenter = syn ? (e) => showArenaPreview(e, pIdx, 'synergy', s) : null;
     elSyn.onmouseleave = syn ? () => hideArenaPreview() : null;
@@ -10171,7 +10367,25 @@ function renderAbilityBoxesHTML(card, p, zone, slot, phase, omitActions, disable
 
 function generateClassicFullCardView(card, p, zone, slot, isMyTurn, phase, omitActions = false) {
   const manaCost = card.manaCost !== undefined ? card.manaCost : (card.goldCost !== undefined ? card.goldCost : (card.mana !== undefined ? card.mana : ""));
-  const dex = (card.dexterity !== undefined && card.type !== "Equipment" && card.type !== "Synergy") ? getStat(card, 'dexterity', p) : "";
+  const isSkillOrSynergy = (card.type === "Skill" || card.type === "Synergy" || zone === 'skill' || zone === 'synergy');
+  let classicTopRightHTML = "";
+  if (isSkillOrSynergy) {
+    const goldVal = card.tradeValue !== undefined ? card.tradeValue : (card.goldCost !== undefined ? card.goldCost : "");
+    if (goldVal !== "") {
+      classicTopRightHTML = `<div class="fc-live-stat fc-icon-gold" style="position:static; animation:none;" title="Gold (Trade Value)"><span>${goldVal}</span></div>`;
+    } else {
+      classicTopRightHTML = `<div style="width:48px;"></div>`;
+    }
+  } else if (card.type !== "Equipment") {
+    const dex = card.dexterity !== undefined ? getStat(card, 'dexterity', p) : "";
+    if (dex !== "") {
+      classicTopRightHTML = `<div class="fc-live-stat fc-icon-dex" style="position:static; animation:none;" title="Dexterity"><span>${dex}</span></div>`;
+    } else {
+      classicTopRightHTML = `<div style="width:48px;"></div>`;
+    }
+  } else {
+    classicTopRightHTML = `<div style="width:48px;"></div>`;
+  }
   let typeStr = `${card.type.toUpperCase()}`;
   if (card.race) typeStr += ` - ${card.race.toUpperCase()}`;
   if (card.unitClass) typeStr += ` ${card.unitClass.toUpperCase()}`;
@@ -10283,7 +10497,7 @@ function generateClassicFullCardView(card, p, zone, slot, isMyTurn, phase, omitA
       <div class="fc-top-row">
         ${manaCost !== "" ? `<div class="fc-live-stat ${costIconClass}" style="position:static; animation:none;" title="Mana/Gold"><span>${manaCost}</span></div>` : `<div style="width:48px;"></div>`}
         <div class="fc-title">${card.name}</div>
-        ${dex !== "" ? `<div class="fc-live-stat fc-icon-dex" style="position:static; animation:none;" title="Dexterity"><span>${dex}</span></div>` : `<div style="width:48px;"></div>`}
+        ${classicTopRightHTML}
       </div>
       <div class="fc-art">
         [ Card Artwork ]
@@ -10329,7 +10543,24 @@ function generateFullCardView(card, p, zone, slot, isMyTurn, phase, omitActions 
     const manaCost = card.manaCost !== undefined ? card.manaCost : (card.goldCost !== undefined ? card.goldCost : (card.mana !== undefined ? card.mana : ""));
     const isGoldCost = card.goldCost !== undefined;
     const costIconClass = isGoldCost ? 'fc-icon-gold' : 'fc-icon-mana';
-    const dex = (card.dexterity !== undefined && card.type !== "Equipment" && card.type !== "Synergy") ? getStat(card, 'dexterity', p) : "";
+
+    // Top Right Stat on Live Board Previews:
+    // - Skill & Synergy live previews display their live Gold / Trade Value with the Gold coin icon!
+    // - Hero & Ally cards display their live Dexterity with the Dexterity lightning icon!
+    // - Equipment cards have no top-right stat.
+    let topRightStatHTML = "";
+    const isSkillOrSynergy = (card.type === "Skill" || card.type === "Synergy" || zone === 'skill' || zone === 'synergy');
+    if (isSkillOrSynergy) {
+      const goldVal = card.tradeValue !== undefined ? card.tradeValue : (card.goldCost !== undefined ? card.goldCost : "");
+      if (goldVal !== "") {
+        topRightStatHTML = `<div class="fc-live-stat fc-overlay-dex fc-icon-gold" title="Live Gold (Trade Value)"><span>${goldVal}</span></div>`;
+      }
+    } else if (card.type !== "Equipment") {
+      const dex = card.dexterity !== undefined ? getStat(card, 'dexterity', p) : "";
+      if (dex !== "") {
+        topRightStatHTML = `<div class="fc-live-stat fc-overlay-dex fc-icon-dex" title="Live Dexterity"><span>${dex}</span></div>`;
+      }
+    }
     
     let attackBadgeHTML = ""; let canStrike = false;
     let isExhausted = (zone === 'skill' || zone === 'hero') ? p.hero.isExhausted : card.isExhausted;
@@ -10372,7 +10603,7 @@ function generateFullCardView(card, p, zone, slot, isMyTurn, phase, omitActions 
       <div class="fc-card-art-frame">
         <img src="${artUrl}" class="fc-card-full-img" alt="${card.name}" onerror="${(isInPlay && boardInfo) ? `handleBoardCardArtError('${safeName}', this)` : `handleCardArtError('${safeName}', this)`}">
         ${manaCost !== "" ? `<div class="fc-live-stat fc-overlay-mana ${costIconClass}" title="Mana / Cost"><span>${manaCost}</span></div>` : ''}
-        ${dex !== "" ? `<div class="fc-live-stat fc-overlay-dex fc-icon-dex" title="Live Dexterity"><span>${dex}</span></div>` : ''}
+        ${topRightStatHTML}
         ${attackBadgeHTML}
         ${chargeBadgeHTML}
         ${hp !== "" ? `<div class="fc-live-stat fc-overlay-hp fc-icon-hp" title="Live Health"><span>${hp}</span></div>` : ''}
@@ -10961,10 +11192,13 @@ window.activateSpecificAbility = async function(pIdx, zone, slot, abilityIndex, 
 
 function promptForBoardTarget(player, titleMsg, onSelectCallback, sourceCard, targetType = "targetCharacter") {
     document.getElementById('targeting-text').innerHTML = `<strong>Targeting:</strong> ${titleMsg}`;
-    document.getElementById('targeting-ability').innerHTML = sourceCard.abilities ? formatAbilityReminderItalics(sourceCard.abilities) : "";
+    document.getElementById('targeting-ability').innerHTML = sourceCard && sourceCard.abilities ? formatAbilityReminderItalics(sourceCard.abilities) : "";
     
-    const previewHTML = createCardHTML(sourceCard, player.index, 'hand', 0);
-    document.getElementById('targeting-card-preview').innerHTML = `<div class="card-slot" style="border:none; background:none;">${previewHTML}</div>`;
+    const wasJustDeployed = Boolean(sourceCard && sourceCard._justDeployed);
+    if (sourceCard) sourceCard._justDeployed = false;
+    const previewHTML = sourceCard ? createCardHTML(sourceCard, player.index, 'hand', 0) : "";
+    if (sourceCard && wasJustDeployed) sourceCard._justDeployed = true;
+    document.getElementById('targeting-card-preview').innerHTML = `<div class="card-slot" style="border:none; background:none; width:100%; height:100%; transform:none; pointer-events:none;">${previewHTML}</div>`;
     
     document.getElementById('targeting-banner').style.display = 'flex';
     gameState.targetingState = { player, callback: onSelectCallback, targetType };
@@ -14288,77 +14522,91 @@ async function performAnimatedRoll(title, text, finalRoll, modifier, targetVal, 
 
 function toggleLog() { const pane = document.getElementById('combat-log-box'); pane.style.display = pane.style.display === 'block' ? 'none' : 'block'; }
 
-let drawerDragState = {
+let pillDragState = {
   isDragging: false,
+  hasMoved: false,
   startX: 0,
   startY: 0,
-  currX: 0,
-  currY: 0
+  initialLeft: 0,
+  initialTop: 0,
+  suppressClickUntil: 0
 };
 
-function resetMobileDrawerPosition() {
-  const bottomBar = document.getElementById('player-bottom-bar');
-  if (bottomBar) {
-    bottomBar.style.transform = '';
-    drawerDragState.currX = 0;
-    drawerDragState.currY = 0;
-  }
-}
-
-function initMobileHandDrawerDrag() {
-  const header = document.getElementById('mobile-drawer-header');
-  const bar = document.getElementById('player-bottom-bar');
-  if (!header || !bar || header._dragInitialized) return;
-  header._dragInitialized = true;
+function initMobileHandPillDrag() {
+  const pill = document.getElementById('mobile-hand-toggle-btn');
+  if (!pill || pill._dragInitialized) return;
+  pill._dragInitialized = true;
 
   const onPointerDown = (e) => {
-    // Only drag when interacting with the header or drag handle, not interactive controls
-    if (e.target.closest('button') || e.target.closest('.card-slot') || e.target.closest('.hand-card') || e.target.closest('.pile-box') || e.target.closest('.doh-discard')) return;
+    pillDragState.isDragging = true;
+    pillDragState.hasMoved = false;
+    pillDragState.startX = e.clientX;
+    pillDragState.startY = e.clientY;
 
-    drawerDragState.isDragging = true;
-    drawerDragState.startX = e.clientX - drawerDragState.currX;
-    drawerDragState.startY = e.clientY - drawerDragState.currY;
-    bar.style.transition = 'none';
-    bar.classList.add('is-being-dragged');
-    try { header.setPointerCapture(e.pointerId); } catch(err) {}
-    e.preventDefault();
+    const rect = pill.getBoundingClientRect();
+    pillDragState.initialLeft = rect.left;
+    pillDragState.initialTop = rect.top;
+
+    try { pill.setPointerCapture(e.pointerId); } catch(err) {}
   };
 
   const onPointerMove = (e) => {
-    if (!drawerDragState.isDragging) return;
-    const newX = e.clientX - drawerDragState.startX;
-    const newY = e.clientY - drawerDragState.startY;
+    if (!pillDragState.isDragging) return;
+    const dx = e.clientX - pillDragState.startX;
+    const dy = e.clientY - pillDragState.startY;
 
-    // Bounds check so it cannot be dragged completely off screen
-    const maxUp = -(window.innerHeight - 36);
-    const maxDown = 0;
-    const maxLeft = -(window.innerWidth - 80);
-    const maxRight = (window.innerWidth - 80);
+    if (!pillDragState.hasMoved && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+      pillDragState.hasMoved = true;
+      pill.classList.add('is-being-dragged');
+    }
 
-    const clampedX = Math.max(maxLeft, Math.min(maxRight, newX));
-    const clampedY = Math.max(maxUp, Math.min(maxDown, newY));
+    if (pillDragState.hasMoved) {
+      const pillWidth = pill.offsetWidth || 140;
+      const pillHeight = pill.offsetHeight || 36;
+      const maxLeft = Math.max(0, window.innerWidth - pillWidth - 4);
+      const maxTop = Math.max(0, window.innerHeight - pillHeight - 4);
 
-    drawerDragState.currX = clampedX;
-    drawerDragState.currY = clampedY;
+      const targetLeft = Math.max(4, Math.min(maxLeft, pillDragState.initialLeft + dx));
+      const targetTop = Math.max(4, Math.min(maxTop, pillDragState.initialTop + dy));
 
-    bar.style.transform = `translate(${clampedX}px, ${clampedY}px)`;
+      pill.style.position = 'fixed';
+      pill.style.left = targetLeft + 'px';
+      pill.style.top = targetTop + 'px';
+      pill.style.bottom = 'auto';
+      pill.style.right = 'auto';
+      pill.style.transform = 'none';
+    }
   };
 
   const onPointerUp = (e) => {
-    if (!drawerDragState.isDragging) return;
-    drawerDragState.isDragging = false;
-    bar.classList.remove('is-being-dragged');
-    bar.style.transition = 'transform 0.15s ease, bottom 0.26s cubic-bezier(0.16, 1, 0.3, 1)';
-    try { header.releasePointerCapture(e.pointerId); } catch(err) {}
+    if (!pillDragState.isDragging) return;
+    pillDragState.isDragging = false;
+    pill.classList.remove('is-being-dragged');
+    try { pill.releasePointerCapture(e.pointerId); } catch(err) {}
+
+    if (pillDragState.hasMoved) {
+      pillDragState.suppressClickUntil = Date.now() + 300;
+    }
   };
 
-  header.addEventListener('pointerdown', onPointerDown);
+  pill.addEventListener('pointerdown', onPointerDown);
   window.addEventListener('pointermove', onPointerMove);
   window.addEventListener('pointerup', onPointerUp);
   window.addEventListener('pointercancel', onPointerUp);
 }
 
+function initMobileHandDrawerDrag() {
+  initMobileHandPillDrag();
+}
+
+function resetMobileDrawerPosition() {
+  // Pill position is maintained once user moves it to their preferred spot
+}
+
 function toggleMobileHandDrawer(forceState) {
+  if (Date.now() < pillDragState.suppressClickUntil) {
+    return;
+  }
   const bottomBar = document.getElementById('player-bottom-bar');
   const backdrop = document.getElementById('mobile-hand-backdrop');
   if (!bottomBar) return;
@@ -14369,7 +14617,6 @@ function toggleMobileHandDrawer(forceState) {
   } else {
     bottomBar.classList.remove('drawer-open');
     if (backdrop) backdrop.classList.remove('active');
-    resetMobileDrawerPosition();
   }
 }
 
