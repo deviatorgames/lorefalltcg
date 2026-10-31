@@ -172,13 +172,20 @@
     border: 2px solid rgba(255, 215, 0, 0.4);
     box-shadow: 0 0 14px rgba(0, 0, 0, 0.8), 0 0 8px rgba(255, 215, 0, 0.15);
   }
-  .hero-card-slot .mini-mana { width: 32px; height: 32px; font-size: 1.45rem; }
-  .hero-card-slot .mini-gold { width: 30px; height: 30px; font-size: 1.35rem; }
-  .hero-card-slot .mini-dex { width: 30px; height: 32px; font-size: 1.45rem; }
-  .hero-card-slot .mini-hp { width: 32px; height: 35px; font-size: 1.45rem; }
-  .hero-card-slot .mini-pow { width: 32px; height: 32px; font-size: 1.45rem; }
-  .hero-card-slot .mini-atk-icon, .hero-card-slot .mini-atk-badge { width: 32px; height: 32px; }
-  .hero-card-slot .mini-atk-icon span, .hero-card-slot .mini-atk-badge span { font-size: 1.45rem; }
+  .hero-card-slot .mini-mana { width: 38px; height: 38px; font-size: 1.75rem; font-weight: 800; }
+  .hero-card-slot .mini-mana span { font-size: 1.75rem; font-weight: 800; }
+  .hero-card-slot .mini-gold { width: 36px; height: 36px; font-size: 1.62rem; font-weight: 800; }
+  .hero-card-slot .mini-gold span { font-size: 1.62rem; font-weight: 800; }
+  .hero-card-slot .mini-dex { width: 36px; height: 38px; font-size: 1.75rem; font-weight: 800; }
+  .hero-card-slot .mini-dex span { font-size: 1.75rem; font-weight: 800; }
+  .hero-card-slot .mini-hp { width: 38px; height: 42px; font-size: 1.75rem; font-weight: 800; }
+  .hero-card-slot .mini-hp span { font-size: 1.75rem; font-weight: 800; }
+  .hero-card-slot .mini-pow { width: 38px; height: 38px; font-size: 1.75rem; font-weight: 800; }
+  .hero-card-slot .mini-pow span { font-size: 1.75rem; font-weight: 800; }
+  .hero-card-slot .mini-atk-icon, .hero-card-slot .mini-atk-badge { width: 38px; height: 38px; }
+  .hero-card-slot .mini-atk-icon span, .hero-card-slot .mini-atk-badge span { font-size: 1.75rem; font-weight: 800; }
+  .hero-card-slot .mini-charge-icon, .hero-card-slot .charge-meter { width: 35px; height: 35px; }
+  .hero-card-slot .mini-charge-icon span, .hero-card-slot .charge-meter span { font-size: 1.05rem; font-weight: 800; }
   
   .equip-tab {
       position: absolute; right: -25px; top: 50%; transform: translateY(-50%);
@@ -258,6 +265,23 @@
   .player-bottom-piles .pile-box.discard-pile {
     background: linear-gradient(145deg, #182230, #0f172a);
     border-color: #64748b;
+  }
+  .pile-box.token-pile {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-color: rgba(245, 158, 11, 0.6);
+    background: rgba(245, 158, 11, 0.1);
+  }
+  .pile-box.token-pile:hover {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.24);
+    transform: translateY(-2px);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+  }
+  .player-bottom-piles .pile-box.token-pile {
+    background: linear-gradient(145deg, #1f1b13, #15110a);
+    border-color: rgba(245, 158, 11, 0.65);
+    cursor: pointer;
   }
   .player-bottom-piles .pile-box.hand-counter-box {
     width: 50px;
@@ -581,6 +605,51 @@
     .stats-card { padding: 4px 6px; gap: 2px; }
     .stat-badge { font-size: 0.68rem; }
     #p1-action-controls button { padding: 5px 6px; font-size: 0.7rem; }
+
+    /* Proportional scaling down for compact desktop / tablets */
+    .hero-card-slot .mini-mana, .hero-card-slot .mini-gold, .hero-card-slot .mini-dex,
+    .hero-card-slot .mini-hp, .hero-card-slot .mini-pow, .hero-card-slot .mini-atk-icon,
+    .hero-card-slot .mini-atk-badge, .hero-card-slot .mini-charge-icon, .hero-card-slot .charge-meter {
+      width: 28px !important;
+      height: 28px !important;
+    }
+    .hero-card-slot .mini-hp { height: 31px !important; }
+    .hero-card-slot .mini-mana, .hero-card-slot .mini-mana span,
+    .hero-card-slot .mini-gold, .hero-card-slot .mini-gold span,
+    .hero-card-slot .mini-dex, .hero-card-slot .mini-dex span,
+    .hero-card-slot .mini-hp, .hero-card-slot .mini-hp span,
+    .hero-card-slot .mini-pow, .hero-card-slot .mini-pow span,
+    .hero-card-slot .mini-atk-icon, .hero-card-slot .mini-atk-icon span,
+    .hero-card-slot .mini-atk-badge, .hero-card-slot .mini-atk-badge span {
+      font-size: 1.30rem !important;
+      line-height: 1 !important;
+    }
+    .hero-card-slot .mini-charge-icon span, .hero-card-slot .charge-meter span {
+      font-size: 0.80rem !important;
+    }
+
+    .card-slot:not(.hero-card-slot) .mini-mana, .card-slot:not(.hero-card-slot) .mini-gold,
+    .card-slot:not(.hero-card-slot) .mini-dex, .card-slot:not(.hero-card-slot) .mini-hp,
+    .card-slot:not(.hero-card-slot) .mini-pow, .card-slot:not(.hero-card-slot) .mini-atk-icon,
+    .card-slot:not(.hero-card-slot) .mini-atk-badge, .card-slot:not(.hero-card-slot) .mini-charge-icon,
+    .card-slot:not(.hero-card-slot) .charge-meter {
+      width: 24px !important;
+      height: 24px !important;
+    }
+    .card-slot:not(.hero-card-slot) .mini-hp { height: 26px !important; }
+    .card-slot:not(.hero-card-slot) .mini-mana, .card-slot:not(.hero-card-slot) .mini-mana span,
+    .card-slot:not(.hero-card-slot) .mini-gold, .card-slot:not(.hero-card-slot) .mini-gold span,
+    .card-slot:not(.hero-card-slot) .mini-dex, .card-slot:not(.hero-card-slot) .mini-dex span,
+    .card-slot:not(.hero-card-slot) .mini-hp, .card-slot:not(.hero-card-slot) .mini-hp span,
+    .card-slot:not(.hero-card-slot) .mini-pow, .card-slot:not(.hero-card-slot) .mini-pow span,
+    .card-slot:not(.hero-card-slot) .mini-atk-icon, .card-slot:not(.hero-card-slot) .mini-atk-icon span,
+    .card-slot:not(.hero-card-slot) .mini-atk-badge, .card-slot:not(.hero-card-slot) .mini-atk-badge span {
+      font-size: 1.15rem !important;
+      line-height: 1 !important;
+    }
+    .card-slot:not(.hero-card-slot) .mini-charge-icon span, .card-slot:not(.hero-card-slot) .charge-meter span {
+      font-size: 0.72rem !important;
+    }
   }
 
   /* Mobile Landscape / Ultra-Compact Layout (Phones in Landscape & Compressed Heights) */
@@ -700,32 +769,83 @@
 
     .hero-card-slot .mini-mana, .hero-card-slot .mini-gold, .hero-card-slot .mini-dex,
     .hero-card-slot .mini-hp, .hero-card-slot .mini-pow, .hero-card-slot .mini-atk-icon,
-    .hero-card-slot .mini-charge-icon, .hero-card-slot .charge-meter {
-      width: 22px !important;
-      height: 22px !important;
+    .hero-card-slot .mini-atk-badge, .hero-card-slot .mini-charge-icon, .hero-card-slot .charge-meter {
+      width: clamp(20px, 4.2vh, 26px) !important;
+      height: clamp(20px, 4.2vh, 26px) !important;
     }
-    .hero-card-slot .mini-mana span, .hero-card-slot .mini-gold span, .hero-card-slot .mini-dex span,
-    .hero-card-slot .mini-hp span, .hero-card-slot .mini-pow span, .hero-card-slot .mini-atk-icon span {
-      font-size: 0.95rem !important;
+    .hero-card-slot .mini-hp {
+      height: clamp(22px, 4.6vh, 29px) !important;
+    }
+    .hero-card-slot .mini-mana, .hero-card-slot .mini-mana span,
+    .hero-card-slot .mini-gold, .hero-card-slot .mini-gold span,
+    .hero-card-slot .mini-dex, .hero-card-slot .mini-dex span,
+    .hero-card-slot .mini-hp, .hero-card-slot .mini-hp span,
+    .hero-card-slot .mini-pow, .hero-card-slot .mini-pow span,
+    .hero-card-slot .mini-atk-icon, .hero-card-slot .mini-atk-icon span,
+    .hero-card-slot .mini-atk-badge, .hero-card-slot .mini-atk-badge span {
+      font-size: clamp(0.85rem, 2.2vh, 1.15rem) !important;
+      font-weight: 800 !important;
+      line-height: 1 !important;
     }
     .hero-card-slot .mini-charge-icon span, .hero-card-slot .charge-meter span {
-      font-size: 0.68rem !important;
+      font-size: clamp(0.58rem, 1.5vh, 0.78rem) !important;
+      font-weight: 800 !important;
       line-height: 1 !important;
     }
 
     .card-slot:not(.hero-card-slot) .mini-mana, .card-slot:not(.hero-card-slot) .mini-gold, .card-slot:not(.hero-card-slot) .mini-dex,
     .card-slot:not(.hero-card-slot) .mini-hp, .card-slot:not(.hero-card-slot) .mini-pow, .card-slot:not(.hero-card-slot) .mini-atk-icon,
-    .card-slot:not(.hero-card-slot) .mini-charge-icon, .card-slot:not(.hero-card-slot) .charge-meter {
-      width: 17px !important;
-      height: 17px !important;
+    .card-slot:not(.hero-card-slot) .mini-atk-badge, .card-slot:not(.hero-card-slot) .mini-charge-icon, .card-slot:not(.hero-card-slot) .charge-meter {
+      width: clamp(16px, 3.6vh, 22px) !important;
+      height: clamp(16px, 3.6vh, 22px) !important;
     }
-    .card-slot:not(.hero-card-slot) .mini-mana span, .card-slot:not(.hero-card-slot) .mini-gold span, .card-slot:not(.hero-card-slot) .mini-dex span,
-    .card-slot:not(.hero-card-slot) .mini-hp span, .card-slot:not(.hero-card-slot) .mini-pow span, .card-slot:not(.hero-card-slot) .mini-atk-icon span {
-      font-size: 0.72rem !important;
+    .card-slot:not(.hero-card-slot) .mini-hp {
+      height: clamp(18px, 4.0vh, 25px) !important;
+    }
+    .card-slot:not(.hero-card-slot) .mini-mana, .card-slot:not(.hero-card-slot) .mini-mana span,
+    .card-slot:not(.hero-card-slot) .mini-gold, .card-slot:not(.hero-card-slot) .mini-gold span,
+    .card-slot:not(.hero-card-slot) .mini-dex, .card-slot:not(.hero-card-slot) .mini-dex span,
+    .card-slot:not(.hero-card-slot) .mini-hp, .card-slot:not(.hero-card-slot) .mini-hp span,
+    .card-slot:not(.hero-card-slot) .mini-pow, .card-slot:not(.hero-card-slot) .mini-pow span,
+    .card-slot:not(.hero-card-slot) .mini-atk-icon, .card-slot:not(.hero-card-slot) .mini-atk-icon span,
+    .card-slot:not(.hero-card-slot) .mini-atk-badge, .card-slot:not(.hero-card-slot) .mini-atk-badge span {
+      font-size: clamp(0.72rem, 1.8vh, 0.95rem) !important;
+      font-weight: 800 !important;
+      line-height: 1 !important;
     }
     .card-slot:not(.hero-card-slot) .mini-charge-icon span, .card-slot:not(.hero-card-slot) .charge-meter span {
-      font-size: 0.54rem !important;
+      font-size: clamp(0.50rem, 1.2vh, 0.65rem) !important;
+      font-weight: 800 !important;
       line-height: 1 !important;
+    }
+
+    /* Mobile landscape live stat placement overrides */
+    .mini-stat-overlay .mini-skill-atk,
+    .skill-mini .mini-atk-icon {
+      bottom: 1px !important;
+      left: 1px !important;
+    }
+    .mini-stat-overlay .mini-skill-charge,
+    .skill-mini .mini-charge-icon {
+      bottom: 1px !important;
+      right: 1px !important;
+    }
+    .mini-stat-overlay .mini-ally-charge,
+    .ally-mini .mini-charge-icon {
+      top: 1px !important;
+      left: 1px !important;
+    }
+    .mini-stat-overlay .mini-ally-atk,
+    .ally-mini .mini-atk-icon {
+      bottom: 1px !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+    }
+    .mini-stat-overlay .mini-hero-atk,
+    .hero-mini .mini-atk-icon {
+      bottom: 1px !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
     }
 
     /* Live Charge & Overlays on Card Detail & Hover Preview on Mobile */
@@ -1092,23 +1212,26 @@
     /* Clash Screen UI Overrides on Mobile Landscape */
     #clash-modal .clash-box {
       width: 98vw !important;
-      max-width: 98vw !important;
+      max-width: min(98vw, 760px) !important;
       max-height: 98vh !important;
       padding: 4px 8px !important;
-      gap: 4px !important;
+      gap: 3px !important;
       overflow-y: auto !important;
+      margin: 0 auto !important;
     }
     .clash-arena {
-      gap: 6px !important;
+      gap: 8px !important;
       margin-top: 2px !important;
       align-items: center !important;
+      justify-content: center !important;
     }
     .clash-combatant {
-      width: clamp(95px, 20vw, 135px) !important;
+      width: clamp(120px, 26vw, 170px) !important;
+      flex: 0 0 clamp(120px, 26vw, 170px) !important;
       gap: 2px !important;
     }
     .clash-combatant h3 {
-      font-size: 0.72rem !important;
+      font-size: 0.75rem !important;
       margin: 0 !important;
       line-height: 1.1 !important;
       white-space: nowrap !important;
@@ -1120,38 +1243,91 @@
       min-height: 0 !important;
       height: auto !important;
       margin: 2px 0 !important;
+      width: 100% !important;
+      display: flex !important;
+      justify-content: center !important;
     }
     .clash-card-wrapper .fc-container {
       width: 100% !important;
-      max-width: 130px !important;
+      max-width: 165px !important;
+      height: clamp(135px, 64vh, 250px) !important;
       padding: 3px !important;
-      font-size: 0.65rem !important;
+      font-size: 0.68rem !important;
     }
     .clash-card-wrapper .fc-art {
-      height: clamp(55px, 24vh, 85px) !important;
+      height: clamp(60px, 26vh, 100px) !important;
     }
     .clash-center {
-      min-width: 130px !important;
-      padding: 4px 8px !important;
-      gap: 4px !important;
+      flex: 0 1 230px !important;
+      max-width: 240px !important;
+      min-width: 120px !important;
+      padding: 3px 6px !important;
+      gap: 3px !important;
     }
     .clash-log {
-      font-size: 0.72rem !important;
-      min-height: 28px !important;
-      margin-bottom: 4px !important;
+      font-size: 0.68rem !important;
+      min-height: 24px !important;
+      max-height: 110px !important;
+      overflow-y: auto !important;
+      margin-bottom: 2px !important;
       line-height: 1.2 !important;
     }
     .dice-btn {
-      font-size: 0.78rem !important;
-      padding: 5px 10px !important;
+      font-size: 0.74rem !important;
+      padding: 4px 8px !important;
       border-radius: 6px !important;
     }
     .clash-hp-bar {
-      height: 14px !important;
+      height: 12px !important;
     }
     .clash-hp-text {
-      font-size: 0.65rem !important;
-      line-height: 14px !important;
+      font-size: 0.62rem !important;
+      line-height: 12px !important;
+    }
+
+    /* Action Showcase Overlay (Play Card / Declare Strike Pop-up) Sizing on Mobile Landscape */
+    .action-showcase-card-container {
+      flex-direction: row !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 12px !important;
+      max-height: 94vh !important;
+      max-width: 95vw !important;
+    }
+    .action-showcase-card-slot {
+      width: clamp(100px, 30vh, 150px) !important;
+      max-height: 85vh !important;
+      border-radius: 8px !important;
+      flex-shrink: 0 !important;
+    }
+    .action-showcase-card-slot img {
+      max-height: 85vh !important;
+      object-fit: contain !important;
+    }
+    .action-showcase-banner {
+      padding: 6px 12px !important;
+      max-width: 280px !important;
+      border-radius: 8px !important;
+      text-align: left !important;
+    }
+    .action-showcase-tag {
+      font-size: 0.58rem !important;
+      letter-spacing: 1px !important;
+      margin-bottom: 2px !important;
+    }
+    .action-showcase-title {
+      font-size: 0.95rem !important;
+      line-height: 1.15 !important;
+    }
+    .action-showcase-desc {
+      font-size: 0.70rem !important;
+      margin-top: 3px !important;
+      line-height: 1.2 !important;
+    }
+    .action-showcase-ack-btn {
+      padding: 4px 14px !important;
+      font-size: 0.72rem !important;
+      margin-top: 6px !important;
     }
 
     /* Modal Dialogs (Scout Hand, Dialogs) on Mobile Landscape */
@@ -1443,13 +1619,13 @@
     position: absolute;
     top: 2px;
     left: 2px;
-    width: 26px;
-    height: 26px;
+    width: 31px;
+    height: 31px;
     background: var(--icon-mana) center / contain no-repeat;
     color: #fff;
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.25rem;
-    font-weight: 700;
+    font-size: 1.50rem;
+    font-weight: 800;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1457,17 +1633,23 @@
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.95));
     text-shadow: 0 1px 3px #000, 0 0 4px #000;
   }
+  .mini-mana span {
+    font-family: 'Runa Serif', Georgia, serif;
+    font-size: 1.50rem;
+    font-weight: 800;
+    line-height: 1;
+  }
   .mini-gold {
     position: absolute;
     top: 2px;
     left: 2px;
-    width: 25px;
-    height: 25px;
+    width: 30px;
+    height: 30px;
     background: var(--icon-gold) center / contain no-repeat;
     color: #fff;
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.2rem;
-    font-weight: 700;
+    font-size: 1.45rem;
+    font-weight: 800;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1475,17 +1657,23 @@
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.95));
     text-shadow: 0 1px 3px #000, 0 0 4px #000;
   }
+  .mini-gold span {
+    font-family: 'Runa Serif', Georgia, serif;
+    font-size: 1.45rem;
+    font-weight: 800;
+    line-height: 1;
+  }
   .mini-dex {
     position: absolute;
     top: 2px;
     right: 2px;
-    width: 24px;
-    height: 26px;
+    width: 29px;
+    height: 31px;
     background: var(--icon-dex) center / contain no-repeat;
     color: #fff;
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.25rem;
-    font-weight: 700;
+    font-size: 1.50rem;
+    font-weight: 800;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1493,13 +1681,19 @@
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.95));
     text-shadow: 0 1px 3px #000, 0 0 4px #000;
   }
+  .mini-dex span {
+    font-family: 'Runa Serif', Georgia, serif;
+    font-size: 1.50rem;
+    font-weight: 800;
+    line-height: 1;
+  }
   .mini-atk-icon, .mini-atk-badge {
     position: absolute;
     top: 60%;
     left: 2px;
     transform: translateY(-50%);
-    width: 26px;
-    height: 26px;
+    width: 31px;
+    height: 31px;
     background-repeat: no-repeat !important;
     background-position: center !important;
     background-size: contain !important;
@@ -1511,6 +1705,12 @@
     justify-content: center;
     z-index: 4;
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.95));
+    font-family: 'Runa Serif', Georgia, serif;
+    font-size: 1.50rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+    text-shadow: 0 1px 3px #000, 0 0 4px #000;
   }
   .mini-atk-melee {
     background-image: var(--icon-melee) !important;
@@ -1520,7 +1720,7 @@
   }
   .mini-atk-icon span, .mini-atk-badge span {
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.25rem;
+    font-size: 1.50rem;
     font-weight: 800;
     color: #fff;
     line-height: 1;
@@ -1536,15 +1736,15 @@
     right: 2px;
     transform: translateY(-50%);
     z-index: 4;
-    width: 24px;
-    height: 24px;
+    width: 29px;
+    height: 29px;
     background: var(--icon-charge) center / contain no-repeat !important;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 0.8rem;
+    font-size: 0.95rem;
     font-weight: 800;
     border: none !important;
     border-radius: 0 !important;
@@ -1554,7 +1754,7 @@
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.95));
   }
   .mini-charge-icon span, .charge-meter span {
-    font-size: 0.72rem;
+    font-size: 0.86rem;
     line-height: 1;
     font-weight: 800;
     display: inline-block;
@@ -1564,13 +1764,13 @@
     position: absolute;
     bottom: 2px;
     left: 2px;
-    width: 25px;
-    height: 28px;
+    width: 30px;
+    height: 34px;
     background: var(--icon-health) center / contain no-repeat;
     color: #fff;
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.25rem;
-    font-weight: 700;
+    font-size: 1.50rem;
+    font-weight: 800;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1580,17 +1780,23 @@
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.95));
     text-shadow: 0 1px 3px #000, 0 0 4px #000;
   }
+  .mini-hp span {
+    font-family: 'Runa Serif', Georgia, serif;
+    font-size: 1.50rem;
+    font-weight: 800;
+    line-height: 1;
+  }
   .mini-pow {
     position: absolute;
     bottom: 1px;
     right: 1px;
-    width: 26px;
-    height: 26px;
+    width: 31px;
+    height: 31px;
     background: var(--icon-power) center / contain no-repeat;
     color: #fff;
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.25rem;
-    font-weight: 700;
+    font-size: 1.50rem;
+    font-weight: 800;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1598,7 +1804,60 @@
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.95));
     text-shadow: 0 1px 3px #000, 0 0 4px #000;
   }
+  .mini-pow span {
+    font-family: 'Runa Serif', Georgia, serif;
+    font-size: 1.50rem;
+    font-weight: 800;
+    line-height: 1;
+  }
   .mini-equip-pill { position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); z-index: 3; background: rgba(15, 23, 42, 0.92); border: 1px solid var(--gold); color: var(--gold); padding: 1px 5px; border-radius: 8px; font-size: 0.55rem; font-weight: 800; white-space: nowrap; }
+
+  /* Board Only Live Stat Positioning Overrides */
+  /* 1. Skill live board stats: Attack in bottom-left corner, Charge in bottom-right corner */
+  .mini-stat-overlay .mini-skill-atk,
+  .skill-mini .mini-atk-icon {
+    top: auto !important;
+    bottom: 2px !important;
+    left: 2px !important;
+    right: auto !important;
+    transform: none !important;
+  }
+  .mini-stat-overlay .mini-skill-charge,
+  .skill-mini .mini-charge-icon {
+    top: auto !important;
+    bottom: 2px !important;
+    right: 2px !important;
+    left: auto !important;
+    transform: none !important;
+  }
+
+  /* 2. Ally live board stats: Charge in top-left (where mana was), Attack in middle bottom */
+  .mini-stat-overlay .mini-ally-charge,
+  .ally-mini .mini-charge-icon {
+    top: 2px !important;
+    left: 2px !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+  }
+  .mini-stat-overlay .mini-ally-atk,
+  .ally-mini .mini-atk-icon {
+    top: auto !important;
+    bottom: 2px !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+  }
+
+  /* 3. Hero live board stats: Attack in middle bottom when equipped/attacking */
+  .mini-stat-overlay .mini-hero-atk,
+  .hero-mini .mini-atk-icon {
+    top: auto !important;
+    bottom: 2px !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+  }
   .pile-box.discard-pile { cursor: pointer; transition: all 0.2s ease; }
   .pile-box.discard-pile:hover { border-color: var(--gold); background: rgba(30, 41, 59, 0.9); transform: translateY(-1px); }
 
@@ -3490,6 +3749,7 @@
           <div class="pile-box loot-pile">LOOT<br><span id="p2-loot-count">40</span></div>
           <div class="pile-box">HAND<br><span id="p2-hand-count">8</span></div>
           <div class="pile-box discard-pile" id="p2-discard-pile-box" onclick="showDiscardInspect(1)" title="View Opponent's Discard Pile">DISCARD<br><span id="p2-discard-count">0</span></div>
+          <div class="pile-box token-pile" id="p2-token-pile-box" onclick="showTokenInspect(1)" title="View Opponent's Tokens">TOKENS<br><span id="p2-token-count">0</span></div>
         </div>
       </div>
     </div>
@@ -3557,6 +3817,9 @@
         <div class="doh-pile doh-discard" onclick="showDiscardInspect(1)" title="Tap to inspect opponent's discard pile">
           <span>🪦 Discard:</span> <strong id="p2-drawer-discard-count">0</strong> <span class="doh-inspect-badge">🔍</span>
         </div>
+        <div class="doh-pile doh-tokens" onclick="showTokenInspect(1)" title="Tap to inspect opponent's tokens">
+          <span>🪙 Tokens:</span> <strong id="p2-drawer-token-count">0</strong> <span class="doh-inspect-badge">🔍</span>
+        </div>
       </div>
 
       <div class="drawer-header-right">
@@ -3573,6 +3836,10 @@
         <div class="pile-box discard-pile" id="p1-discard-pile-box" onclick="showDiscardInspect(0)" title="View Your Discard Pile">
           <span class="pile-label">DISCARD</span>
           <span class="pile-count" id="p1-discard-count">0</span>
+        </div>
+        <div class="pile-box token-pile" id="p1-token-pile-box" onclick="showTokenInspect(0)" title="View Available Tokens">
+          <span class="pile-label">TOKENS</span>
+          <span class="pile-count" id="p1-token-count">0</span>
         </div>
         <div class="pile-box hand-counter-box" id="p1-hand-pile-box" onclick="toggleMobileHandDrawer()" title="Cards in Hand (Click to toggle Hand)">
           <span class="pile-label">HAND</span>
@@ -6421,6 +6688,59 @@ function getStat(card, statName, player) {
    CORE GAME INIT
    ========================================================================= */
 
+function getDeckRecipeTokens(recipe) {
+  if (!recipe) return [];
+  const foundTokens = [];
+  const seenNames = new Set();
+
+  const addTok = (tok) => {
+    if (!tok) return;
+    const name = tok.name || tok["Card Name"] || "";
+    if (name && !seenNames.has(name.toLowerCase())) {
+      seenNames.add(name.toLowerCase());
+      foundTokens.push(tok);
+    }
+  };
+
+  // 1. Explicit tokens in recipe
+  if (Array.isArray(recipe.tokens) && recipe.tokens.length > 0) {
+    recipe.tokens.forEach(tokNameOrId => {
+      const clean = String(tokNameOrId).replace(/^Token_/, '').trim();
+      const tData = CARDS_DATA[tokNameOrId] || CARDS_DATA["Token_" + clean] || CARDS_BY_NAME[clean] || CARDS_BY_NAME[clean.toLowerCase()] || Object.values(CARDS_DATA).find(c => c && (c.name?.toLowerCase() === clean.toLowerCase() || c.id?.toLowerCase() === clean.toLowerCase()));
+      if (tData) addTok(tData);
+    });
+  }
+
+  // 2. Auto-detect tokens referenced in abilities / text
+  const allCardsInRecipe = [];
+  if (recipe.hero) {
+    const hData = CARDS_DATA[recipe.hero] || CARDS_BY_NAME[(recipe.hero || "").replace(/^Hero_/, '')];
+    if (hData) allCardsInRecipe.push(hData);
+  }
+  if (Array.isArray(recipe.cards)) {
+    recipe.cards.forEach(item => {
+      const cData = CARDS_DATA[item.id] || (item.name ? CARDS_BY_NAME[item.name] : null);
+      if (cData) allCardsInRecipe.push(cData);
+    });
+  }
+
+  const allRegisteredTokens = Object.values(CARDS_DATA).filter(c => c && (c.type === 'Token' || c._type === 'Token' || c.id?.startsWith('Token_')));
+  allRegisteredTokens.forEach(tok => {
+    const tName = (tok.name || tok["Card Name"] || "").trim().toLowerCase();
+    if (!tName) return;
+    for (const card of allCardsInRecipe) {
+      const abText = String(card.abilities || card.description || card["Abilities"] || "").toLowerCase();
+      const notes = String(card["Status Notes"] || "").toLowerCase();
+      if (abText.includes(tName) || notes.includes(tName)) {
+        addTok(tok);
+        break;
+      }
+    }
+  });
+
+  return foundTokens;
+}
+
 function createPlayer(index, name, deckKey, isAI = false) {
   const recipe = DECK_RECIPES[deckKey] || Object.values(DECK_RECIPES)[0];
   let heroData = CARDS_DATA[recipe.hero] || CARDS_BY_NAME[(recipe.hero || "").replace(/^Hero_/, '')] || CARDS_DATA["Hero_Favar Dahv, Scholar"];
@@ -6441,6 +6761,7 @@ function createPlayer(index, name, deckKey, isAI = false) {
     index, name, deckKey, isAI, cardsDrawnThisTurn: 0,
     hero: { ...heroCard, currentHealth: heroCard.health, equipment: [], isExhausted: false },
     manaPool: 0, gold: 3, hand: [], deck: deck, discard: [],
+    tokens: getDeckRecipeTokens(recipe),
     battleZone: [null, null, null], bench: [null, null, null], skills: [null, null, null], synergies: [null, null, null]
   };
 }
@@ -6901,6 +7222,7 @@ function syncDecksAndCards(cardsList, savedDecksMap) {
           creator: d.creator || "Saved Deck",
           date: d.date || "",
           cards: cardsArr,
+          tokens: d.tokens || (d.cards && d.cards._tokens) || (d.cards && d.cards._meta && d.cards._meta.tokens) || [],
           isOfficial: isOfficial
         };
       });
@@ -7003,6 +7325,16 @@ function renderDeckSelectionUI() {
         <h3 style="margin-bottom:2px; font-size:1.05rem;">${deckKey}</h3>
         <div style="font-size:0.8rem; color:var(--gold); font-weight:700; margin-bottom:2px;">Hero: ${heroName}</div>
         <p style="font-size:0.72rem; color:var(--text-dim);">${heroClass ? heroClass + ' • ' : ''}${recipe.creator ? 'By ' + recipe.creator : 'Saved Deck'}</p>
+        ${(() => {
+          const recToks = getDeckRecipeTokens(recipe);
+          if (recToks.length === 0) return '';
+          return `
+            <div style="margin-top:4px; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+              <span style="font-size:0.62rem; color:#f59e0b; font-weight:bold;">Tokens:</span>
+              ${recToks.map(t => `<span style="font-size:0.60rem; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.4); color:#fef08a; padding:0 5px; border-radius:4px;">${t.name || t["Card Name"]}</span>`).join('')}
+            </div>
+          `;
+        })()}
       </div>
     `;
   }).join('');
@@ -9600,6 +9932,8 @@ function renderPlayer(pIdx) {
   if (handCountEl) handCountEl.innerText = p.hand.length;
   const discardEl = document.getElementById(prx + "-discard-count");
   if (discardEl) discardEl.innerText = (p.discard || []).length;
+  const tokenCountEl = document.getElementById(prx + "-token-count");
+  if (tokenCountEl) tokenCountEl.innerText = (p.tokens || []).length;
 
   if (prx === 'p2') {
     const oppLootD = document.getElementById('p2-drawer-loot-count');
@@ -9608,6 +9942,8 @@ function renderPlayer(pIdx) {
     if (oppHandD) oppHandD.innerText = p.hand.length;
     const oppDiscD = document.getElementById('p2-drawer-discard-count');
     if (oppDiscD) oppDiscD.innerText = (p.discard || []).length;
+    const oppTokenD = document.getElementById('p2-drawer-token-count');
+    if (oppTokenD) oppTokenD.innerText = (p.tokens || []).length;
   }
   
   const eqTabHTML = (p.hero.equipment && p.hero.equipment.length > 0) ? `<div id="${prx}-equip-tab" class="equip-tab" onclick="openEquipmentDetail(${pIdx}, 'hero', 0, 0, event)" onmouseenter="showArenaPreview(event, ${pIdx}, 'equip', 0)" onmouseleave="hideArenaPreview()">Equip (${p.hero.equipment.length})</div>` : "";
@@ -9845,25 +10181,27 @@ function createCardHTML(card, pIdx, zone, slot) {
       let atk = card.attack ? (card.temp_overrideAttackDie || card.attack) : '-';
       let pow = getStat(card, 'power', p);
       let stats = `<div class="card-stats-row"><span>❤️${card.currentHealth}</span><span>⚔️${atk}</span></div><div class="card-stats-row"><span>💥${pow}</span><span>⚡${getStat(card, 'dexterity', p)}</span></div>`;
-      return `<div class="card-mini classic-mini ${ex} ${sel} ${deployAnimClass} ${activatableClass}"><div class="card-header"><div class="card-name">${card.name}</div></div><div class="card-stats" style="margin-bottom:3px;">${stats}</div>${hpBar}</div>`;
+      return `<div class="card-mini classic-mini hero-mini ${ex} ${sel} ${deployAnimClass} ${activatableClass}"><div class="card-header"><div class="card-name">${card.name}</div></div><div class="card-stats" style="margin-bottom:3px;">${stats}</div>${hpBar}</div>`;
     }
     const artUrl = hasBoardCardArt(card) ? getBoardCardArtUrl(card) : getCardArtUrl(card);
     const safeName = (card.name || "").replace(/'/g, "\\'");
+    const manaVal = p ? p.manaPool : (card.mana !== undefined ? card.mana : "");
     const dexVal = card.dexterity !== undefined ? getStat(card, 'dexterity', p) : "";
     const hpVal = card.currentHealth !== undefined ? card.currentHealth : (card.health !== undefined ? card.health : "");
     const powVal = getStat(card, 'power', p);
     const atkVal = card.attack ? (card.temp_overrideAttackDie || card.attack) : "";
     const atkClass = (card.attackType === "Ranged") ? "mini-atk-ranged" : "mini-atk-melee";
-    const atkBadgeHTML = atkVal !== "" ? `<div class="mini-atk-icon mini-atk-badge ${atkClass}"><span>${atkVal}</span></div>` : '';
+    const atkBadgeHTML = atkVal !== "" ? `<div class="mini-atk-icon mini-atk-badge mini-hero-atk ${atkClass}"><span>${atkVal}</span></div>` : '';
 
     return `
-      <div class="card-mini ${ex} ${sel} ${deployAnimClass} ${activatableClass}">
+      <div class="card-mini hero-mini ${ex} ${sel} ${deployAnimClass} ${activatableClass}">
         <img class="card-mini-img" src="${artUrl}" alt="${card.name}" decoding="async" onerror="${hasBoardCardArt(card) ? `handleBoardCardArtError('${safeName}', this)` : `handleCardArtError('${safeName}', this)`}">
         <div class="mini-stat-overlay">
-          ${dexVal !== "" ? `<div class="mini-dex">${dexVal}</div>` : ''}
+          ${manaVal !== "" ? `<div class="mini-mana"><span>${manaVal}</span></div>` : ''}
+          ${dexVal !== "" ? `<div class="mini-dex"><span>${dexVal}</span></div>` : ''}
           ${atkBadgeHTML}
-          ${hpVal !== "" ? `<div class="mini-hp">${hpVal}</div>` : ''}
-          ${powVal !== "" ? `<div class="mini-pow">${powVal}</div>` : ''}
+          ${hpVal !== "" ? `<div class="mini-hp"><span>${hpVal}</span></div>` : ''}
+          ${powVal !== "" ? `<div class="mini-pow"><span>${powVal}</span></div>` : ''}
         </div>
         ${hpBar}
       </div>
@@ -9877,17 +10215,39 @@ function createCardHTML(card, pIdx, zone, slot) {
     const boardInfo = getBoardCardInfo(card);
     const isFullCard = boardInfo ? Boolean(boardInfo.isFullCard) : false;
 
-    const isNonUnitCard = card.type === "Synergy" || card.type === "Skill" || card.type === "Equipment" || zone === 'synergy' || zone === 'skill' || zone === 'equip';
-    const manaVal = (!isNonUnitCard && card.manaCost !== undefined) ? card.manaCost : (!isNonUnitCard && card.goldCost !== undefined ? card.goldCost : (!isNonUnitCard && card.mana !== undefined ? card.mana : ""));
-    const dexVal = (!isNonUnitCard && card.dexterity !== undefined && card.type !== "Equipment") ? getStat(card, 'dexterity', p) : "";
-    const hpVal = card.currentHealth !== undefined ? card.currentHealth : (card.health !== undefined ? card.health : "");
-    const powVal = (card.type === "Hero" || card.type === "Ally") ? getStat(card, 'power', p) : (card.powerModifier ? `+${card.powerModifier}` : "");
+    const isSkill = (card.type === "Skill" || zone === 'skill');
+    const isAlly = (card.type === "Ally" || zone === 'bz' || zone === 'bench');
+    const isSynergy = (card.type === "Synergy" || zone === 'synergy');
+    const isEquipment = (card.type === "Equipment" || zone === 'equip');
+
+    // On allies on the board, live mana stat is removed (it's their play cost, not a live stat)
+    // On skills/synergies/equipment on board, no mana cost stat on board
+    let manaVal = "";
+    if (!isAlly && !isSkill && !isSynergy && !isEquipment) {
+      manaVal = (card.manaCost !== undefined) ? card.manaCost : (card.goldCost !== undefined ? card.goldCost : (card.mana !== undefined ? card.mana : ""));
+    }
+    const dexVal = (isAlly && card.dexterity !== undefined) ? getStat(card, 'dexterity', p) : "";
+    const hpVal = isAlly ? (card.currentHealth !== undefined ? card.currentHealth : (card.health !== undefined ? card.health : "")) : "";
+    const powVal = isAlly ? getStat(card, 'power', p) : (card.powerModifier ? `+${card.powerModifier}` : "");
     const atkVal = (card.attack || card.rangedAttack !== undefined)
       ? (card.attackType === "Ranged" ? getStat(card, 'rangedAttack', p) : (card.temp_overrideAttackDie || card.attack))
       : (card.type === "Equipment" && card.powerModifier ? `+${card.powerModifier}` : "");
 
+    // User: "On skills, can you move both the attack and charge stats down to the bottom corners of the card?"
+    // User: "Also on ally live board stats, can you take away the live mana stat ... and move the live charge stat to where the mana stats was and move the live attack stat to the middle bottom"
+    let chClass = "mini-charge-icon charge-meter";
+    let atkPosClass = "";
+
+    if (isSkill) {
+      atkPosClass = "mini-skill-atk";      // bottom-left corner
+      chClass += " mini-skill-charge";    // bottom-right corner
+    } else if (isAlly) {
+      chClass += " mini-ally-charge";     // where mana was: top-left corner
+      atkPosClass = "mini-ally-atk";      // middle bottom
+    }
+
     let chBadge = (card.chargeReq !== undefined && card.type !== "Hero")
-      ? `<div class="mini-charge-icon charge-meter"><span>${card.charge || 0}/${card.chargeReq}</span></div>`
+      ? `<div class="${chClass}"><span>${card.charge || 0}/${card.chargeReq}</span></div>`
       : "";
     let eqBadge = (card.equipment && card.equipment.length > 0 && zone !== 'hero')
       ? `<div style="position:absolute; top:20%; left:4px; background:rgba(15,23,42,0.92); color:var(--gold); border:1px solid var(--gold); border-radius:4px; font-size:0.55rem; font-weight:800; padding:1px 3px; z-index:4;">🛡️${card.equipment.length}</div>`
@@ -9896,19 +10256,20 @@ function createCardHTML(card, pIdx, zone, slot) {
     const isGoldCost = card.goldCost !== undefined;
     const costClass = isGoldCost ? 'mini-gold' : 'mini-mana';
     const atkClass = (card.attackType === "Ranged") ? "mini-atk-ranged" : "mini-atk-melee";
-    const atkBadgeHTML = atkVal !== "" ? `<div class="mini-atk-icon mini-atk-badge ${atkClass}"><span>${atkVal}</span></div>` : '';
+    const atkBadgeHTML = atkVal !== "" ? `<div class="mini-atk-icon mini-atk-badge ${atkClass} ${atkPosClass}"><span>${atkVal}</span></div>` : '';
+    const zoneClass = isSkill ? 'skill-mini' : (isAlly ? 'ally-mini' : (isSynergy ? 'synergy-mini' : ''));
 
     return `
-      <div class="card-mini ${ex} ${sel} ${deployAnimClass} ${activatableClass}">
+      <div class="card-mini ${zoneClass} ${ex} ${sel} ${deployAnimClass} ${activatableClass}">
         <img class="card-mini-img ${isFullCard ? 'board-crop-img' : ''}" src="${artUrl}" alt="${card.name}" decoding="async" onload="if(this.naturalHeight > this.naturalWidth * 1.2) this.classList.add('board-crop-img');" onerror="handleBoardCardArtError('${safeName}', this)">
         <div class="mini-stat-overlay">
-          ${manaVal !== "" ? `<div class="${costClass}">${manaVal}</div>` : ''}
-          ${dexVal !== "" ? `<div class="mini-dex">${dexVal}</div>` : ''}
+          ${manaVal !== "" ? `<div class="${costClass}"><span>${manaVal}</span></div>` : ''}
+          ${dexVal !== "" ? `<div class="mini-dex"><span>${dexVal}</span></div>` : ''}
           ${chBadge}
           ${eqBadge}
           ${atkBadgeHTML}
-          ${hpVal !== "" ? `<div class="mini-hp">${hpVal}</div>` : ''}
-          ${powVal !== "" ? `<div class="mini-pow">${powVal}</div>` : ''}
+          ${hpVal !== "" ? `<div class="mini-hp"><span>${hpVal}</span></div>` : ''}
+          ${powVal !== "" ? `<div class="mini-pow"><span>${powVal}</span></div>` : ''}
         </div>
         ${hpBar}
       </div>
@@ -9942,7 +10303,7 @@ function createCardHTML(card, pIdx, zone, slot) {
     : "";
 
   let costBadge = "";
-  if (card.manaCost !== undefined && zone !== 'skill' && zone !== 'synergy') {
+  if (card.manaCost !== undefined && zone !== 'skill' && zone !== 'synergy' && zone !== 'bz' && zone !== 'bench') {
     costBadge = `<span style="color:var(--mana); font-size:0.68rem; font-weight:bold; font-family:'Runa Serif',Georgia,serif;">${card.manaCost}M</span>`;
   } else if (card.goldCost !== undefined) {
     costBadge = `<span style="color:var(--gold); font-size:0.68rem; font-weight:bold; font-family:'Runa Serif',Georgia,serif;">${card.goldCost}</span>`;
@@ -13147,8 +13508,41 @@ async function resolveClashDamage() {
   }
   
   aUnit = currentClash.aInfo.type === 'skill' ? currentClash.attackerPlayer.hero : currentClash.attacker;
+  let counterBreakthrough = 0;
+  let rawCounterBreakthrough = 0;
+  let counterHeroDef = 0;
+
   if (currentClash.defDamage > 0) {
       logHTML += `<div>${aUnit.name} takes <strong style="color:#f43f5e; font-size:1.1rem;">${currentClash.defDamage}</strong> counter damage!</div>`;
+      
+      // Breakthrough on Counterstrike against Attacking Vanguard
+      const isAttackerVanguard = (currentClash.aInfo.type === 'bz' && currentClash.aInfo.slot === currentClash.attackerPlayer.battleZone.findIndex(s => s !== null));
+      if (isAttackerVanguard && currentClash.defDamage > aUnit.currentHealth) {
+          rawCounterBreakthrough = currentClash.defDamage - aUnit.currentHealth;
+          const aHero = currentClash.attackerPlayer.hero;
+          const aHeroHasPierceProof = checkKeyword(aHero, currentClash.attackerPlayer, "pierceProof");
+          const counterActor = (currentClash.tType === 'hero' && currentClash.heroCounterAsset) ? currentClash.heroCounterAsset : currentClash.tUnit;
+          const isCounterPierced = checkKeyword(counterActor, currentClash.defenderPlayer, "piercing");
+          counterHeroDef = (isCounterPierced && !aHeroHasPierceProof) ? 0 : getStat(aHero, "defense", currentClash.attackerPlayer);
+          counterBreakthrough = Math.max(0, rawCounterBreakthrough - counterHeroDef);
+          currentClash.counterBreakthrough = counterBreakthrough;
+          currentClash.counterRawBreakthrough = rawCounterBreakthrough;
+          currentClash.counterHeroDef = counterHeroDef;
+          if (rawCounterBreakthrough > 0 && counterHeroDef > 0) {
+              currentClash.counterHeroBreakthroughDamageReduced = Math.min(rawCounterBreakthrough, counterHeroDef);
+          }
+      }
+
+      if (currentClash.defDamage >= aUnit.currentHealth) {
+          logHTML += `<div style="color:#f43f5e; font-weight:bold; font-size:1.15rem; margin-top:6px;">💥 ${aUnit.name} was defeated by counterstrike! 💥</div>`;
+          if (rawCounterBreakthrough > 0) {
+              if (counterBreakthrough > 0) {
+                  logHTML += `<div style="color:#f43f5e; font-weight:bold; font-size:1.1rem;">COUNTER BREAKTHROUGH: ${counterBreakthrough} damage hitting ${currentClash.attackerPlayer.hero.name}! (Overkill: ${rawCounterBreakthrough} - Hero Def: ${counterHeroDef})</div>`;
+              } else {
+                  logHTML += `<div style="color:#38bdf8; font-weight:bold; font-size:1.0rem;">COUNTER BREAKTHROUGH BLOCKED! Hero Defense absorbed all ${rawCounterBreakthrough} spillover damage.</div>`;
+              }
+          }
+      }
   }
 
   if (finalDamage >= dUnit.currentHealth && !evaded && currentClash.atkHit) {
@@ -13283,6 +13677,17 @@ async function closeClashAndApply() {
   }
 
   if (currentClash.defDamage > 0) {
+    if (currentClash.counterBreakthrough > 0) {
+      attackerPlayer.hero.currentHealth -= currentClash.counterBreakthrough;
+      addLogEntry(`<strong style="color:var(--crimson);">Counter Breakthrough:</strong> ${attackerPlayer.hero.name} took ${currentClash.counterBreakthrough} spillover damage from counterstrike!`);
+    }
+    if (currentClash.counterHeroBreakthroughDamageReduced > 0) {
+      await dispatchGlobalHook('onDamageReduced', {
+        triggerPlayer: attackerPlayer,
+        defenderUnit: attackerPlayer.hero,
+        damageReduced: currentClash.counterHeroBreakthroughDamageReduced
+      });
+    }
     aUnit.currentHealth -= currentClash.defDamage;
     if (currentClash.aInfo.type !== 'skill' && aUnit.currentHealth <= 0) await checkDefeated(attackerPlayer, aUnit);
     await dispatchGlobalHook('onDamageDealt', { triggerPlayer: currentClash.defenderPlayer, damageSource: tUnit, damagedTarget: aUnit, damage: currentClash.defDamage });
@@ -15010,6 +15415,52 @@ function showDiscardInspect(pIdx) {
     html += `</div>`;
   }
   showModal(`${p.name}'s Discard Pile (${pile.length} Cards)`, html, [{ text: "Close", action: closeModal }]);
+}
+
+function showTokenInspect(pIdx) {
+  const targetIdx = (gameState.gameMode === "TEST" && pIdx === 0 && gameState.activePlayerIndex === 1) ? 1 : pIdx;
+  const p = gameState.players[targetIdx];
+  if (!p) return;
+  const tokens = p.tokens || [];
+  let html = '';
+  if (tokens.length === 0) {
+    html = `<div style="text-align:center; color:#94a3b8; padding:32px 12px; font-size:0.95rem;">
+      <div style="font-size:2.2rem; margin-bottom:8px;">🪙</div>
+      No associated tokens found for this deck.
+    </div>`;
+  } else {
+    html = `<div style="max-height:360px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px;">`;
+    tokens.forEach((card, idx) => {
+      const artUrl = getCardArtUrl(card);
+      const safeName = (card.name || card["Card Name"] || '').replace(/'/g, "\\'");
+      const desc = (card.abilities || card.description || card["Abilities"] || '').replace(/<[^>]*>/g, '');
+      const statLine = `${card.power !== undefined ? `⚔️ ${card.power} ` : ''}${card.attack ? `(${card.attack}) ` : ''}❤️ ${card.health || card.maxHealth || 3} 🏃 Dex ${card.dexterity !== undefined ? card.dexterity : 1}`;
+
+      const isTestMode = gameState.gameMode === "TEST";
+      const summonBtn = isTestMode ? `<button class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem; flex-shrink:0;" onclick="closeModal(); spawnToken(gameState.players[${targetIdx}], '${safeName}', true);">Summon</button>` : '';
+
+      html += `
+        <div style="display:flex; align-items:center; gap:12px; background:#0f172a; border:1px solid #334155; border-radius:8px; padding:8px 12px; transition:border-color 0.2s;">
+          <img src="${artUrl}" alt="${safeName}" onerror="handleCardArtError('${safeName}', this)" style="width:38px; height:52px; object-fit:cover; border-radius:4px; border:1px solid #475569; flex-shrink:0;">
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span style="font-weight:700; color:#fbbf24; font-size:0.95rem;">${card.name || card["Card Name"]}</span>
+              <span style="background:rgba(245,158,11,0.2); border:1px solid #f59e0b; color:#fef08a; padding:1px 6px; border-radius:4px; font-size:0.75rem;">Token Ally</span>
+              <span style="font-size:0.75rem; color:#94a3b8; font-weight:600;">${statLine}</span>
+            </div>
+            <div style="font-size:0.75rem; color:#94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;">
+              ${desc}
+            </div>
+          </div>
+          <div style="display:flex; gap:6px; flex-shrink:0;">
+            ${summonBtn}
+          </div>
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+  showModal(`${p.name}'s Tokens (${tokens.length})`, html, [{ text: "Close", action: closeModal }]);
 }
 
 function addLogEntry(text, fromNetwork = false) { 

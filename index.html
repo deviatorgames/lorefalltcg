@@ -4578,12 +4578,17 @@
         const saved = localStorage.getItem('lorefall_deck_v29');
         return saved ? JSON.parse(saved) : {};
       });
+      const [manualDeckTokens, setManualDeckTokens] = useState(() => {
+        const saved = localStorage.getItem('lorefall_deck_tokens_v29');
+        return saved ? JSON.parse(saved) : [];
+      });
 
       useEffect(() => { localStorage.setItem('lorefall_cards_v29', JSON.stringify(cards)); }, [cards]);
       useEffect(() => {
         localStorage.setItem('lorefall_deck_v29', JSON.stringify(deck));
         localStorage.setItem('lorefall_hero_v29', selectedHeroId);
-      }, [deck, selectedHeroId]);
+        localStorage.setItem('lorefall_deck_tokens_v29', JSON.stringify(manualDeckTokens));
+      }, [deck, selectedHeroId, manualDeckTokens]);
       useEffect(() => { localStorage.setItem('lorefall_saved_decks_v29', JSON.stringify(savedDecks)); }, [savedDecks]);
 
       // Synchronize active deck and open modal with latest card definitions
@@ -4789,10 +4794,62 @@
       const selectedHero = useMemo(() => cards.find(c => c._id === selectedHeroId), [cards, selectedHeroId]);
       const deckCount = useMemo(() => Object.values(deck).reduce((sum, item) => sum + item.count, 0), [deck]);
 
+      const detectedDeckTokens = useMemo(() => {
+        const allTokens = cards.filter(c => c._type === 'Token');
+        if (allTokens.length === 0) return [];
+
+        const deckCards = Object.values(deck).map(item => item.card).filter(Boolean);
+        if (selectedHero) deckCards.push(selectedHero);
+
+        const matched = [];
+        const seenNames = new Set();
+
+        allTokens.forEach(tok => {
+          const tokName = (tok["Card Name"] || "").trim();
+          if (!tokName) return;
+          const lowerName = tokName.toLowerCase();
+
+          for (const card of deckCards) {
+            const abText = String(card["Abilities"] || "").toLowerCase();
+            const notesText = String(card["Status Notes"] || "").toLowerCase();
+            const mechStr = JSON.stringify(card.mechanics || "").toLowerCase();
+            if (abText.includes(lowerName) || notesText.includes(lowerName) || mechStr.includes(lowerName)) {
+              if (!seenNames.has(lowerName)) {
+                seenNames.add(lowerName);
+                matched.push(tok);
+              }
+              break;
+            }
+          }
+        });
+        return matched;
+      }, [deck, selectedHero, cards]);
+
+      const activeDeckTokens = useMemo(() => {
+        const list = [...detectedDeckTokens];
+        const seen = new Set(list.map(t => (t["Card Name"] || t._id).toLowerCase()));
+        manualDeckTokens.forEach(tIdOrName => {
+          const clean = String(tIdOrName).toLowerCase();
+          const tok = cards.find(c => c._type === 'Token' && ((c["Card Name"] || '').toLowerCase() === clean || (c._id || '').toLowerCase() === clean));
+          if (tok && !seen.has((tok["Card Name"] || tok._id).toLowerCase())) {
+            seen.add((tok["Card Name"] || tok._id).toLowerCase());
+            list.push(tok);
+          }
+        });
+        return list;
+      }, [detectedDeckTokens, manualDeckTokens, cards]);
+
       const handleAddCard = (card) => {
         if (!selectedHero) return triggerToast("Select a Hero first.");
         if (card._type === 'Hero') return triggerToast("Heroes live outside the 40-card deck.");
-        if (card._type === 'Token') return triggerToast("Tokens live outside the 40-card deck.");
+        if (card._type === 'Token') {
+          const tokName = card["Card Name"] || card._id;
+          if (activeDeckTokens.some(t => (t["Card Name"] || t._id).toLowerCase() === tokName.toLowerCase())) {
+            return triggerToast(`Token "${tokName}" is already associated with this deck!`, false);
+          }
+          setManualDeckTokens(prev => [...prev, tokName]);
+          return triggerToast(`Token "${tokName}" linked to deck!`, false);
+        }
         if (deckCount >= MAX_DECK) return triggerToast("Deck is full (40/40 cards).");
 
         const rarity = (card["Card Rarity"] || "Common").toLowerCase().trim();
@@ -4829,6 +4886,7 @@
       const handleHeroChange = (id) => {
         setSelectedHeroId(id);
         setDeck({});
+        setManualDeckTokens([]);
       };
 
       const handleSaveDeck = async () => {
@@ -4855,9 +4913,12 @@
           const safeDeckCopy = JSON.parse(JSON.stringify(deck));
           delete safeDeckCopy._meta;
 
+          const tokenNames = activeDeckTokens.map(t => t["Card Name"] || t._id);
+
           const deckPayload = {
               heroId: selectedHeroId,
               cards: safeDeckCopy,
+              tokens: tokenNames,
               date: new Date().toISOString(),
               creator: currentUser,
               isOfficial: isOfficial
@@ -4869,7 +4930,8 @@
           if (supabase) {
             const cardsWithMeta = {
               ...safeDeckCopy,
-              _meta: { isOfficial: isOfficial }
+              _meta: { isOfficial: isOfficial, tokens: tokenNames },
+              _tokens: tokenNames
             };
             try {
               const { error } = await supabase.from('saved_decks').upsert({
@@ -5287,14 +5349,18 @@
       }, [deck, selectedHero, savedDecks, cards, statsTargetDeck, statsCritEnabled]);
 
       const filteredPool = useMemo(() => {
-        let pool = cards.filter(c => c._type !== 'Hero' && c._type !== 'Token');
-        
+        let pool = cards.filter(c => c._type !== 'Hero');
+        if (filterType === 'Token') {
+          pool = pool.filter(c => c._type === 'Token');
+        } else {
+          pool = pool.filter(c => c._type !== 'Token');
+          if (filterType !== 'All') pool = pool.filter(c => c._type === filterType);
+        }
+
         // Filter out community cards by default
         if (!includeCommunity) {
             pool = pool.filter(c => String(c["Is Official"]) === "true" || c.Creator === 'Gavin');
         }
-
-        if (filterType !== 'All') pool = pool.filter(c => c._type === filterType);
         if (filterCost !== '') pool = pool.filter(c => String(c["Mana Cost"]) === filterCost || String(c["Gold Cost"]) === filterCost);
         if (filterFaction !== 'All') pool = pool.filter(c => parseCommaList(c.Faction).includes(filterFaction.toLowerCase()));
         if (filterStatType !== '' && filterStatValue !== '') pool = pool.filter(c => String(c[filterStatType]) === String(filterStatValue));
@@ -5472,7 +5538,7 @@
                     <div className="flex gap-2 items-center mb-1 overflow-x-auto pb-2 scrollbar-hide w-full max-w-full">
                       <input type="text" placeholder="Search text..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="shrink-0 w-28 md:w-auto md:flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-amber-500 placeholder-slate-500" />
                       <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="shrink-0 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
-                        <option value="All">All Types</option><option value="Ally">Ally</option><option value="Skill">Skill</option><option value="Equipment">Equipment</option><option value="Flash">Flash</option><option value="Synergy">Synergy</option>
+                        <option value="All">All Types</option><option value="Ally">Ally</option><option value="Skill">Skill</option><option value="Equipment">Equipment</option><option value="Flash">Flash</option><option value="Synergy">Synergy</option><option value="Token">Token</option>
                       </select>
                       <select value={filterFaction} onChange={(e) => setFilterFaction(e.target.value)} className="shrink-0 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
                         <option value="All">All Factions</option>
@@ -5534,7 +5600,11 @@
                             </div>
                             <div className="mt-3 pt-2 border-t border-slate-700/40 flex items-center gap-2 shrink-0 w-full">
                               <button onClick={() => setModalCard(card)} className="px-3 py-1.5 text-xs font-semibold rounded bg-slate-700 hover:bg-slate-600 text-slate-300">Stats</button>
-                              <button onClick={() => handleAddCard(card)} className="flex-1 py-1.5 text-xs font-semibold rounded bg-amber-600 hover:bg-amber-500 text-white transition">+ Add</button>
+                              {card._type === 'Token' ? (
+                                <button onClick={() => handleAddCard(card)} className="flex-1 py-1.5 text-xs font-semibold rounded bg-sky-700 hover:bg-sky-600 text-white transition">+ Link Token</button>
+                              ) : (
+                                <button onClick={() => handleAddCard(card)} className="flex-1 py-1.5 text-xs font-semibold rounded bg-amber-600 hover:bg-amber-500 text-white transition">+ Add</button>
+                              )}
                             </div>
                           </div>
                         );
@@ -5579,7 +5649,7 @@
                       </button>
                     )}
                   </div>
-                  <div className="flex-1 overflow-y-auto p-3 md:p-4 pb-24 md:pb-4 space-y-2 min-h-0 w-full">
+                  <div className="flex-1 overflow-y-auto p-3 md:p-4 pb-4 space-y-2 min-h-0 w-full">
                     {Object.values(deck).map(({ card, count }) => (
                       <div key={card._id} className="flex justify-between items-center bg-slate-800/50 border border-slate-700/50 rounded-lg px-3 py-2 text-sm hover:bg-slate-800/80 transition min-w-0">
                         <div className="truncate mr-2 flex-1 cursor-pointer min-w-0" onClick={() => setModalCard(card)}>
@@ -5593,6 +5663,35 @@
                       </div>
                     ))}
                   </div>
+
+                  {activeDeckTokens.length > 0 && (
+                    <div className="p-3 border-t border-slate-800 bg-slate-900/95 shrink-0">
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400">🪙 Associated Tokens ({activeDeckTokens.length})</span>
+                        <span className="text-[9px] text-slate-400 font-medium">Auto-Included in Arena</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+                        {activeDeckTokens.map(tok => {
+                          const isAuto = detectedDeckTokens.some(d => (d["Card Name"] || d._id) === (tok["Card Name"] || tok._id));
+                          return (
+                            <div key={tok._id} className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs">
+                              <span className="cursor-pointer hover:text-amber-400 font-medium text-slate-200" onClick={() => setModalCard(tok)}>
+                                {tok["Card Name"]}
+                              </span>
+                              <span className={`text-[9px] px-1 py-0.5 rounded font-bold ${isAuto ? 'bg-amber-950 text-amber-400 border border-amber-800/60' : 'bg-sky-950 text-sky-400 border border-sky-800/60'}`}>
+                                {isAuto ? 'Auto' : 'Linked'}
+                              </span>
+                              {!isAuto && (
+                                <button 
+                                  onClick={() => setManualDeckTokens(prev => prev.filter(t => t !== (tok["Card Name"] || tok._id) && t !== tok._id))}
+                                  className="text-slate-400 hover:text-rose-400 font-bold ml-0.5 text-xs" title="Remove linked token">✕</button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 3. Floating Mobile Action Toggle */}
@@ -5701,6 +5800,7 @@
 										rehydratedDeck[cardId] = { card: liveCard, count: item.count };
 									});
 									setDeck(rehydratedDeck);
+									setManualDeckTokens(sDeck.tokens || (sDeck.cards && sDeck.cards._tokens) || []);
 									setView('deck-builder');
 									triggerToast("Deck loaded into Builder!", false);
 								}} className="flex-1 sm:flex-none px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold text-xs md:text-sm shadow transition">Load into Builder</button>
@@ -5729,6 +5829,51 @@
                               </div>
                             </div>
                           )}
+
+                          {/* Associated Tokens in Saved Deck */}
+                          {(() => {
+                            const rawTokens = sDeck.tokens || (sDeck.cards && sDeck.cards._tokens) || (sDeck.cards && sDeck.cards._meta && sDeck.cards._meta.tokens) || [];
+                            const allDeckCards = Object.values(sDeck.cards || {}).map(i => i && i.card).filter(Boolean);
+                            if (hero) allDeckCards.push(hero);
+                            const matchedToks = [];
+                            const seen = new Set();
+                            cards.filter(c => c._type === 'Token').forEach(t => {
+                              const tName = (t["Card Name"] || '').toLowerCase();
+                              if (!tName) return;
+                              const isExplicit = rawTokens.some(rt => String(rt).toLowerCase() === tName || String(rt).toLowerCase() === t._id.toLowerCase());
+                              let isReferenced = isExplicit;
+                              if (!isReferenced) {
+                                for (const c of allDeckCards) {
+                                  const ab = String(c["Abilities"] || '').toLowerCase();
+                                  const notes = String(c["Status Notes"] || '').toLowerCase();
+                                  if (ab.includes(tName) || notes.includes(tName)) { isReferenced = true; break; }
+                                }
+                              }
+                              if (isReferenced && !seen.has(tName)) {
+                                seen.add(tName);
+                                matchedToks.push(t);
+                              }
+                            });
+                            if (matchedToks.length === 0) return null;
+                            return (
+                              <div className="mb-4 p-3 bg-slate-900/70 border border-slate-800 rounded-xl">
+                                <div className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-2 flex items-center gap-1.5">
+                                  <span>🪙 Associated Tokens ({matchedToks.length})</span>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {matchedToks.map(tok => (
+                                    <button 
+                                      key={tok._id}
+                                      onClick={() => setModalCard(tok)}
+                                      className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold text-slate-200 transition">
+                                      <span>{tok["Card Name"]}</span>
+                                      <span className="text-[10px] text-amber-400 font-bold">Token</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
 
                           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 w-full">
                             {Object.entries(sDeck.cards).map(([cardId, item]) => {
