@@ -172,20 +172,18 @@
     border: 2px solid rgba(255, 215, 0, 0.4);
     box-shadow: 0 0 14px rgba(0, 0, 0, 0.8), 0 0 8px rgba(255, 215, 0, 0.15);
   }
-  .hero-card-slot .mini-mana { width: 38px; height: 38px; font-size: 1.75rem; font-weight: 800; }
-  .hero-card-slot .mini-mana span { font-size: 1.75rem; font-weight: 800; }
-  .hero-card-slot .mini-gold { width: 36px; height: 36px; font-size: 1.62rem; font-weight: 800; }
-  .hero-card-slot .mini-gold span { font-size: 1.62rem; font-weight: 800; }
-  .hero-card-slot .mini-dex { width: 36px; height: 38px; font-size: 1.75rem; font-weight: 800; }
-  .hero-card-slot .mini-dex span { font-size: 1.75rem; font-weight: 800; }
-  .hero-card-slot .mini-hp { width: 38px; height: 42px; font-size: 1.75rem; font-weight: 800; }
-  .hero-card-slot .mini-hp span { font-size: 1.75rem; font-weight: 800; }
-  .hero-card-slot .mini-pow { width: 38px; height: 38px; font-size: 1.75rem; font-weight: 800; }
-  .hero-card-slot .mini-pow span { font-size: 1.75rem; font-weight: 800; }
-  .hero-card-slot .mini-atk-icon, .hero-card-slot .mini-atk-badge { width: 38px; height: 38px; }
-  .hero-card-slot .mini-atk-icon span, .hero-card-slot .mini-atk-badge span { font-size: 1.75rem; font-weight: 800; }
-  .hero-card-slot .mini-charge-icon, .hero-card-slot .charge-meter { width: 35px; height: 35px; }
-  .hero-card-slot .mini-charge-icon span, .hero-card-slot .charge-meter span { font-size: 1.05rem; font-weight: 800; }
+  .hero-card-slot .mini-mana { width: 32px; height: 32px; font-size: 1.45rem; }
+  .hero-card-slot .mini-mana span { font-size: 1.45rem; }
+  .hero-card-slot .mini-gold { width: 30px; height: 30px; font-size: 1.35rem; }
+  .hero-card-slot .mini-gold span { font-size: 1.35rem; }
+  .hero-card-slot .mini-dex { width: 30px; height: 32px; font-size: 1.45rem; }
+  .hero-card-slot .mini-dex span { font-size: 1.45rem; }
+  .hero-card-slot .mini-hp { width: 32px; height: 35px; font-size: 1.45rem; }
+  .hero-card-slot .mini-hp span { font-size: 1.45rem; }
+  .hero-card-slot .mini-pow { width: 32px; height: 32px; font-size: 1.45rem; }
+  .hero-card-slot .mini-pow span { font-size: 1.45rem; }
+  .hero-card-slot .mini-atk-icon, .hero-card-slot .mini-atk-badge { width: 32px; height: 32px; }
+  .hero-card-slot .mini-atk-icon span, .hero-card-slot .mini-atk-badge span { font-size: 1.45rem; }
   
   .equip-tab {
       position: absolute; right: -25px; top: 50%; transform: translateY(-50%);
@@ -605,51 +603,6 @@
     .stats-card { padding: 4px 6px; gap: 2px; }
     .stat-badge { font-size: 0.68rem; }
     #p1-action-controls button { padding: 5px 6px; font-size: 0.7rem; }
-
-    /* Proportional scaling down for compact desktop / tablets */
-    .hero-card-slot .mini-mana, .hero-card-slot .mini-gold, .hero-card-slot .mini-dex,
-    .hero-card-slot .mini-hp, .hero-card-slot .mini-pow, .hero-card-slot .mini-atk-icon,
-    .hero-card-slot .mini-atk-badge, .hero-card-slot .mini-charge-icon, .hero-card-slot .charge-meter {
-      width: 28px !important;
-      height: 28px !important;
-    }
-    .hero-card-slot .mini-hp { height: 31px !important; }
-    .hero-card-slot .mini-mana, .hero-card-slot .mini-mana span,
-    .hero-card-slot .mini-gold, .hero-card-slot .mini-gold span,
-    .hero-card-slot .mini-dex, .hero-card-slot .mini-dex span,
-    .hero-card-slot .mini-hp, .hero-card-slot .mini-hp span,
-    .hero-card-slot .mini-pow, .hero-card-slot .mini-pow span,
-    .hero-card-slot .mini-atk-icon, .hero-card-slot .mini-atk-icon span,
-    .hero-card-slot .mini-atk-badge, .hero-card-slot .mini-atk-badge span {
-      font-size: 1.30rem !important;
-      line-height: 1 !important;
-    }
-    .hero-card-slot .mini-charge-icon span, .hero-card-slot .charge-meter span {
-      font-size: 0.80rem !important;
-    }
-
-    .card-slot:not(.hero-card-slot) .mini-mana, .card-slot:not(.hero-card-slot) .mini-gold,
-    .card-slot:not(.hero-card-slot) .mini-dex, .card-slot:not(.hero-card-slot) .mini-hp,
-    .card-slot:not(.hero-card-slot) .mini-pow, .card-slot:not(.hero-card-slot) .mini-atk-icon,
-    .card-slot:not(.hero-card-slot) .mini-atk-badge, .card-slot:not(.hero-card-slot) .mini-charge-icon,
-    .card-slot:not(.hero-card-slot) .charge-meter {
-      width: 24px !important;
-      height: 24px !important;
-    }
-    .card-slot:not(.hero-card-slot) .mini-hp { height: 26px !important; }
-    .card-slot:not(.hero-card-slot) .mini-mana, .card-slot:not(.hero-card-slot) .mini-mana span,
-    .card-slot:not(.hero-card-slot) .mini-gold, .card-slot:not(.hero-card-slot) .mini-gold span,
-    .card-slot:not(.hero-card-slot) .mini-dex, .card-slot:not(.hero-card-slot) .mini-dex span,
-    .card-slot:not(.hero-card-slot) .mini-hp, .card-slot:not(.hero-card-slot) .mini-hp span,
-    .card-slot:not(.hero-card-slot) .mini-pow, .card-slot:not(.hero-card-slot) .mini-pow span,
-    .card-slot:not(.hero-card-slot) .mini-atk-icon, .card-slot:not(.hero-card-slot) .mini-atk-icon span,
-    .card-slot:not(.hero-card-slot) .mini-atk-badge, .card-slot:not(.hero-card-slot) .mini-atk-badge span {
-      font-size: 1.15rem !important;
-      line-height: 1 !important;
-    }
-    .card-slot:not(.hero-card-slot) .mini-charge-icon span, .card-slot:not(.hero-card-slot) .charge-meter span {
-      font-size: 0.72rem !important;
-    }
   }
 
   /* Mobile Landscape / Ultra-Compact Layout (Phones in Landscape & Compressed Heights) */
@@ -770,11 +723,8 @@
     .hero-card-slot .mini-mana, .hero-card-slot .mini-gold, .hero-card-slot .mini-dex,
     .hero-card-slot .mini-hp, .hero-card-slot .mini-pow, .hero-card-slot .mini-atk-icon,
     .hero-card-slot .mini-atk-badge, .hero-card-slot .mini-charge-icon, .hero-card-slot .charge-meter {
-      width: clamp(20px, 4.2vh, 26px) !important;
-      height: clamp(20px, 4.2vh, 26px) !important;
-    }
-    .hero-card-slot .mini-hp {
-      height: clamp(22px, 4.6vh, 29px) !important;
+      width: 22px !important;
+      height: 22px !important;
     }
     .hero-card-slot .mini-mana, .hero-card-slot .mini-mana span,
     .hero-card-slot .mini-gold, .hero-card-slot .mini-gold span,
@@ -783,24 +733,19 @@
     .hero-card-slot .mini-pow, .hero-card-slot .mini-pow span,
     .hero-card-slot .mini-atk-icon, .hero-card-slot .mini-atk-icon span,
     .hero-card-slot .mini-atk-badge, .hero-card-slot .mini-atk-badge span {
-      font-size: clamp(0.85rem, 2.2vh, 1.15rem) !important;
-      font-weight: 800 !important;
+      font-size: 0.95rem !important;
       line-height: 1 !important;
     }
     .hero-card-slot .mini-charge-icon span, .hero-card-slot .charge-meter span {
-      font-size: clamp(0.58rem, 1.5vh, 0.78rem) !important;
-      font-weight: 800 !important;
+      font-size: 0.68rem !important;
       line-height: 1 !important;
     }
 
     .card-slot:not(.hero-card-slot) .mini-mana, .card-slot:not(.hero-card-slot) .mini-gold, .card-slot:not(.hero-card-slot) .mini-dex,
     .card-slot:not(.hero-card-slot) .mini-hp, .card-slot:not(.hero-card-slot) .mini-pow, .card-slot:not(.hero-card-slot) .mini-atk-icon,
     .card-slot:not(.hero-card-slot) .mini-atk-badge, .card-slot:not(.hero-card-slot) .mini-charge-icon, .card-slot:not(.hero-card-slot) .charge-meter {
-      width: clamp(16px, 3.6vh, 22px) !important;
-      height: clamp(16px, 3.6vh, 22px) !important;
-    }
-    .card-slot:not(.hero-card-slot) .mini-hp {
-      height: clamp(18px, 4.0vh, 25px) !important;
+      width: 17px !important;
+      height: 17px !important;
     }
     .card-slot:not(.hero-card-slot) .mini-mana, .card-slot:not(.hero-card-slot) .mini-mana span,
     .card-slot:not(.hero-card-slot) .mini-gold, .card-slot:not(.hero-card-slot) .mini-gold span,
@@ -809,13 +754,11 @@
     .card-slot:not(.hero-card-slot) .mini-pow, .card-slot:not(.hero-card-slot) .mini-pow span,
     .card-slot:not(.hero-card-slot) .mini-atk-icon, .card-slot:not(.hero-card-slot) .mini-atk-icon span,
     .card-slot:not(.hero-card-slot) .mini-atk-badge, .card-slot:not(.hero-card-slot) .mini-atk-badge span {
-      font-size: clamp(0.72rem, 1.8vh, 0.95rem) !important;
-      font-weight: 800 !important;
+      font-size: 0.72rem !important;
       line-height: 1 !important;
     }
     .card-slot:not(.hero-card-slot) .mini-charge-icon span, .card-slot:not(.hero-card-slot) .charge-meter span {
-      font-size: clamp(0.50rem, 1.2vh, 0.65rem) !important;
-      font-weight: 800 !important;
+      font-size: 0.54rem !important;
       line-height: 1 !important;
     }
 
@@ -921,8 +864,15 @@
 
     /* Floating Previews & Modals Sized to Viewport Without Scrolling */
     #arena-hover-preview {
+      width: clamp(140px, 22vh, 190px) !important;
+      max-height: 94vh !important;
       left: 10px !important;
       pointer-events: auto !important;
+    }
+    #arena-hover-preview.side-right,
+    #arena-hover-preview.preview-right {
+      left: auto !important;
+      right: 10px !important;
     }
     .fc-modal-layout {
       flex-direction: row !important;
@@ -953,11 +903,72 @@
       height: 100% !important;
       width: auto !important;
       aspect-ratio: 5 / 7 !important;
+      container-type: inline-size !important;
     }
     .fc-card-full-img {
       height: 100% !important;
       width: 100% !important;
       object-fit: contain !important;
+    }
+    .fc-card-art-frame .fc-icon-mana,
+    .fc-card-art-frame .fc-icon-gold,
+    .fc-card-art-frame .fc-icon-dex {
+      width: clamp(18px, 6.5vh, 32px) !important;
+      width: clamp(18px, 15cqw, 32px) !important;
+      height: clamp(18px, 6.5vh, 32px) !important;
+      height: clamp(18px, 15cqw, 32px) !important;
+    }
+    .fc-card-art-frame .fc-icon-mana span,
+    .fc-card-art-frame .fc-icon-gold span,
+    .fc-card-art-frame .fc-icon-dex span {
+      font-size: clamp(0.7rem, 4.2vh, 1.25rem) !important;
+      font-size: clamp(0.7rem, 9.8cqw, 1.25rem) !important;
+    }
+    .fc-card-art-frame .fc-icon-hp {
+      width: clamp(22px, 8.2vh, 42px) !important;
+      width: clamp(22px, 20cqw, 42px) !important;
+      height: clamp(22px, 8.2vh, 42px) !important;
+      height: clamp(22px, 20cqw, 42px) !important;
+    }
+    .fc-card-art-frame .fc-icon-hp span {
+      font-size: clamp(0.7rem, 4.2vh, 1.25rem) !important;
+      font-size: clamp(0.7rem, 9.8cqw, 1.25rem) !important;
+      padding-bottom: clamp(2px, 0.8vh, 4px) !important;
+      padding-bottom: clamp(2px, 2.3cqw, 4px) !important;
+    }
+    .fc-card-art-frame .fc-icon-pow {
+      width: clamp(20px, 7.5vh, 38px) !important;
+      width: clamp(20px, 17.6cqw, 38px) !important;
+      height: clamp(20px, 7.5vh, 38px) !important;
+      height: clamp(20px, 17.6cqw, 38px) !important;
+    }
+    .fc-card-art-frame .fc-icon-pow span {
+      font-size: clamp(0.7rem, 4.2vh, 1.25rem) !important;
+      font-size: clamp(0.7rem, 9.8cqw, 1.25rem) !important;
+    }
+    .fc-card-art-frame .fc-icon-atk {
+      width: clamp(18px, 6.8vh, 34px) !important;
+      width: clamp(18px, 15.3cqw, 34px) !important;
+      height: clamp(18px, 6.8vh, 34px) !important;
+      height: clamp(18px, 15.3cqw, 34px) !important;
+    }
+    .fc-card-art-frame .fc-icon-atk span {
+      font-size: clamp(0.75rem, 4.5vh, 1.35rem) !important;
+      font-size: clamp(0.75rem, 10.6cqw, 1.35rem) !important;
+    }
+    .fc-card-art-frame .fc-icon-atk span.fc-long-val {
+      font-size: clamp(0.55rem, 2.8vh, 0.85rem) !important;
+      font-size: clamp(0.55rem, 6.1cqw, 0.85rem) !important;
+    }
+    .fc-card-art-frame .fc-icon-charge {
+      width: clamp(18px, 6.8vh, 34px) !important;
+      width: clamp(18px, 15.3cqw, 34px) !important;
+      height: clamp(18px, 6.8vh, 34px) !important;
+      height: clamp(18px, 15.3cqw, 34px) !important;
+    }
+    .fc-card-art-frame .fc-icon-charge span {
+      font-size: clamp(0.55rem, 3.2vh, 0.95rem) !important;
+      font-size: clamp(0.55rem, 7.4cqw, 0.95rem) !important;
     }
     .fc-side-panel {
       max-height: clamp(150px, 88vh, 410px) !important;
@@ -1606,13 +1617,13 @@
     position: absolute;
     top: 2px;
     left: 2px;
-    width: 31px;
-    height: 31px;
+    width: 26px;
+    height: 26px;
     background: var(--icon-mana) center / contain no-repeat;
     color: #fff;
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.50rem;
-    font-weight: 800;
+    font-size: 1.25rem;
+    font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1622,21 +1633,21 @@
   }
   .mini-mana span {
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.50rem;
-    font-weight: 800;
+    font-size: 1.25rem;
+    font-weight: 700;
     line-height: 1;
   }
   .mini-gold {
     position: absolute;
     top: 2px;
     left: 2px;
-    width: 30px;
-    height: 30px;
+    width: 25px;
+    height: 25px;
     background: var(--icon-gold) center / contain no-repeat;
     color: #fff;
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.45rem;
-    font-weight: 800;
+    font-size: 1.2rem;
+    font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1646,21 +1657,21 @@
   }
   .mini-gold span {
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.45rem;
-    font-weight: 800;
+    font-size: 1.2rem;
+    font-weight: 700;
     line-height: 1;
   }
   .mini-dex {
     position: absolute;
     top: 2px;
     right: 2px;
-    width: 29px;
-    height: 31px;
+    width: 24px;
+    height: 26px;
     background: var(--icon-dex) center / contain no-repeat;
     color: #fff;
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.50rem;
-    font-weight: 800;
+    font-size: 1.25rem;
+    font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1670,8 +1681,8 @@
   }
   .mini-dex span {
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.50rem;
-    font-weight: 800;
+    font-size: 1.25rem;
+    font-weight: 700;
     line-height: 1;
   }
   .mini-atk-icon, .mini-atk-badge {
@@ -1679,8 +1690,8 @@
     top: 60%;
     left: 2px;
     transform: translateY(-50%);
-    width: 31px;
-    height: 31px;
+    width: 26px;
+    height: 26px;
     background-repeat: no-repeat !important;
     background-position: center !important;
     background-size: contain !important;
@@ -1692,12 +1703,6 @@
     justify-content: center;
     z-index: 4;
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.95));
-    font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.50rem;
-    font-weight: 800;
-    color: #fff;
-    line-height: 1;
-    text-shadow: 0 1px 3px #000, 0 0 4px #000;
   }
   .mini-atk-melee {
     background-image: var(--icon-melee) !important;
@@ -1707,8 +1712,8 @@
   }
   .mini-atk-icon span, .mini-atk-badge span {
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.50rem;
-    font-weight: 800;
+    font-size: 1.25rem;
+    font-weight: 700;
     color: #fff;
     line-height: 1;
     text-align: center;
@@ -1723,15 +1728,15 @@
     right: 2px;
     transform: translateY(-50%);
     z-index: 4;
-    width: 29px;
-    height: 29px;
+    width: 24px;
+    height: 24px;
     background: var(--icon-charge) center / contain no-repeat !important;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 0.95rem;
+    font-size: 0.8rem;
     font-weight: 800;
     border: none !important;
     border-radius: 0 !important;
@@ -1741,7 +1746,7 @@
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.95));
   }
   .mini-charge-icon span, .charge-meter span {
-    font-size: 0.86rem;
+    font-size: 0.72rem;
     line-height: 1;
     font-weight: 800;
     display: inline-block;
@@ -1751,13 +1756,13 @@
     position: absolute;
     bottom: 2px;
     left: 2px;
-    width: 30px;
-    height: 34px;
+    width: 25px;
+    height: 28px;
     background: var(--icon-health) center / contain no-repeat;
     color: #fff;
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.50rem;
-    font-weight: 800;
+    font-size: 1.25rem;
+    font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1769,21 +1774,21 @@
   }
   .mini-hp span {
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.50rem;
-    font-weight: 800;
+    font-size: 1.25rem;
+    font-weight: 700;
     line-height: 1;
   }
   .mini-pow {
     position: absolute;
     bottom: 1px;
     right: 1px;
-    width: 31px;
-    height: 31px;
+    width: 26px;
+    height: 26px;
     background: var(--icon-power) center / contain no-repeat;
     color: #fff;
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.50rem;
-    font-weight: 800;
+    font-size: 1.25rem;
+    font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1793,8 +1798,8 @@
   }
   .mini-pow span {
     font-family: 'Runa Serif', Georgia, serif;
-    font-size: 1.50rem;
-    font-weight: 800;
+    font-size: 1.25rem;
+    font-weight: 700;
     line-height: 1;
   }
   .mini-equip-pill { position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); z-index: 3; background: rgba(15, 23, 42, 0.92); border: 1px solid var(--gold); color: var(--gold); padding: 1px 5px; border-radius: 8px; font-size: 0.55rem; font-weight: 800; white-space: nowrap; }
@@ -1973,7 +1978,16 @@
   .fc-faction { font-size: 0.72rem; font-weight: 800; color: #64748b; letter-spacing: 1px; text-transform: uppercase; text-align: center; }
 
   /* Image Card Frame & Overlays (used when card has an image) */
-  .fc-card-art-frame { position: relative; width: 100%; aspect-ratio: 5 / 7; border-radius: 10px; overflow: hidden; background: #0c0f14; box-shadow: 0 6px 24px rgba(0,0,0,0.85); }
+  .fc-card-art-frame {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 5 / 7;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #0c0f14;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.85);
+    container-type: inline-size;
+  }
   .fc-card-full-img { width: 100%; height: 100%; object-fit: fill; display: block; pointer-events: none; }
 
   /* Live Stat Badges on Focused / Full Card: locked directly over printed icons with larger centered font and NO bobbing */
@@ -1999,61 +2013,83 @@
     text-align: center;
     position: relative;
     left: -2.5px;
+    left: clamp(-2.5px, -0.8cqw, -1px);
     text-shadow: 0 2px 4px rgba(0,0,0,0.95), 0 0 8px rgba(0,0,0,0.95), 0 0 14px rgba(0,0,0,0.85);
   }
 
   .fc-icon-mana {
     width: 45px;
+    width: clamp(18px, 15cqw, 45px);
     height: 45px;
+    height: clamp(18px, 15cqw, 45px);
     background-image: var(--icon-mana);
   }
   .fc-icon-mana span {
     font-size: 1.85rem;
+    font-size: clamp(0.7rem, 9.8cqw, 1.85rem);
     left: -2px;
+    left: clamp(-2px, -0.65cqw, -0.8px);
     top: 0px;
   }
 
   .fc-icon-gold {
     width: 45px;
+    width: clamp(18px, 15cqw, 45px);
     height: 45px;
+    height: clamp(18px, 15cqw, 45px);
     background-image: var(--icon-gold);
   }
   .fc-icon-gold span {
     font-size: 1.75rem;
+    font-size: clamp(0.7rem, 9.3cqw, 1.75rem);
     left: -3px;
+    left: clamp(-3px, -1cqw, -1px);
   }
 
   .fc-icon-dex {
     width: 45px;
+    width: clamp(18px, 15cqw, 45px);
     height: 45px;
+    height: clamp(18px, 15cqw, 45px);
     background-image: var(--icon-dex);
   }
   .fc-icon-dex span {
     font-size: 1.85rem;
+    font-size: clamp(0.7rem, 9.8cqw, 1.85rem);
     left: -2.5px;
+    left: clamp(-2.5px, -0.8cqw, -1px);
     top: 1px;
   }
 
   .fc-icon-hp {
     width: 60px;
+    width: clamp(24px, 20cqw, 60px);
     height: 60px;
+    height: clamp(24px, 20cqw, 60px);
     background-image: var(--icon-health);
   }
   .fc-icon-hp span {
     font-size: 1.85rem;
+    font-size: clamp(0.7rem, 9.8cqw, 1.85rem);
     padding-bottom: 7px;
+    padding-bottom: clamp(2px, 2.3cqw, 7px);
     left: -2.5px;
+    left: clamp(-2.5px, -0.8cqw, -1px);
     letter-spacing: -1px;
   }
 
   .fc-icon-pow {
     width: 53px;
+    width: clamp(21px, 17.6cqw, 53px);
     height: 53px;
+    height: clamp(21px, 17.6cqw, 53px);
     background-image: var(--icon-power);
   }
   .fc-icon-pow span {
     font-size: 1.85rem;
+    font-size: clamp(0.7rem, 9.8cqw, 1.85rem);
     left: -3px;
+    left: clamp(-3px, -1cqw, -1px);
   }
 
   /* Overlay Positions in Focused View: restored to original coordinates */
@@ -2084,7 +2120,9 @@
 
   .fc-icon-atk {
     width: 46px;
+    width: clamp(19px, 15.3cqw, 46px);
     height: 46px;
+    height: clamp(19px, 15.3cqw, 46px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2101,6 +2139,7 @@
   .fc-icon-atk span {
     font-family: 'Runa Serif', Georgia, 'Times New Roman', serif;
     font-size: 2.0rem;
+    font-size: clamp(0.75rem, 10.6cqw, 2.0rem);
     font-weight: 700;
     color: #ffffff;
     line-height: 1;
@@ -2115,6 +2154,7 @@
   }
   .fc-icon-atk span.fc-long-val {
     font-size: 1.15rem;
+    font-size: clamp(0.55rem, 6.1cqw, 1.15rem);
     letter-spacing: -0.5px;
   }
   .fc-icon-atk.ready-to-strike {
@@ -2124,6 +2164,7 @@
   }
   .fc-icon-atk.ready-to-strike:hover {
     transform: scale(1.1);
+  }
   }
 
   /* Authentic Middle Attack Bar for Cards Without Artwork */
@@ -2227,13 +2268,17 @@
 
   .fc-icon-charge {
     width: 46px;
+    width: clamp(19px, 15.3cqw, 46px);
     height: 46px;
+    height: clamp(19px, 15.3cqw, 46px);
     background-image: var(--icon-charge);
   }
   .fc-icon-charge span {
     font-size: 1.4rem;
+    font-size: clamp(0.6rem, 7.4cqw, 1.4rem);
     font-weight: 800;
     left: -1px;
+    left: clamp(-1px, -0.3cqw, 0px);
     letter-spacing: -0.5px;
   }
 
