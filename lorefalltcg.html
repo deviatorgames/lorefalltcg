@@ -5768,6 +5768,11 @@ function selectAITarget(aiPlayer, sourceCard, effect, targetType) {
   }
 
   if (act === "heal" || act === "buffHealth" || (sourceCard && (sourceCard.id === "favars_elixir" || sourceCard.id === "small_healing_potion"))) {
+    // If an active defending target is designated on the Combat Stack (e.g. Flash Over-Heal Stack):
+    if (gameState.combatDefendingTarget) {
+      const isFriendlyTarget = (gameState.combatDefendingTarget === aiPlayer.hero || aiPlayer.battleZone.includes(gameState.combatDefendingTarget) || aiPlayer.bench.includes(gameState.combatDefendingTarget));
+      if (isFriendlyTarget) return gameState.combatDefendingTarget;
+    }
     // Check if Favar's Elixir prefers a Mage target on Medium/Hard
     if (sourceCard && sourceCard.id === "favars_elixir" && diff !== "EASY") {
       const friendlyChars = [aiPlayer.hero, ...friendlyAllies];
@@ -6904,9 +6909,42 @@ async function runTurnOrderRollOff() {
               actionsEl.appendChild(btnFirst);
               actionsEl.appendChild(btnSecond);
             } else {
-              // AI wins the roll and chooses whether to go 1st or 2nd (Medium/Hard prefer going 2nd to get Turn 1 Draw + Combat)
+              // AI wins the roll and chooses whether to go 1st or 2nd dynamically based on strategy, hero class, and early tempo
               const diff = gameState.aiDifficulty || "MEDIUM";
-              const aiChoiceIdx = (diff === "EASY") ? (Math.random() < 0.5 ? winnerIdx : (1 - winnerIdx)) : (1 - winnerIdx);
+              let aiWantsFirst = false;
+              if (diff === "EASY") {
+                aiWantsFirst = (Math.random() < 0.5);
+              } else {
+                // Strategic evaluation based on hero class, early tempo, and hand composition
+                const aiHeroClass = winner.hero?.heroClass || winner.hero?.class || "";
+                const isAggroClass = /berserker|warrior|rogue|assassin|hunter/i.test(aiHeroClass);
+                const hasEarlyDrop = (winner.hand || []).some(c => c && (c.type === "Ally" || c.type === "Skill") && (c.manaCost || 0) <= 2);
+                const hasMultiEarlyDrops = (winner.hand || []).filter(c => c && (c.type === "Ally" || c.type === "Skill") && (c.manaCost || 0) <= 2).length >= 2;
+
+                if (diff === "HARD") {
+                  // Hard AI: strongly values early tempo when holding early drops or playing aggressive heroes
+                  if (isAggroClass && hasEarlyDrop) {
+                    aiWantsFirst = true; // Seize the initiative!
+                  } else if (hasMultiEarlyDrops) {
+                    aiWantsFirst = (Math.random() < 0.75); // Establish early board dominance
+                  } else if (hasEarlyDrop) {
+                    aiWantsFirst = (Math.random() < 0.45); // Balanced choice
+                  } else {
+                    aiWantsFirst = false; // Heavy hand: prefer going 2nd for extra draw and immediate combat capability
+                  }
+                } else {
+                  // Medium AI: dynamic tempo-weighted choice
+                  if (hasEarlyDrop && isAggroClass) {
+                    aiWantsFirst = (Math.random() < 0.70);
+                  } else if (hasEarlyDrop) {
+                    aiWantsFirst = (Math.random() < 0.50);
+                  } else {
+                    aiWantsFirst = (Math.random() < 0.30);
+                  }
+                }
+              }
+
+              const aiChoiceIdx = aiWantsFirst ? winnerIdx : (1 - winnerIdx);
               const chosenPlayer = gameState.players[aiChoiceIdx];
               statusEl.innerHTML = `<span style="color:#f43f5e;">${winner.name} wins the roll (${r2} vs ${r1})!</span><br><span style="font-size:0.95rem; color:var(--gold);">${winner.name} chooses <strong>${chosenPlayer.name}</strong> to take the first turn!</span>`;
               const contBtn = document.createElement('button');
@@ -7136,6 +7174,10 @@ async function startGame() {
   const p1IsAI = false; const p2IsAI = (gameState.gameMode === "AI");
   const diffLabel = gameState.aiDifficulty === "EASY" ? "Easy" : (gameState.aiDifficulty === "HARD" ? "Hard" : "Medium");
   const p1Name = currentLoggedInUser ? currentLoggedInUser : "Player 1";
+  const oppSelect = document.getElementById('opponent-deck-select');
+  if (oppSelect && oppSelect.value && DECK_RECIPES[oppSelect.value]) {
+    gameState.player2DeckKey = oppSelect.value;
+  }
   gameState.players = [
     createPlayer(0, p1Name + " (" + gameState.player1DeckKey + ")", gameState.player1DeckKey, p1IsAI),
     createPlayer(1, (p2IsAI ? `AI [${diffLabel}] (` : "Player 2 (") + gameState.player2DeckKey + ")", gameState.player2DeckKey, p2IsAI)
@@ -7218,6 +7260,7 @@ function syncDecksAndCards(cardsList, savedDecksMap) {
     const deckKeys = Object.keys(savedDecksMap);
     if (deckKeys.length > 0) {
       Object.keys(DECK_RECIPES).forEach(k => delete DECK_RECIPES[k]);
+      Object.assign(DECK_RECIPES, BUILTIN_DECK_RECIPES);
       deckKeys.forEach(deckName => {
         const d = savedDecksMap[deckName];
         if (!d) return;
@@ -7261,14 +7304,19 @@ function syncDecksAndCards(cardsList, savedDecksMap) {
     }
   }
 
-  // Ensure valid selected deck keys
-  const availableKeys = Object.keys(DECK_RECIPES);
-  if (availableKeys.length > 0) {
-    if (!DECK_RECIPES[gameState.player1DeckKey]) {
-      gameState.player1DeckKey = availableKeys[0];
+  // Ensure valid selected deck keys respecting official / community filter
+  const allAvailableKeys = Object.keys(DECK_RECIPES);
+  if (allAvailableKeys.length > 0) {
+    const validFiltered = allAvailableKeys.filter(k => {
+      if (arenaIncludeCommunityDecks) return true;
+      return getDeckOfficialStatus(k, DECK_RECIPES[k]);
+    });
+    const pool = validFiltered.length > 0 ? validFiltered : allAvailableKeys;
+    if (!pool.includes(gameState.player1DeckKey)) {
+      gameState.player1DeckKey = pool[0];
     }
-    if (!DECK_RECIPES[gameState.player2DeckKey] || (availableKeys.length > 1 && gameState.player2DeckKey === gameState.player1DeckKey)) {
-      gameState.player2DeckKey = availableKeys.find(k => k !== gameState.player1DeckKey) || availableKeys[0];
+    if (!pool.includes(gameState.player2DeckKey) || (pool.length > 1 && gameState.player2DeckKey === gameState.player1DeckKey)) {
+      gameState.player2DeckKey = pool.find(k => k !== gameState.player1DeckKey) || pool[0];
     }
   }
 
@@ -7312,17 +7360,23 @@ function renderDeckSelectionUI() {
     if (arenaIncludeCommunityDecks) return true;
     return getDeckOfficialStatus(deckKey, DECK_RECIPES[deckKey]);
   });
+  const eligibleKeys = keys.length > 0 ? keys : allKeys;
 
   if (countLabel) {
     countLabel.innerText = `${keys.length} ${arenaIncludeCommunityDecks ? 'Total' : 'Official'} Deck${keys.length === 1 ? '' : 's'} Available`;
   }
 
-  // If currently selected deck is not in visible keys, choose first visible
-  if (keys.length > 0 && !keys.includes(gameState.player1DeckKey)) {
-    gameState.player1DeckKey = keys[0];
+  // If currently selected deck is not in eligible keys, choose first eligible
+  if (!eligibleKeys.includes(gameState.player1DeckKey)) {
+    gameState.player1DeckKey = eligibleKeys[0];
   }
 
-  box.innerHTML = keys.map(deckKey => {
+  // Ensure opponent deck is also valid and strictly in eligibleKeys
+  if (!eligibleKeys.includes(gameState.player2DeckKey) || (eligibleKeys.length > 1 && gameState.player2DeckKey === gameState.player1DeckKey)) {
+    gameState.player2DeckKey = eligibleKeys.find(k => k !== gameState.player1DeckKey) || eligibleKeys[0];
+  }
+
+  box.innerHTML = eligibleKeys.map(deckKey => {
     const recipe = DECK_RECIPES[deckKey];
     const heroCard = CARDS_DATA[recipe.hero] || CARDS_BY_NAME[(recipe.hero || "").replace(/^Hero_/, '')];
     const heroName = heroCard ? heroCard.name : (recipe.hero || "Unknown Hero").replace(/^Hero_/, '');
@@ -7372,7 +7426,7 @@ function renderDeckSelectionUI() {
   }).join('');
 
   if (oppSelect) {
-    const oppKeys = keys.length > 0 ? keys : allKeys;
+    const oppKeys = eligibleKeys;
     oppSelect.innerHTML = oppKeys.map(deckKey => {
       const recipe = DECK_RECIPES[deckKey];
       const heroCard = CARDS_DATA[recipe.hero] || CARDS_BY_NAME[(recipe.hero || "").replace(/^Hero_/, '')];
@@ -7381,6 +7435,11 @@ function renderDeckSelectionUI() {
       const selectedAttr = (deckKey === gameState.player2DeckKey) ? 'selected' : '';
       return `<option value="${deckKey.replace(/"/g, '&quot;')}" ${selectedAttr}>${isOfficialDeck ? '&#128737;&#65039;' : '&#129514;'} ${deckKey} (${heroName})</option>`;
     }).join('');
+    if (gameState.player2DeckKey && oppKeys.includes(gameState.player2DeckKey)) {
+      oppSelect.value = gameState.player2DeckKey;
+    } else if (oppSelect.value) {
+      gameState.player2DeckKey = oppSelect.value;
+    }
   }
 }
 
@@ -7388,9 +7447,14 @@ function selectDeck(key) {
   if (!DECK_RECIPES[key]) return;
   const prevP1 = gameState.player1DeckKey;
   gameState.player1DeckKey = key;
-  const keys = Object.keys(DECK_RECIPES);
-  if (gameState.player2DeckKey === key && keys.length > 1) {
-    gameState.player2DeckKey = keys.find(k => k !== key && k !== prevP1) || keys.find(k => k !== key) || key;
+  const allKeys = Object.keys(DECK_RECIPES);
+  const keys = allKeys.filter(deckKey => {
+    if (arenaIncludeCommunityDecks) return true;
+    return getDeckOfficialStatus(deckKey, DECK_RECIPES[deckKey]);
+  });
+  const eligibleKeys = keys.length > 0 ? keys : allKeys;
+  if (gameState.player2DeckKey === key && eligibleKeys.length > 1) {
+    gameState.player2DeckKey = eligibleKeys.find(k => k !== key && k !== prevP1) || eligibleKeys.find(k => k !== key) || key;
   }
   renderDeckSelectionUI();
 }
@@ -9458,7 +9522,6 @@ function showActionShowcase({ card, actionTag, title, description, targetSlotId,
       clearTimeout(actionShowcaseTimer);
       actionShowcaseTimer = null;
     }
-    // Action Showcase notification stays on screen until the player explicitly confirms (Click, Space, or Enter)
   });
 }
 
@@ -9799,15 +9862,16 @@ async function deployAllyToSlot(player, cardIndex, choice, targetSlot) {
   if (onlineSession.active) broadcastOnlineState();
 }
 
-async function swapPlayerSlots(pIdx, fromZone, fromSlot, toZone, toSlot) {
+async function swapPlayerSlots(pIdx, fromZone, fromSlot, toZone, toSlot, isAICall = false) {
   const p = gameState.players[pIdx];
-  if (!p || p.isAI) return;
+  if (!p) return;
+  if (p.isAI && !isAICall) return;
   if (pIdx !== gameState.activePlayerIndex) {
-    showToast("It is not your turn!");
+    if (!isAICall) showToast("It is not your turn!");
     return;
   }
   if (PHASES[gameState.currentPhaseIndex] !== "COMMAND") {
-    showToast("Formation can only be adjusted during Command Phase!");
+    if (!isAICall) showToast("Formation can only be adjusted during Command Phase!");
     return;
   }
 
@@ -9821,11 +9885,11 @@ async function swapPlayerSlots(pIdx, fromZone, fromSlot, toZone, toSlot) {
 
   // Bench Lock validation
   if (fromZone === 'bench' && toZone === 'bz' && sourceUnit.benchLocked) {
-    showToast(`${sourceUnit.name} is Bench Locked until your next turn!`);
+    if (!isAICall) showToast(`${sourceUnit.name} is Bench Locked until your next turn!`);
     return;
   }
   if (toZone === 'bench' && fromZone === 'bz' && targetUnit && targetUnit.benchLocked) {
-    showToast(`${targetUnit.name} is Bench Locked until your next turn!`);
+    if (!isAICall) showToast(`${targetUnit.name} is Bench Locked until your next turn!`);
     return;
   }
 
@@ -11987,17 +12051,87 @@ async function learnSkill(player, cardIndex) {
   if (onlineSession.active) broadcastOnlineState();
 }
 
+function getEquipmentCategory(card) {
+  if (!card) return 'accessory';
+  const eqType = (card.equipmentType || "").toLowerCase();
+  const subType = (card.equipmentSubtype || card.subtype || "").toLowerCase();
+  if (eqType.includes("armor") || ["tunic", "chestplate", "robe", "vest", "armor"].includes(subType) || (card.defenseModifier !== undefined && !eqType.includes("shield") && !subType.includes("shield"))) {
+    return 'armor';
+  }
+  if (eqType.includes("two-handed") || subType.includes("two-handed")) {
+    return 'two_handed_weapon';
+  }
+  if (eqType.includes("shield") || subType.includes("shield")) {
+    return 'shield';
+  }
+  if (eqType.includes("one-handed") || subType.includes("one-handed") || eqType.includes("weapon") || card.attack || card.rangedAttack !== undefined) {
+    return 'one_handed_weapon';
+  }
+  return 'accessory';
+}
+
 function canUnitEquipCard(unit, equipCard) {
   if (!unit || !equipCard) return false;
+
+  // 1. Specific card-level restrictions (class/name)
   const rest = equipCard.mechanics?.equipRestriction;
-  if (!rest) return true;
-  if (rest.allowedNames && rest.allowedNames.length > 0) {
-    return rest.allowedNames.some(n => (unit.name || "").toLowerCase().includes(n.toLowerCase()));
+  if (rest) {
+    if (rest.allowedNames && rest.allowedNames.length > 0) {
+      const matchName = rest.allowedNames.some(n => (unit.name || "").toLowerCase().includes(n.toLowerCase()));
+      if (!matchName) return false;
+    }
+    if (rest.allowedClasses && rest.allowedClasses.length > 0) {
+      const uClass = (unit.heroClass || unit.unitClass || "").toLowerCase();
+      const matchClass = rest.allowedClasses.some(c => uClass.includes(c.toLowerCase()));
+      if (!matchClass) return false;
+    }
   }
-  if (rest.allowedClasses && rest.allowedClasses.length > 0) {
-    const uClass = (unit.heroClass || unit.unitClass || "").toLowerCase();
-    return rest.allowedClasses.some(c => uClass.includes(c.toLowerCase()));
+
+  // 2. Lorefall Beta Rules Equipment Slot Constraints:
+  // - 1 Armor slot (cannot equip multiple Armors, e.g. stacking Tunics / Robes / Chestplates).
+  // - 2 Hand slots:
+  //   * 1 Two-Handed Weapon (takes both hands; cannot equip with any other weapon or shield).
+  //   * Up to 2 One-Handed Weapons (dual wielding).
+  //   * 1 One-Handed Weapon and 1 Shield.
+  //   * Cannot equip 2 Shields.
+  // - Cannot equip duplicate copies of the same card unless they are 1-handed weapons.
+  const currentEquip = unit.equipment || [];
+  const newCat = getEquipmentCategory(equipCard);
+
+  if (newCat === 'armor') {
+    if (currentEquip.some(eq => getEquipmentCategory(eq) === 'armor')) {
+      return false; // Already has armor equipped
+    }
+  } else if (newCat === 'two_handed_weapon') {
+    if (currentEquip.some(eq => ['two_handed_weapon', 'one_handed_weapon', 'shield'].includes(getEquipmentCategory(eq)))) {
+      return false; // Hands are not empty
+    }
+  } else if (newCat === 'shield') {
+    if (currentEquip.some(eq => getEquipmentCategory(eq) === 'shield')) {
+      return false; // Cannot equip 2 shields
+    }
+    if (currentEquip.some(eq => getEquipmentCategory(eq) === 'two_handed_weapon')) {
+      return false; // Two-handed weapon occupies both hands
+    }
+    const handItems = currentEquip.filter(eq => ['one_handed_weapon', 'shield'].includes(getEquipmentCategory(eq))).length;
+    if (handItems >= 2) {
+      return false; // Both hands occupied
+    }
+  } else if (newCat === 'one_handed_weapon') {
+    if (currentEquip.some(eq => getEquipmentCategory(eq) === 'two_handed_weapon')) {
+      return false; // Two-handed weapon occupies both hands
+    }
+    const handItems = currentEquip.filter(eq => ['one_handed_weapon', 'shield'].includes(getEquipmentCategory(eq))).length;
+    if (handItems >= 2) {
+      return false; // Both hands occupied
+    }
+  } else {
+    // Other / Accessories: prevent duplicate copy of exact same card
+    if (currentEquip.some(eq => eq.id === equipCard.id || eq.name === equipCard.name)) {
+      return false;
+    }
   }
+
   return true;
 }
 
@@ -12250,31 +12384,28 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
       let isMelee = (aInfo.card.attackType === "Melee");
       let isVanguard = (tType === 'bz' && tSlot === defenderPlayer.battleZone.findIndex(s => s !== null));
 
-      // 0. Reactive Defensive Flash Items (Medium / Hard AI)
-      if (diff !== "EASY" && gameState.gameMode !== "TUTORIAL") {
-          const flashHealIdx = defenderPlayer.hand.findIndex(c =>
-              c.type === "Flash" &&
-              (c.id === "small_healing_potion" || c.id === "favars_elixir") &&
-              defenderPlayer.gold >= (c.goldCost || 0)
-          );
-          if (flashHealIdx !== -1) {
-              const heroLow = defenderPlayer.hero.currentHealth <= 12;
-              const targetLow = finalTargetUnit.currentHealth <= 5 && finalTargetUnit.currentHealth < (finalTargetUnit.maxHealth || finalTargetUnit.health);
-              if (heroLow || targetLow) {
-                  addLogEntry(`<strong style="color:var(--gold);">${defenderPlayer.name} responds with a Flash Item!</strong>`);
-                  await playFlashCard(defenderPlayer, flashHealIdx);
-              }
-          }
-      }
+      const attackerPlayer = gameState.players[aInfo.playerIndex];
+      const attackerUnit = (aInfo.type === 'skill') ? attackerPlayer.hero : aInfo.card;
+      const expectedAtkDmg = estimateCardExpectedDamage(aInfo.card, attackerPlayer);
 
-      // 1. Hero Intervene Logic
+      // 0. Hero Intervene Evaluation (The Intervention Decision)
+      // Lorefall Beta Rules: When Vanguard is targeted by Melee, defender can choose to let the Hero intervene.
+      // Vanguard takes 0 damage and remains fresh; Hero absorbs the damage directly.
+      const heroDef = getStat(defenderPlayer.hero, 'defense', defenderPlayer) || 0;
+      const heroIncoming = Math.max(0, expectedAtkDmg - heroDef);
+      const vanguardDef = getStat(tUnit, 'defense', defenderPlayer) || 0;
+      const vanguardIncoming = Math.max(0, expectedAtkDmg - vanguardDef);
+      const vanguardWillDie = (tUnit.currentHealth <= vanguardIncoming);
+      const vanguardInDanger = vanguardWillDie || (tUnit.currentHealth <= vanguardIncoming + 2) || (tUnit.currentHealth <= 4);
+      const heroHealthy = defenderPlayer.hero.currentHealth > 10;
+      const heroCanSafelyAbsorb = defenderPlayer.hero.currentHealth > (heroIncoming + 8);
+
+      let shouldIntervene = false;
+
       if (isMelee && isVanguard && gameState.gameMode !== "TUTORIAL") {
           if (diff === "EASY") {
               if (tUnit.currentHealth <= 4 && defenderPlayer.hero.currentHealth > 12 && Math.random() < 0.35) {
-                  finalTargetType = 'hero';
-                  finalTargetSlot = 0;
-                  finalTargetUnit = defenderPlayer.hero;
-                  addLogEntry(`<strong style="color:var(--gold);">${defenderPlayer.name}'s Hero intervened!</strong>`);
+                  shouldIntervene = true;
               }
           } else {
               const vanguardCanCounter = !tUnit.isExhausted && (tUnit.charge || 0) >= (tUnit.chargeReq || 1) && isCounterRangeValid(tUnit.attackType);
@@ -12282,15 +12413,85 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
                   defenderPlayer.skills.some(s => s && (s.charge || 0) >= (s.chargeReq || 1) && isCounterRangeValid(s.attackType)) ||
                   defenderPlayer.hero.equipment.some(e => (e.attack || e.rangedAttack) && (e.chargeReq === undefined || (e.charge || 0) >= e.chargeReq) && isCounterRangeValid(e.attackType))
               );
-              const vanguardInDanger = tUnit.currentHealth <= 5;
-              const vanguardIsValuable = Boolean(tUnit.mechanics?.activatedAbilities?.length || (tUnit.charge || 0) >= (tUnit.chargeReq || 1));
-              const heroHealthy = defenderPlayer.hero.currentHealth > 12;
 
-              if (heroHealthy && ((vanguardInDanger && vanguardIsValuable && !vanguardCanCounter) || (vanguardInDanger && heroHasCounter && !vanguardCanCounter))) {
-                  finalTargetType = 'hero';
-                  finalTargetSlot = 0;
-                  finalTargetUnit = defenderPlayer.hero;
-                  addLogEntry(`<strong style="color:var(--gold);">${defenderPlayer.name}'s Hero intervened!</strong>`);
+              // TACTICAL INTERVENE SCENARIO 1: High-Defense Hero Tank (Zero / Negligible Damage)
+              // If Hero Defense mitigates incoming damage down to 0 or 1, Hero Intervene is a free shield for the Vanguard!
+              // (e.g. Athran with soldier defense & armor absorbs for 0, saving the Vanguard and conserving potions)
+              const isHeroTanking = (heroIncoming <= 1 && heroHealthy && vanguardInDanger);
+
+              // TACTICAL INTERVENE SCENARIO 2: Saving Vanguard from Lethal Blow
+              // If the Vanguard will die, and the Hero can absorb the blow safely
+              const isHeroSavingVanguard = (vanguardWillDie && heroCanSafelyAbsorb && heroIncoming <= 5);
+
+              // TACTICAL INTERVENE SCENARIO 3: Hero Counterstrike Ambush
+              // If Vanguard cannot counter, but Hero has a charged counterstrike that can strike back
+              const isHeroCounterTrap = (vanguardInDanger && heroHasCounter && !vanguardCanCounter && heroCanSafelyAbsorb);
+
+              // TACTICAL INTERVENE SCENARIO 4: General Vanguard Protection
+              const isVanguardValuable = Boolean(tUnit.mechanics?.activatedAbilities?.length || (tUnit.charge || 0) >= (tUnit.chargeReq || 1) || (tUnit.manaCost || 0) >= 3);
+              const isGeneralProtection = (heroHealthy && vanguardInDanger && isVanguardValuable && !vanguardCanCounter && heroIncoming <= 3);
+
+              if (isHeroTanking || isHeroSavingVanguard || isHeroCounterTrap || isGeneralProtection) {
+                  shouldIntervene = true;
+              }
+          }
+
+          if (shouldIntervene) {
+              finalTargetType = 'hero';
+              finalTargetSlot = 0;
+              finalTargetUnit = defenderPlayer.hero;
+              addLogEntry(`<strong style="color:var(--gold);">${defenderPlayer.name}'s Hero intervened!</strong> (Hero absorbs attack with ${heroDef} Defense)`);
+          }
+      }
+
+      let defVal = getStat(finalTargetUnit, 'defense', defenderPlayer) || 0;
+      let estimatedIncoming = Math.max(0, expectedAtkDmg - defVal);
+      let willDie = (finalTargetUnit.currentHealth <= estimatedIncoming);
+
+      // 1. Reactive Defensive Flash Items & "Flash" Over-Heal Stack (Medium / Hard AI)
+      // Only burn healing potions if the target is actually going to die or take critical damage after intervention decision!
+      if (diff !== "EASY" && gameState.gameMode !== "TUTORIAL") {
+          const flashHealIdx = defenderPlayer.hand.findIndex(c =>
+              c.type === "Flash" &&
+              (c.id === "small_healing_potion" || c.id === "favars_elixir" || c.mechanics?.passiveAbilities?.some(a => a.effect?.action === "heal")) &&
+              defenderPlayer.gold >= (c.goldCost || 0)
+          );
+          if (flashHealIdx !== -1) {
+              const healCard = defenderPlayer.hand[flashHealIdx];
+              if (diff === "HARD") {
+                  // Hard Mode: The "Flash" Over-Heal Stack
+                  // Holds healing Flashes until the opponent commits to a lethal strike against the Vanguard.
+                  // Allies have no maximum health cap and can be over-healed! Over-healing dynamically denies the kill
+                  // and completely prevents the expected Breakthrough damage to the Hero!
+                  if (finalTargetType === 'bz' && willDie) {
+                      gameState.combatDefendingTarget = finalTargetUnit;
+                      addLogEntry(`<strong style="color:var(--gold);">[AI FLASH OVER-HEAL STACK]</strong> ${defenderPlayer.name} responds on the Combat Stack with <strong>${healCard.name}</strong> to over-heal ${finalTargetUnit.name}!`);
+                      await playFlashCard(defenderPlayer, flashHealIdx);
+                      delete gameState.combatDefendingTarget;
+                      // Recalculate after over-heal:
+                      defVal = getStat(finalTargetUnit, 'defense', defenderPlayer) || 0;
+                      estimatedIncoming = Math.max(0, expectedAtkDmg - defVal);
+                      willDie = (finalTargetUnit.currentHealth <= estimatedIncoming);
+                  } else if (finalTargetType === 'hero' && willDie) {
+                      gameState.combatDefendingTarget = defenderPlayer.hero;
+                      addLogEntry(`<strong style="color:var(--gold);">[AI FLASH STACK]</strong> ${defenderPlayer.name} responds with <strong>${healCard.name}</strong> to save ${defenderPlayer.hero.name}!`);
+                      await playFlashCard(defenderPlayer, flashHealIdx);
+                      delete gameState.combatDefendingTarget;
+                      defVal = getStat(finalTargetUnit, 'defense', defenderPlayer) || 0;
+                      estimatedIncoming = Math.max(0, expectedAtkDmg - defVal);
+                      willDie = (finalTargetUnit.currentHealth <= estimatedIncoming);
+                  }
+              } else {
+                  // Medium
+                  const heroLow = defenderPlayer.hero.currentHealth <= 12;
+                  const targetLow = finalTargetUnit.currentHealth <= 5 && finalTargetUnit.currentHealth < (finalTargetUnit.maxHealth || finalTargetUnit.health);
+                  if (heroLow || targetLow) {
+                      addLogEntry(`<strong style="color:var(--gold);">${defenderPlayer.name} responds with a Flash Item!</strong>`);
+                      await playFlashCard(defenderPlayer, flashHealIdx);
+                      defVal = getStat(finalTargetUnit, 'defense', defenderPlayer) || 0;
+                      estimatedIncoming = Math.max(0, expectedAtkDmg - defVal);
+                      willDie = (finalTargetUnit.currentHealth <= estimatedIncoming);
+                  }
               }
           }
       }
@@ -12300,12 +12501,9 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
       let isCounter = false;
       let heroCounterAsset = null;
 
-      const attackerPlayer = gameState.players[aInfo.playerIndex];
-      const attackerUnit = (aInfo.type === 'skill') ? attackerPlayer.hero : aInfo.card;
-      const expectedAtkDmg = estimateCardExpectedDamage(aInfo.card, attackerPlayer);
-      const defVal = getStat(finalTargetUnit, 'defense', defenderPlayer) || 0;
-      const estimatedIncoming = Math.max(0, expectedAtkDmg - defVal);
-      const willDie = (finalTargetUnit.currentHealth <= estimatedIncoming);
+      defVal = getStat(finalTargetUnit, 'defense', defenderPlayer) || 0;
+      estimatedIncoming = Math.max(0, expectedAtkDmg - defVal);
+      willDie = (finalTargetUnit.currentHealth <= estimatedIncoming);
       const isFreeCounter = defenderPlayer.hero.mechanics?.staticModifiers?.some(m => m.effect?.action === "freeCounterstrike");
       const attackerDef = getStat(attackerUnit, 'defense', attackerPlayer) || 0;
 
@@ -12362,12 +12560,13 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
                       isCounter = false; // Hold the line to save charge and mana
                   }
               } else {
-                  // HARD: Master tactical economy!
-                  // Counterstriking burns charge, which burns mana to rebuild.
-                  // Only counterstrike if free, lethal, last-stand, or high-value 1-charge weapon.
-                  // NEVER waste Level 2 or Level 3 skills on non-lethal counterstrikes!
+                  // HARD: Counterstrike Restraint & Tactical Economy!
+                  // Frequently selects "Hold the Line" (Defend Only) when targeted by low-damage attacks.
+                  // Prefers to retain stored Charge for its own Combat Phase or threaten a lethal Counterstrike against a more significant incoming threat,
+                  // rather than wasting Charge to deal minor retaliatory damage.
+                  const isLowDamageIncoming = estimatedIncoming <= 3;
                   const lethalChoice = analyzedCounters.find(c => c.isLethal);
-                  const efficientWeaponChoice = analyzedCounters.find(c => c.chargeCost === 1 && c.netDmg >= 3);
+                  const efficientWeaponChoice = analyzedCounters.find(c => c.chargeCost === 1 && c.netDmg >= 4 && !isLowDamageIncoming);
 
                   if (isFreeCounter) {
                       isCounter = true;
@@ -12378,11 +12577,11 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
                   } else if (defenderPlayer.hero.currentHealth <= 6 && analyzedCounters.some(c => c.netDmg >= 2)) {
                       isCounter = true;
                       heroCounterAsset = analyzedCounters.sort((a, b) => b.netDmg - a.netDmg)[0].asset;
-                  } else if (efficientWeaponChoice && Math.random() < 0.40) {
+                  } else if (efficientWeaponChoice && Math.random() < 0.25) {
                       isCounter = true;
                       heroCounterAsset = efficientWeaponChoice.asset;
                   } else {
-                      isCounter = false; // Tactically Hold the Line!
+                      isCounter = false; // Tactically Hold the Line (Defend Only)!
                   }
               }
           }
@@ -13857,6 +14056,10 @@ async function checkDefeated(player, unit) {
   addLogEntry("<strong>" + unit.name + "</strong> was defeated!");
   gameState.enemiesDefeatedThisTurn = true;
   await dispatchGlobalHook('onDefeat', { triggerPlayer: player, defeatedUnit: unit });
+  
+  const wasInBattleZone = player.battleZone.some(u => u && (u === unit || (u.instanceId && unit.instanceId && u.instanceId === unit.instanceId)));
+  const leftoverCharge = unit.charge || 0;
+
   for (let i = 0; i < player.battleZone.length; i++) {
     const u = player.battleZone[i];
     if (u && (u === unit || (u.instanceId && unit.instanceId && u.instanceId === unit.instanceId))) {
@@ -13870,6 +14073,42 @@ async function checkDefeated(player, unit) {
     }
   }
   shiftSlotsLeft(player);
+
+  // Official Lorefall Rule: Charge Inheritance
+  if (wasInBattleZone && leftoverCharge > 0) {
+    const eligibleBenchAllies = player.bench.filter(u => u && (u.charge || 0) < (u.chargeReq || 1));
+    if (eligibleBenchAllies.length > 0) {
+      let chosenHeir = null;
+      if (player.isAI) {
+        eligibleBenchAllies.sort((a, b) => {
+          const aNeed = (a.chargeReq || 1) - (a.charge || 0);
+          const bNeed = (b.chargeReq || 1) - (b.charge || 0);
+          if (aNeed !== bNeed) return aNeed - bNeed;
+          return estimateCardExpectedDamage(b, player) - estimateCardExpectedDamage(a, player);
+        });
+        chosenHeir = eligibleBenchAllies[0];
+      } else {
+        if (eligibleBenchAllies.length === 1) {
+          chosenHeir = eligibleBenchAllies[0];
+        } else {
+          const options = eligibleBenchAllies.map(ally => ({
+            text: `${ally.name} (${ally.charge || 0}/${ally.chargeReq || 1} Charge)`,
+            value: ally
+          }));
+          chosenHeir = await showModalAsync("Charge Inheritance", `<strong>${unit.name}</strong> was defeated with ${leftoverCharge} Charge!<br>Choose a Benched Ally to inherit the Charge:`, options);
+          if (!chosenHeir) chosenHeir = eligibleBenchAllies[0];
+        }
+      }
+      if (chosenHeir) {
+        const prevCh = chosenHeir.charge || 0;
+        chosenHeir.charge = Math.min(chosenHeir.chargeReq || 1, prevCh + leftoverCharge);
+        const gained = chosenHeir.charge - prevCh;
+        addLogEntry(`<strong style="color:#a855f7;">Charge Inheritance:</strong> <strong>${chosenHeir.name}</strong> on the Bench inherited <strong>+${gained} Charge</strong> from <strong>${unit.name}</strong> (${chosenHeir.charge}/${chosenHeir.chargeReq})!`);
+      }
+    } else {
+      addLogEntry(`<span style="color:#94a3b8;">Charge Inheritance: No eligible Benched Allies under their Charge threshold to inherit ${leftoverCharge} Charge.</span>`);
+    }
+  }
   if (unit.equipment && unit.equipment.length > 0) {
     unit.equipment.forEach(eq => {
       player.discard.push(eq);
@@ -13938,6 +14177,53 @@ function estimateCardExpectedDamage(card, player) {
     }
     return avgDie + pow;
   }
+}
+
+function calculateAccuracyProbability(card, player) {
+  if (!card) return 0.5;
+  const isSkill = card.type === "Skill";
+  const charUnit = isSkill ? player.hero : card;
+  let dex = getStat(charUnit, 'dexterity', player) || 0;
+  let accBonus = 0;
+  if (card.mechanics && card.mechanics.staticModifiers) {
+    card.mechanics.staticModifiers.forEach(mod => {
+      if (mod.effect && mod.effect.action === "statBonus" && mod.effect.stat === "accuracy" && evaluateCondition(mod.condition, card, { triggerPlayer: player })) {
+        accBonus += (mod.effect.value || 0);
+      }
+    });
+  }
+  const isAdv = checkKeyword(charUnit, player, "advantage") || checkKeyword(card, player, "advantage");
+  const isDoubleAdv = checkKeyword(charUnit, player, "doubleAdvantage") || checkKeyword(card, player, "doubleAdvantage");
+  const isDisadv = checkKeyword(charUnit, player, "disadvantage") || checkKeyword(card, player, "disadvantage");
+  const effectiveDex = dex + accBonus;
+  // Rulebook Accuracy: D20 + Dexterity >= 11
+  const neededD20 = Math.max(1, Math.min(20, 11 - effectiveDex));
+  let baseP = (21 - neededD20) / 20;
+  if (isDoubleAdv) baseP = 1 - Math.pow(1 - baseP, 3);
+  else if (isAdv) baseP = 1 - Math.pow(1 - baseP, 2);
+  else if (isDisadv) baseP = Math.pow(baseP, 2);
+  return baseP;
+}
+
+function getUnitOptimalChargeTarget(card, player) {
+  if (!card || card.chargeReq === undefined) return 0;
+  const baseReq = card.chargeReq || 1;
+  const isMulti = card.strikeType === "Multi" || checkKeyword(card, player, "multiStrike");
+  const isTsunami = (card.name === "Tsunami" || card.id === "Skill_Tsunami" || card.id === "skill_tsunami");
+  const depletesChargeOnStrike = isTsunami ||
+    (card.text || card.abilities || "").toLowerCase().includes("deplete 1 charge") ||
+    Boolean(card.mechanics?.passiveAbilities?.some(p => p.effect?.action === "removeCharge" && p.trigger === "onStrikeDeclared"));
+
+  if (isMulti && depletesChargeOnStrike) {
+    // Multi-strike cards that consume charge per attack (like Tsunami) can strike multiple times per turn
+    // (up to maxStrikes, typically 3) if charged above the threshold!
+    // 1 strike: baseReq (e.g. 4 for Tsunami)
+    // 2 strikes: baseReq + 1 (5)
+    // 3 strikes: baseReq + 2 (6)
+    const extraStrikes = Math.max(0, (gameState.maxStrikes || 3) - 1);
+    return baseReq + extraStrikes;
+  }
+  return baseReq;
 }
 
 async function aiTryActivateAbilities(activeP, phaseName, diff) {
@@ -14047,6 +14333,188 @@ async function aiTryActivateAbilities(activeP, phaseName, diff) {
   }
 }
 
+function getUnitVanguardScore(unit, player) {
+  if (!unit) return -999;
+  let score = (unit.currentHealth || 1) * 2;
+  const def = getStat(unit, 'defense', player) || 0;
+  score += def * 3;
+  // Inspiring Commander has a powerful Vanguard aura (+1 Power to all other allies)
+  if (unit.id === 'inspiring_commander') score += 15;
+  // Specific defensive / vanguard keywords
+  if (unit.text && /vanguard|taunt|shield|armor|block|guard/i.test(unit.text)) score += 6;
+  if ((unit.health || 0) >= 6) score += 3;
+  // Heavy penalty for low current health (fragile units in Vanguard become Breakthrough damage ramps)
+  if (unit.currentHealth <= 2) score -= 12;
+  else if (unit.currentHealth <= 3) score -= 5;
+  // Penalty for Ranged glass cannons who should stay safe in Flank or Rear
+  if (unit.attackType === 'Ranged') score -= 6;
+  return score;
+}
+
+async function manageAIFormation(pIdx, diff, stage = 'initial') {
+  try {
+    const p = gameState.players[pIdx];
+    const opp = gameState.players[1 - pIdx];
+    if (!p || !p.isAI) return;
+
+  const oppHeroClass = opp.hero?.heroClass || opp.hero?.class;
+  const oppHeroPower = getStat(opp.hero, 'power', opp) || 0;
+  const isOppBerserker = (oppHeroClass === "Berserker" || oppHeroClass === "Warrior");
+  const isOppHighPower = oppHeroPower >= 3 || opp.battleZone.some(u => u && (getStat(u, 'power', opp) || 0) >= 2);
+  const isAntiBreakthroughThreat = isOppBerserker || isOppHighPower;
+
+  // -------------------------------------------------------------
+  // A. BENCH & ROTATION MANAGEMENT (Stage: 'initial' only)
+  // -------------------------------------------------------------
+  if (stage === 'initial') {
+    // 1. Advance unlocked Bench units to open Battle Zone slots
+    for (let bIdx = 0; bIdx < p.bench.length; bIdx++) {
+      const bUnit = p.bench[bIdx];
+      // STRICT BENCH LOCK CONSTRAINT: Never move an ally with benchLocked true!
+      if (!bUnit || bUnit.benchLocked) continue;
+
+      const openBz = p.battleZone.findIndex(s => s === null);
+      if (openBz !== -1) {
+        if (diff === "HARD" && isAntiBreakthroughThreat && openBz === 0) {
+          const isFragileToken = (bUnit.isToken || bUnit.currentHealth <= 1);
+          if (isFragileToken) {
+            // Anti-Breakthrough: Fragile 1-HP tokens avoid Vanguard against Berserker high-Power enemies
+            continue;
+          }
+        }
+        await showActionShowcase({
+          card: bUnit,
+          actionTag: `${p.name.toUpperCase()} FORMATION ADVANCE`,
+          title: bUnit.name,
+          description: `Advanced from Bench to Battle Zone Slot ${openBz + 1}`,
+          targetSlotId: `${getPlayerDomPrefix(pIdx)}-bz-${openBz}`,
+          duration: 1300
+        });
+        await swapPlayerSlots(pIdx, 'bench', bIdx, 'bz', openBz, true);
+      }
+    }
+
+    // 2. Swapping charged or sturdy unlocked Bench units with uncharged/weak Battle Zone units
+    if (diff !== "EASY") {
+      for (let bIdx = 0; bIdx < p.bench.length; bIdx++) {
+        const bUnit = p.bench[bIdx];
+        // STRICT BENCH LOCK CONSTRAINT
+        if (!bUnit || bUnit.benchLocked) continue;
+
+        const canStrike = (bUnit.charge || 0) >= (bUnit.chargeReq || 1) && !bUnit.isExhausted;
+        const isSturdyBench = bUnit.currentHealth >= 5 || (getStat(bUnit, 'defense', p) || 0) >= 2;
+
+        const weakBzIdx = p.battleZone.findIndex(u => {
+          if (!u) return false;
+          if (canStrike && ((u.charge || 0) < (u.chargeReq || 1) || u.isExhausted)) return true;
+          if (diff === "HARD" && isSturdyBench && u.currentHealth <= 2 && (bUnit.charge || 0) >= (u.charge || 0)) return true;
+          return false;
+        });
+
+        if (weakBzIdx !== -1) {
+          const swapped = p.battleZone[weakBzIdx];
+          await showActionShowcase({
+            card: bUnit,
+            actionTag: `${p.name.toUpperCase()} FORMATION ROTATION`,
+            title: bUnit.name,
+            description: `Rotated into Battle Zone Slot ${weakBzIdx + 1} with ${swapped.name}`,
+            targetSlotId: `${getPlayerDomPrefix(pIdx)}-bz-${weakBzIdx}`,
+            duration: 1300
+          });
+          await swapPlayerSlots(pIdx, 'bench', bIdx, 'bz', weakBzIdx, true);
+        }
+      }
+    }
+
+    // 3. Tactical Retreat to Bench (Anti-Breakthrough & Garrison Economy)
+    // Rulebook: "During your Command Phase, you may freely move an Ally from the Battle Zone to an open slot on the Bench"
+    if (diff !== "EASY") {
+      const openBenchSlot = p.bench.findIndex(s => s === null);
+      if (openBenchSlot !== -1) {
+        const retreatIdx = p.battleZone.findIndex((u, idx) => {
+          if (!u) return false;
+          const cannotStrike = (u.charge || 0) < (u.chargeReq || 1) || u.isExhausted;
+          // Severely wounded ally (1 HP) who cannot strike can retreat if other allies are on the board
+          if (u.currentHealth === 1 && cannotStrike && p.battleZone.filter(Boolean).length > 1) return true;
+          return false;
+        });
+
+        if (retreatIdx !== -1) {
+          const unitToRetreat = p.battleZone[retreatIdx];
+          await showActionShowcase({
+            card: unitToRetreat,
+            actionTag: `${p.name.toUpperCase()} TACTICAL RETREAT`,
+            title: unitToRetreat.name,
+            description: `Retreated to Bench to prevent Breakthrough and gather Garrison Charge`,
+            targetSlotId: `${getPlayerDomPrefix(pIdx)}-bench-${openBenchSlot}`,
+            duration: 1300
+          });
+          await swapPlayerSlots(pIdx, 'bz', retreatIdx, 'bench', openBenchSlot, true);
+        }
+      }
+    }
+  }
+
+  // -------------------------------------------------------------
+  // B. INTRA-BATTLE ZONE SLOT REARRANGING (Form Up)
+  // Rearrange Slots 0, 1, 2 to optimize Vanguard, Flank, and Rear
+  // -------------------------------------------------------------
+  if (diff !== "EASY") {
+    const occupiedBzIndices = [];
+    for (let i = 0; i < p.battleZone.length; i++) {
+      if (p.battleZone[i]) occupiedBzIndices.push(i);
+    }
+
+    if (occupiedBzIndices.length >= 2) {
+      // 1. Optimize Vanguard (Slot 0): Find unit with highest Vanguard Score
+      let bestVanguardIdx = 0;
+      let bestScore = getUnitVanguardScore(p.battleZone[0], p);
+
+      for (let i = 1; i < occupiedBzIndices.length; i++) {
+        const idx = occupiedBzIndices[i];
+        const score = getUnitVanguardScore(p.battleZone[idx], p);
+        if (score > bestScore) {
+          bestScore = score;
+          bestVanguardIdx = idx;
+        }
+      }
+
+      if (bestVanguardIdx !== 0 && p.battleZone[bestVanguardIdx]) {
+        const bestUnit = p.battleZone[bestVanguardIdx];
+        await showActionShowcase({
+          card: bestUnit,
+          actionTag: `${p.name.toUpperCase()} VANGUARD FORMATION`,
+          title: bestUnit.name,
+          description: `Moved ${bestUnit.name} to Vanguard (Slot 1) to anchor the line`,
+          targetSlotId: `${getPlayerDomPrefix(pIdx)}-bz-0`,
+          duration: 1300
+        });
+        await swapPlayerSlots(pIdx, 'bz', bestVanguardIdx, 'bz', 0, true);
+      }
+
+      // 2. Optimize Flank (Slot 1) vs Rear (Slot 2) if 3 units are present
+      if (p.battleZone[1] && p.battleZone[2]) {
+        const u1 = p.battleZone[1];
+        const u2 = p.battleZone[2];
+        const u1Def = getStat(u1, 'defense', p) || 0;
+        const u2Def = getStat(u2, 'defense', p) || 0;
+        const u1Durability = u1.currentHealth + u1Def * 2;
+        const u2Durability = u2.currentHealth + u2Def * 2;
+
+        const u1IsRangedGlass = u1.attackType === 'Ranged' && u1Durability < u2Durability;
+        const u1MuchWeaker = u2Durability >= u1Durability + 3;
+
+        if (u1IsRangedGlass || u1MuchWeaker) {
+          await swapPlayerSlots(pIdx, 'bz', 2, 'bz', 1, true);
+        }
+      }
+    }
+  }
+  } catch (err) {
+    console.error("Error in manageAIFormation:", err);
+  }
+}
+
 function checkAIAction() {
   const activeP = gameState.players[gameState.activePlayerIndex]; if (!activeP || !activeP.isAI || gameState.gameMode === "TEST") return;
   if (gameState.gameMode === "INDEPTH_TUTORIAL") return;
@@ -14054,7 +14522,8 @@ function checkAIAction() {
   const opp = gameState.players[1 - activeP.index];
 
   setTimeout(async () => {
-    if (PHASES[gameState.currentPhaseIndex] === "COMMAND") {
+    try {
+      if (PHASES[gameState.currentPhaseIndex] === "COMMAND") {
       // 0. Use Flash Mana Potions in Command Phase if we have Gold and need Mana or Charge (Medium / Hard)
       if (diff !== "EASY") {
         for (let i = activeP.hand.length - 1; i >= 0; i--) {
@@ -14076,47 +14545,96 @@ function checkAIAction() {
         }
       }
 
-      // 1. Bench & Formation Management: Move unlocked Bench Allies to open Battle Zone slots, or swap uncharged BZ units with charged Bench units
-      for (let bIdx = 0; bIdx < activeP.bench.length; bIdx++) {
-        const bUnit = activeP.bench[bIdx];
-        if (!bUnit || bUnit.benchLocked) continue;
-        const openBz = activeP.battleZone.findIndex(s => s === null);
-        if (openBz !== -1) {
-          activeP.bench[bIdx] = null;
-          activeP.battleZone[openBz] = bUnit;
-          addLogEntry(`${activeP.name} advanced <strong>${bUnit.name}</strong> from the Bench to the Battle Zone.`);
-          await showActionShowcase({
-            card: bUnit,
-            actionTag: `${activeP.name.toUpperCase()} FORMATION ADVANCE`,
-            title: bUnit.name,
-            description: `Advanced from Bench to Battle Zone Slot ${openBz + 1}`,
-            targetSlotId: `p2-bz-${openBz}`,
-            duration: 1400
-          });
-          renderAll();
-        } else if (diff !== "EASY" && (bUnit.charge || 0) >= (bUnit.chargeReq || 1) && !bUnit.isExhausted) {
-          // Swap with an uncharged or exhausted Battle Zone unit so the charged Bench unit can attack!
-          const weakBzIdx = activeP.battleZone.findIndex(u => u && ((u.charge || 0) < (u.chargeReq || 1) || u.isExhausted));
-          if (weakBzIdx !== -1) {
-            const swapped = activeP.battleZone[weakBzIdx];
-            activeP.battleZone[weakBzIdx] = bUnit;
-            activeP.bench[bIdx] = swapped;
-            addLogEntry(`${activeP.name} rotated <strong>${bUnit.name}</strong> into the Battle Zone.`);
+      // 1. Command Phase Formation Management: Rearrange slots, advance/rotate Bench units (with Bench Lock constraint), and tactical retreat
+      await manageAIFormation(gameState.activePlayerIndex, diff, 'initial');
+
+      // Helper function to deploy an affordable ally
+      const tryDeployOneAlly = async () => {
+        let affordable = [];
+        activeP.hand.forEach((c, idx) => {
+          if (c && c.type === "Ally" && activeP.manaPool >= c.manaCost) {
+            affordable.push({ card: c, originalIndex: idx });
+          }
+        });
+        if (affordable.length === 0) return false;
+        if (diff !== "EASY") {
+          affordable.sort((a, b) => (b.card.manaCost || 0) - (a.card.manaCost || 0));
+        }
+
+        const pick = affordable[0];
+        const c = pick.card;
+        const currentIdx = activeP.hand.indexOf(c);
+        if (currentIdx === -1 || activeP.manaPool < c.manaCost) return false;
+
+        let bzSlot = activeP.battleZone.findIndex(x => x === null);
+        let benchSlot = activeP.bench.findIndex(x => x === null);
+        if (bzSlot === -1 && benchSlot === -1) return false;
+
+        let useBench = false;
+        if (bzSlot === -1 && benchSlot !== -1) {
+          useBench = true; // Battle Zone is full
+        } else if (diff === "HARD" && benchSlot !== -1 && bzSlot === 0 && (c.isToken || c.health <= 1) && isAntiBreakthroughThreat) {
+          // Fragile 1-HP token avoids Vanguard against Berserker high power
+          useBench = true;
+        }
+
+        const targetSlot = useBench ? benchSlot : bzSlot;
+        if (targetSlot === -1) return false;
+
+        await showActionShowcase({
+          card: c,
+          actionTag: useBench ? `${activeP.name.toUpperCase()} DEPLOYED TO BENCH` : `${activeP.name.toUpperCase()} DEPLOYED TO BATTLE ZONE`,
+          title: c.name,
+          description: `Summoned ${c.name} (${c.manaCost} Mana)`,
+          targetSlotId: useBench ? `p2-bench-${targetSlot}` : `p2-bz-${targetSlot}`,
+          duration: 1600
+        });
+        activeP.manaPool -= c.manaCost;
+        activeP.hand.splice(currentIdx, 1);
+        c.currentHealth = c.health;
+        c.charge = 0;
+        c.benchLocked = useBench;
+        c._justDeployed = true;
+        if (useBench) activeP.bench[targetSlot] = c;
+        else activeP.battleZone[targetSlot] = c;
+        addLogEntry(`${activeP.name} deployed <strong>${c.name}</strong> to the ${useBench ? 'Bench' : 'Battle Zone'}.`);
+        await executeHook(c, 'onPlay', { triggerPlayer: activeP });
+        renderAll();
+        return true;
+      };
+
+      // 2. Play Synergies first if affordable
+      for (let i = activeP.hand.length - 1; i >= 0; i--) {
+        const c = activeP.hand[i];
+        if (c && c.type === "Synergy" && activeP.manaPool >= c.manaCost) {
+          const s = activeP.synergies.findIndex(x => x === null);
+          if (s !== -1) {
             await showActionShowcase({
-              card: bUnit,
-              actionTag: `${activeP.name.toUpperCase()} FORMATION ROTATION`,
-              title: bUnit.name,
-              description: `Rotated into Battle Zone Slot ${weakBzIdx + 1} with ${swapped.name}`,
-              targetSlotId: `p2-bz-${weakBzIdx}`,
-              duration: 1400
+              card: c,
+              actionTag: `${activeP.name.toUpperCase()} PLAYED SYNERGY`,
+              title: c.name,
+              description: `Activated Synergy: ${c.name}`,
+              targetSlotId: `p2-synergy-${s}`,
+              duration: 1500
             });
+            activeP.manaPool -= c.manaCost;
+            activeP.hand.splice(i, 1);
+            c._justDeployed = true;
+            activeP.synergies[s] = c;
+            addLogEntry(`${activeP.name} played Synergy: <strong>${c.name}</strong>`);
+            await executeHook(c, 'onPlay', { triggerPlayer: activeP });
             renderAll();
           }
         }
       }
-      shiftSlotsLeft(activeP);
 
-      // 2. Learn Skill (1 per turn, prioritizing highest learnable skillLevel)
+      // 3. Board Presence Check: If Battle Zone is empty, deploy an Ally FIRST before spending all mana on skills!
+      const bzCountInitial = activeP.battleZone.filter(Boolean).length;
+      if (bzCountInitial === 0) {
+        await tryDeployOneAlly();
+      }
+
+      // 4. Learn Skill (1 per turn, prioritizing highest learnable skillLevel)
       if (!gameState.skillLearnedThisTurn) {
         const learnableSkills = activeP.hand
           .map((c, idx) => ({ c, idx }))
@@ -14148,163 +14666,15 @@ function checkAIAction() {
         }
       }
 
-      // 3. Play Synergies
-      for (let i = activeP.hand.length - 1; i >= 0; i--) {
-        const c = activeP.hand[i];
-        if (c && c.type === "Synergy" && activeP.manaPool >= c.manaCost) {
-          const s = activeP.synergies.findIndex(x => x === null);
-          if (s !== -1) {
-            await showActionShowcase({
-              card: c,
-              actionTag: `${activeP.name.toUpperCase()} PLAYED SYNERGY`,
-              title: c.name,
-              description: `Activated Synergy: ${c.name}`,
-              targetSlotId: `p2-synergy-${s}`,
-              duration: 1500
-            });
-            activeP.manaPool -= c.manaCost;
-            activeP.hand.splice(i, 1);
-            c._justDeployed = true;
-            activeP.synergies[s] = c;
-            addLogEntry(`${activeP.name} played Synergy: <strong>${c.name}</strong>`);
-            await executeHook(c, 'onPlay', { triggerPlayer: activeP });
-            renderAll();
-          }
-        }
+      // 5. Deploy additional Allies if mana allows
+      while (activeP.manaPool > 0) {
+        const deployed = await tryDeployOneAlly();
+        if (!deployed) break;
       }
 
-      // --- AI Mana Economy & Strategy Planner (Easy, Medium, Hard) ---
-      // 1. Calculate mana needed to finish charging ready attackers for THIS turn
-      const isFirstTurnSkipCombat = (gameState.turnNumber === 1 && gameState.activePlayerIndex === gameState.firstPlayerIndex);
-      let manaNeededToFinishAttackers = 0;
-      if (!isFirstTurnSkipCombat) {
-        // Battle Zone units that are ready to strike if charged
-        const bzChargeNeeds = activeP.battleZone
-          .filter(u => u && !u.isExhausted && (u.charge || 0) < (u.chargeReq || 1))
-          .map(u => (u.chargeReq || 1) - (u.charge || 0))
-          .sort((a, b) => a - b);
-        // Hero skills that are ready to strike if charged
-        const skillChargeNeeds = (!activeP.hero.isExhausted)
-          ? activeP.skills
-              .filter(s => s && (s.charge || 0) < (s.chargeReq || 1))
-              .map(s => (s.chargeReq || 1) - (s.charge || 0))
-              .sort((a, b) => a - b)
-          : [];
-        const allNeeds = [...bzChargeNeeds, ...skillChargeNeeds].sort((a, b) => a - b);
-        const strikesToFund = Math.min(gameState.maxStrikes || 2, allNeeds.length);
-        for (let k = 0; k < strikesToFund; k++) {
-          manaNeededToFinishAttackers += allNeeds[k];
-        }
-      }
-
-      // 2. Calculate mana savings reserve for upcoming high-tier skills in hand (Level 2/3)
-      let manaSavingsReserve = 0;
-      const nextSkillInHand = activeP.hand.find(c => {
-        if (!c || c.type !== "Skill") return false;
-        const lvl = c.skillLevel || 1;
-        const slotIdx = lvl - 1;
-        return !activeP.skills[slotIdx] && (lvl === 1 || Boolean(activeP.skills[slotIdx - 1]));
-      });
-      if (nextSkillInHand && nextSkillInHand.manaCost > activeP.manaPool) {
-        if (diff === "HARD") {
-          manaSavingsReserve = Math.min(activeP.manaPool, Math.max(1, nextSkillInHand.manaCost - 2));
-        } else if (diff === "MEDIUM") {
-          manaSavingsReserve = Math.min(activeP.manaPool, Math.max(0, nextSkillInHand.manaCost - 3));
-        } else if (diff === "EASY") {
-          if (activeP.battleZone[0] !== null && Math.random() < 0.50) {
-            manaSavingsReserve = Math.min(activeP.manaPool, 1);
-          }
-        }
-      }
-
-      // 4. Deploy Allies (Selective Deployment: Never mana-starve attackers or skill savings unless Vanguard is empty)
-      const isVanguardEmpty = (activeP.battleZone[0] === null);
-      let affordableAllies = [];
-      activeP.hand.forEach((c, idx) => {
-        if (c && c.type === "Ally" && activeP.manaPool >= c.manaCost) {
-          affordableAllies.push({ card: c, originalIndex: idx });
-        }
-      });
+      // Post-Deployment Formation Optimization: Re-evaluate Battle Zone slots so newly deployed units are placed optimally (Vanguard/Flank/Rear)
       if (diff !== "EASY") {
-        affordableAllies.sort((a, b) => (b.card.manaCost || 0) - (a.card.manaCost || 0));
-      }
-
-      for (const item of affordableAllies) {
-        const c = item.card;
-        const currentIdx = activeP.hand.indexOf(c);
-        if (currentIdx === -1 || activeP.manaPool < c.manaCost) continue;
-
-        let bzSlot = activeP.battleZone.findIndex(x => x === null);
-        let benchSlot = activeP.bench.findIndex(x => x === null);
-        if (bzSlot === -1 && benchSlot === -1) continue;
-
-        const manaAfterPlay = activeP.manaPool - c.manaCost;
-        const vanguardNowEmpty = (activeP.battleZone[0] === null);
-
-        // If Vanguard is already occupied, deploying an additional ally is secondary:
-        // Do NOT spend mana if doing so would prevent charging ready attackers or wipe out savings for a skill!
-        if (!vanguardNowEmpty) {
-          const requiredReserve = (diff === "HARD") ? (manaNeededToFinishAttackers + manaSavingsReserve)
-                               : (diff === "MEDIUM") ? (manaNeededToFinishAttackers + Math.min(1, manaSavingsReserve))
-                               : (Math.random() < 0.50 ? manaNeededToFinishAttackers : 0);
-
-          if (manaAfterPlay < requiredReserve) {
-            continue; // Hold back to charge attackers and save for skills!
-          }
-          if (diff === "EASY" && Math.random() < 0.45) {
-            continue; // Easy holds back on spamming the board to save resources
-          }
-        }
-
-        let useBench = false;
-        if (bzSlot === -1 && benchSlot !== -1) {
-          useBench = true;
-        } else if (diff === "HARD" && bzSlot !== -1 && benchSlot !== -1) {
-          if (!vanguardNowEmpty && (c.chargeReq || 1) >= 2 && c.health <= 4 && manaAfterPlay < (c.chargeReq || 1)) {
-            useBench = true;
-          }
-        }
-
-        const targetSlot = useBench ? benchSlot : bzSlot;
-        if (targetSlot !== -1) {
-          await showActionShowcase({
-            card: c,
-            actionTag: useBench ? `${activeP.name.toUpperCase()} DEPLOYED TO BENCH` : `${activeP.name.toUpperCase()} DEPLOYED TO BATTLE ZONE`,
-            title: c.name,
-            description: `Summoned ${c.name} (${c.manaCost} Mana)`,
-            targetSlotId: useBench ? `p2-bench-${targetSlot}` : `p2-bz-${targetSlot}`,
-            duration: 1600
-          });
-          activeP.manaPool -= c.manaCost;
-          activeP.hand.splice(currentIdx, 1);
-          c.currentHealth = c.health;
-          c.charge = 0;
-          c.benchLocked = useBench;
-          c._justDeployed = true;
-          if (useBench) activeP.bench[targetSlot] = c;
-          else activeP.battleZone[targetSlot] = c;
-          addLogEntry(`${activeP.name} deployed <strong>${c.name}</strong> to the ${useBench ? 'Bench' : 'Battle Zone'}.`);
-          await executeHook(c, 'onPlay', { triggerPlayer: activeP });
-          renderAll();
-        }
-      }
-
-      // Hard Mode Vanguard Optimization: Ensure Inspiring Commander is in Vanguard (slot 0) or tankiest unit is in Vanguard
-      if (diff === "HARD") {
-        const cmdIdx = activeP.battleZone.findIndex(u => u && u.id === "inspiring_commander");
-        if (cmdIdx > 0) {
-          const temp = activeP.battleZone[0];
-          activeP.battleZone[0] = activeP.battleZone[cmdIdx];
-          activeP.battleZone[cmdIdx] = temp;
-        } else if (activeP.battleZone[0] && activeP.battleZone[1]) {
-          // If slot 0 is a fragile support unit and slot 1 is much tankier, swap them
-          const u0 = activeP.battleZone[0];
-          const u1 = activeP.battleZone[1];
-          if (u0.currentHealth <= 3 && u1.currentHealth >= u0.currentHealth + 2) {
-            activeP.battleZone[0] = u1;
-            activeP.battleZone[1] = u0;
-          }
-        }
+        await manageAIFormation(gameState.activePlayerIndex, diff, 'post_deploy');
       }
 
       // 5. Equip Equipment (Smart target selection on Medium / Hard, respecting class/race restrictions)
@@ -14348,8 +14718,9 @@ function checkAIAction() {
         }
       }
 
-      // 6. Healing Flash Items in Command Phase if damaged (Medium / Hard)
-      if (diff !== "EASY") {
+      // 6. Healing Flash Items in Command Phase if damaged (Medium only)
+      // Hard Mode AI hoards Items and Gold for the Combat Phase stack over-heal!
+      if (diff === "MEDIUM") {
         for (let i = activeP.hand.length - 1; i >= 0; i--) {
           const c = activeP.hand[i];
           if (c && c.type === "Flash" && (c.id === "small_healing_potion" || c.id === "favars_elixir") && activeP.gold >= (c.goldCost || 0)) {
@@ -14371,14 +14742,17 @@ function checkAIAction() {
 
       // 7. Spend leftover mana charging units/skills/equipment
       if (diff === "EASY") {
-        while (activeP.manaPool > manaSavingsReserve) {
+        while (activeP.manaPool > 0) {
           let chargeables = [];
           // Prioritize Battle Zone allies and Hero Skills first so attacks are enabled, then bench
           [...activeP.battleZone, ...activeP.skills, ...activeP.bench, ...activeP.hero.equipment].forEach(u => {
-            if (u && u.chargeReq !== undefined && (u.charge || 0) < u.chargeReq) chargeables.push(u);
+            if (u && u.chargeReq !== undefined) {
+              const targetCharge = getUnitOptimalChargeTarget(u, activeP);
+              if ((u.charge || 0) < targetCharge) chargeables.push({ unit: u, targetCharge });
+            }
           });
           if (chargeables.length > 0) {
-            let t = chargeables[0];
+            let t = chargeables[0].unit;
             t.charge = (t.charge || 0) + 1;
             activeP.manaPool -= 1;
           } else {
@@ -14392,19 +14766,49 @@ function checkAIAction() {
         if (!isFirstTurnSkipCombat) {
           let activeCandidates = [];
           activeP.battleZone.forEach(u => {
-            if (u && !u.isExhausted && u.chargeReq !== undefined && (u.charge || 0) < u.chargeReq) {
-              activeCandidates.push({ unit: u, need: u.chargeReq - (u.charge || 0), priority: estimateCardExpectedDamage(u, activeP) });
+            if (u && !u.isExhausted && u.chargeReq !== undefined) {
+              const targetCharge = getUnitOptimalChargeTarget(u, activeP);
+              if ((u.charge || 0) < targetCharge) {
+                let priority = estimateCardExpectedDamage(u, activeP);
+                if (u.attackType === "Ranged") {
+                  const accProb = calculateAccuracyProbability(u, activeP);
+                  if (diff === "HARD" && accProb < 0.50) {
+                    // Dexterity-Weighted Risk Assessment: Don't gamble precious mana/charge on sub-50% accuracy!
+                    priority *= 0.35;
+                  } else {
+                    priority *= accProb;
+                  }
+                }
+                activeCandidates.push({ unit: u, need: targetCharge - (u.charge || 0), targetCharge, priority });
+              }
             }
           });
           if (!activeP.hero.isExhausted) {
             activeP.skills.forEach(s => {
-              if (s && s.chargeReq !== undefined && (s.charge || 0) < s.chargeReq) {
-                activeCandidates.push({ unit: s, need: s.chargeReq - (s.charge || 0), priority: estimateCardExpectedDamage(s, activeP) + (s.skillLevel || 1) });
+              if (s && s.chargeReq !== undefined) {
+                const targetCharge = getUnitOptimalChargeTarget(s, activeP);
+                if ((s.charge || 0) < targetCharge) {
+                  let priority = estimateCardExpectedDamage(s, activeP) + (s.skillLevel || 1) * 15;
+                  if (s.name === "Tsunami" || s.id === "Skill_Tsunami" || s.id === "skill_tsunami") {
+                    priority += 35; // Tsunami is a game-ending multi-strike board wiper!
+                  }
+                  if (s.attackType === "Ranged") {
+                    const accProb = calculateAccuracyProbability(s, activeP);
+                    if (diff === "HARD" && accProb < 0.50) {
+                      priority *= 0.35;
+                    } else {
+                      priority *= accProb;
+                    }
+                  }
+                  activeCandidates.push({ unit: s, need: targetCharge - (s.charge || 0), targetCharge, priority });
+                }
               }
             });
           }
-          // Sort by fewest charge needed first (if affordable), then highest expected damage
+          // Sort by highest priority first (favoring high-tier skills and key attackers), then fewest charge needed
           activeCandidates.sort((a, b) => {
+            if (b.priority >= a.priority + 8) return 1;
+            if (a.priority >= b.priority + 8) return -1;
             const aCanFinish = a.need <= activeP.manaPool ? 1 : 0;
             const bCanFinish = b.need <= activeP.manaPool ? 1 : 0;
             if (aCanFinish !== bCanFinish) return bCanFinish - aCanFinish;
@@ -14413,7 +14817,8 @@ function checkAIAction() {
           });
 
           for (const cand of activeCandidates) {
-            while (activeP.manaPool > 0 && (cand.unit.charge || 0) < cand.unit.chargeReq) {
+            const cap = cand.targetCharge || cand.unit.chargeReq || 1;
+            while (activeP.manaPool > 0 && (cand.unit.charge || 0) < cap) {
               cand.unit.charge = (cand.unit.charge || 0) + 1;
               activeP.manaPool -= 1;
             }
@@ -14435,20 +14840,36 @@ function checkAIAction() {
         // Priority 3: Activate Command Phase Abilities (e.g. Comrade's Call, Essence Wellspring, Astute Cleric, Scroll-Bound Peddler)
         await aiTryActivateAbilities(activeP, "COMMAND", diff);
 
-        // Priority 4: Invest any remaining Mana into Bench Allies or partially charged Skills
-        // CRITICAL: Respect manaSavingsReserve so AI accumulates mana for high-tier skills!
-        while (activeP.manaPool > manaSavingsReserve) {
+        // Priority 4: Secondary Charging for all difficulty levels
+        // Hard Mode banks at most 1 unallocated Mana if it has surplus, and spends the rest charging high-tier skills and board allies!
+        const maxBank = (diff === "HARD" && activeP.manaPool >= 3) ? 1 : 0;
+        while (activeP.manaPool > maxBank) {
           let secondary = [];
           [...activeP.skills, ...activeP.battleZone, ...activeP.bench, ...allEquip].forEach(u => {
-            if (u && u.chargeReq !== undefined && (u.charge || 0) < u.chargeReq) secondary.push(u);
+            if (u && u.chargeReq !== undefined) {
+              const targetCharge = getUnitOptimalChargeTarget(u, activeP);
+              if ((u.charge || 0) < targetCharge) secondary.push({ unit: u, targetCharge });
+            }
           });
           if (secondary.length > 0) {
-            secondary.sort((a, b) => ((a.chargeReq || 1) - (a.charge || 0)) - ((b.chargeReq || 1) - (b.charge || 0)));
-            secondary[0].charge = (secondary[0].charge || 0) + 1;
+            secondary.sort((a, b) => {
+              const aSkillBonus = (a.unit.type === "Skill") ? (a.unit.skillLevel || 1) * 8 : 0;
+              const bSkillBonus = (b.unit.type === "Skill") ? (b.unit.skillLevel || 1) * 8 : 0;
+              const aTsunami = (a.unit.name === "Tsunami" || a.unit.id === "Skill_Tsunami" || a.unit.id === "skill_tsunami") ? 35 : 0;
+              const bTsunami = (b.unit.name === "Tsunami" || b.unit.id === "Skill_Tsunami" || b.unit.id === "skill_tsunami") ? 35 : 0;
+              const aRem = a.targetCharge - (a.unit.charge || 0);
+              const bRem = b.targetCharge - (b.unit.charge || 0);
+              return (bSkillBonus + bTsunami - bRem) - (aSkillBonus + aTsunami - aRem);
+            });
+            secondary[0].unit.charge = (secondary[0].unit.charge || 0) + 1;
             activeP.manaPool -= 1;
           } else {
             break;
           }
+        }
+
+        if (diff === "HARD" && activeP.manaPool > 0) {
+          addLogEntry(`<span style="color:#38bdf8; font-weight:bold;">[AI TACTIC]</span> ${activeP.name} banks ${activeP.manaPool} unallocated Mana for future high-impact turns.`);
         }
       }
 
@@ -14537,34 +14958,40 @@ function checkAIAction() {
                       if (i === j) continue;
                       const att1 = attackers[i];
                       const att2 = attackers[j];
+                      if (att1.type === 'skill' && att2.type === 'skill') continue; // Hero cannot strike twice in one turn!
                       const dmg1 = Math.max(0, estimateCardExpectedDamage(att1.card, activeP) - vDef);
                       const dmg2 = Math.max(0, estimateCardExpectedDamage(att2.card, activeP) - vDef);
+                      const att1Power = getStat((att1.type === 'skill' ? activeP.hero : att1.card), 'power', activeP) || 0;
+                      const att2Power = getStat((att2.type === 'skill' ? activeP.hero : att2.card), 'power', activeP) || 0;
+                      const att1HasMulti = att1.card.strikeType === "Multi" || checkKeyword(att1.card, activeP, "multiStrike");
+                      const att2HasMulti = att2.card.strikeType === "Multi" || checkKeyword(att2.card, activeP, "multiStrike");
                       const att2HasStrike2 = (getStrikeTriggerVal(att2.card) === 2);
                       const att1HasStrike2 = (getStrikeTriggerVal(att1.card) === 2);
                       if (att1HasStrike2) continue; // att1 shouldn't waste its Strike 2 bonus on Strike 1
 
-                      // Scheme Plan A: Soften Vanguard for Devastating Breakthrough on Strike 2
-                      // att1 deals good damage without killing, leaving Vanguard at 1-4 HP.
-                      // att2 deals heavy damage (> remaining HP), unleashing massive Breakthrough to Hero (or forcing Hero Intervention)!
+                      // Scheme Plan A (Advanced Strike Sequencing): Low-damage or Multi-Strike unit clears Vanguard / strips Defense on Strike 1
+                      // -> High-Power single-strike Ally attacks on Strike 2, unleashing full unmitigated Direct Assault / Breakthrough on the enemy Hero!
+                      if (dmg1 >= vHP) {
+                          const att2HeroDmg = Math.max(0, estimateCardExpectedDamage(att2.card, activeP) - heroDef);
+                          const isAtt2Heavier = estimateCardExpectedDamage(att2.card, activeP) >= estimateCardExpectedDamage(att1.card, activeP);
+                          const score = 170 + (att2HeroDmg * 15) + (att2Power * 12) + (att1HasMulti ? 25 : 0) + (isAtt2Heavier ? 35 : 0);
+                          schemes.push({ att1, att2, type: 'CLEAR_THEN_HERO', score });
+                      }
+
+                      // Scheme Plan B (Breakthrough Setup): Strip Defense & Soften Vanguard on Strike 1
+                      // -> High-Power single-strike Ally attacks on Strike 2, pushing maximum unmitigated Breakthrough into the enemy Hero!
                       if (dmg1 > 0 && dmg1 < vHP && (vHP - dmg1) <= 4) {
                           const remHP = vHP - dmg1;
-                          if (dmg2 >= remHP + 2 || att2HasStrike2) {
+                          if (dmg2 > remHP || att2HasStrike2) {
                               const projectedBreakthrough = Math.max(0, (dmg2 - remHP) - heroDef);
-                              const score = 100 + (projectedBreakthrough * 15) + dmg1 + (att2HasStrike2 ? 25 : 0);
+                              const score = 145 + (projectedBreakthrough * 22) + (att2Power * 12) + (att2HasStrike2 ? 25 : 0);
                               schemes.push({ att1, att2, type: 'BREAKTHROUGH_SETUP', score, remHP, breakthrough: projectedBreakthrough });
                           }
                       }
 
-                      // Scheme Plan B: Clear Vanguard on Strike 1 -> Unleash Full Hit on Hero on Strike 2
-                      // att1 kills Vanguard cleanly, leaving the Battle Zone empty for att2's heavy strike directly on Hero!
-                      if (dmg1 >= vHP && estimateCardExpectedDamage(att2.card, activeP) >= estimateCardExpectedDamage(att1.card, activeP)) {
-                          const score = 90 + (dmg2 * 10) + (att2HasStrike2 ? 25 : 0);
-                          schemes.push({ att1, att2, type: 'CLEAR_THEN_HERO', score });
-                      }
-
                       // Scheme Plan C: Strike 2 Advantage/Crit Trigger (e.g. Pummel)
                       if (att2HasStrike2 && !att1HasStrike2) {
-                          const score = 80 + dmg1 + dmg2;
+                          const score = 100 + dmg1 + dmg2 + 25;
                           schemes.push({ att1, att2, type: 'STRIKE_2_TRIGGER', score });
                       }
                   }
@@ -14585,8 +15012,10 @@ function checkAIAction() {
 
           if (chosenScheme) {
               aInfo = chosenScheme.att1;
-              if (chosenScheme.type === 'BREAKTHROUGH_SETUP') {
-                  addLogEntry(`<span style="color:#a855f7; font-weight:bold;">[AI TACTIC]</span> ${activeP.name} schemes: striking with <strong>${chosenScheme.att1.card.name}</strong> to soften Vanguard for a Breakthrough on Strike 2!`);
+              if (chosenScheme.type === 'CLEAR_THEN_HERO') {
+                  addLogEntry(`<span style="color:#a855f7; font-weight:bold;">[AI TACTIC]</span> ${activeP.name} sequences strikes: clearing Vanguard with <strong>${chosenScheme.att1.card.name}</strong> on Strike 1 to unleash a massive Direct Assault on the Hero with <strong>${chosenScheme.att2.card.name}</strong> on Strike 2!`);
+              } else if (chosenScheme.type === 'BREAKTHROUGH_SETUP') {
+                  addLogEntry(`<span style="color:#a855f7; font-weight:bold;">[AI TACTIC]</span> ${activeP.name} sequences strikes: striking with <strong>${chosenScheme.att1.card.name}</strong> to soften Vanguard for a devastating Breakthrough on Strike 2!`);
               }
           } else if (diff === "EASY") {
               // Easy: if strikesRemaining === 1 and Vanguard is low HP (<= 4), 60% chance to pick heaviest attacker to finish it off
@@ -14600,6 +15029,18 @@ function checkAIAction() {
               // Medium / Hard general attacker scoring (taking into account strike count bonuses and finishing blows)
               const scoredAttackers = attackers.map(att => {
                   let score = estimateCardExpectedDamage(att.card, activeP);
+                  if (att.type === 'skill') {
+                      // Heavy priority boost for high-tier skills (Level 3 > Level 2 > Level 1)!
+                      score += (att.card.skillLevel || 1) * 20;
+                  }
+                  if (att.card.attackType === "Ranged") {
+                      const accProb = calculateAccuracyProbability(att.card, activeP);
+                      if (diff === "HARD" && accProb < 0.50) {
+                          score *= 0.4; // Dexterity-Weighted Risk Assessment: down-weight sub-50% gamble
+                      } else {
+                          score *= accProb;
+                      }
+                  }
                   const strikeTrig = getStrikeTriggerVal(att.card);
                   if (strikeTrig === nextStrikeNum) {
                       score += 30; // Big bonus for matching Strike 2 or Strike 3!
@@ -14667,23 +15108,59 @@ function checkAIAction() {
                       let choice = validTargets[Math.floor(Math.random() * validTargets.length)];
                       targetType = choice.t; targetSlot = choice.s; targetUnit = choice.u;
                   } else {
+                      const accProb = calculateAccuracyProbability(aInfo.card, activeP);
+                      const oppVanguardIndex = opp.battleZone.findIndex(s => s !== null);
+
                       // Score ranged targets on Medium / Hard
                       validTargets.sort((a, b) => {
                           const scoreTarget = (cand) => {
                               const u = cand.u;
+                              const isVanguard = (cand.t === 'bz' && cand.s === oppVanguardIndex);
+                              const uHP = u.currentHealth;
+                              const uDef = getStat(u, 'defense', opp) || 0;
+                              const netDmg = Math.max(0, expectedDmg - uDef);
+                              const lethal = netDmg >= uHP;
+
                               if (cand.t === 'hero') {
-                                  if (u.currentHealth <= expectedDmg) return 1000; // Lethal on Hero!
-                                  return 45 + (25 - u.currentHealth);
+                                  if (uHP <= netDmg) return 2000; // Lethal on Hero wins game!
+                                  return (70 + (30 - uHP)) * accProb;
                               }
-                              let s = 20;
-                              // Can kill this ally in one hit!
-                              if (u.currentHealth <= expectedDmg) s += 55 + (u.manaCost || 2) * 5;
+
+                              if (isVanguard) {
+                                  // Ranged Breakthrough Negation:
+                                  // The rules state that excess damage from Ranged attacks is completely negated if it hits a Slot 2, Slot 3, or Benched unit,
+                                  // but spills over to the Hero if it hits the Vanguard!
+                                  let breakthrough = 0;
+                                  if (lethal) {
+                                      const rawExcess = netDmg - uHP;
+                                      const heroDef = getStat(opp.hero, 'defense', opp) || 0;
+                                      breakthrough = Math.max(0, rawExcess - heroDef);
+                                  }
+                                  let s = 50 + (lethal ? 60 : netDmg * 8) + (breakthrough * 25);
+                                  if (breakthrough >= opp.hero.currentHealth) return 1950;
+                                  return s * accProb;
+                              }
+
+                              // Non-Vanguard (Rear slot 2/3 or Bench):
+                              // Ranged Breakthrough Negation: Excess damage is COMPLETELY NEGATED!
+                              let s = 30;
+                              if (lethal) {
+                                  s += 55 + (u.manaCost || 2) * 5;
+                                  // High threat bonus
+                                  if ((u.charge || 0) >= (u.chargeReq || 1)) s += 25;
+                                  if (u.mechanics?.activatedAbilities?.length || u.mechanics?.staticModifiers?.length) s += 20;
+                                  // If we are massively overkilling a low-HP benched unit with high-damage ranged attack,
+                                  // excess damage disappears completely! Penalize the waste so high-damage ranged attacks target Vanguard!
+                                  const wastedDmg = Math.max(0, netDmg - uHP);
+                                  if (wastedDmg >= 3) {
+                                      s -= wastedDmg * 12;
+                                  }
+                              } else {
+                                  s += netDmg * 5;
+                              }
                               // Melee allies CANNOT counterstrike Ranged attacks! Free damage!
                               if (u.attackType === "Melee" || u.isExhausted || (u.charge || 0) < (u.chargeReq || 1)) s += 20;
-                              // High threat charged enemy ally
-                              if ((u.charge || 0) >= (u.chargeReq || 1)) s += 15;
-                              if (u.mechanics?.activatedAbilities?.length || u.mechanics?.staticModifiers?.length) s += 12;
-                              return s;
+                              return s * accProb;
                           };
                           return scoreTarget(b) - scoreTarget(a);
                       });
@@ -14761,6 +15238,11 @@ function checkAIAction() {
       }
       setTimeout(advancePhase, 800);
     }
+  } catch (err) {
+    console.error("Critical error in checkAIAction:", err);
+    renderAll();
+    setTimeout(advancePhase, 1000);
+  }
   }, 800);
 }
 
