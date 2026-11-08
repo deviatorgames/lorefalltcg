@@ -6082,8 +6082,15 @@ function getSpecificAbilityText(card, ability) {
     return passiveChunks.join('<br><br>'); // Fallback
 }
 
-async function showPassivePopup(card, text) {
+async function showPassivePopup(card, text, fromNetwork = false) {
     if (gameState.gameMode === "TUTORIAL" || gameState.gameMode === "INDEPTH_TUTORIAL") return;
+    if (onlineSession.active && !fromNetwork) {
+        sendOnlineBroadcast({
+            type: 'UI_PASSIVE_POPUP',
+            cardName: card?.name || 'Card',
+            text: text
+        });
+    }
     const popup = document.createElement('div');
     popup.style.position = 'fixed';
     popup.style.top = '20%';
@@ -6119,12 +6126,33 @@ async function showPassivePopup(card, text) {
     setTimeout(() => { popup.style.transform = 'translate(-50%, -50%) scale(1)'; popup.style.opacity = '1'; }, 10);
     
     return new Promise(resolve => {
+        let timer = null;
+        if (fromNetwork) {
+            timer = setTimeout(() => {
+                popup.style.transform = 'translate(-50%, -50%) scale(0.8)';
+                popup.style.opacity = '0';
+                setTimeout(() => { popup.remove(); resolve(); }, 300);
+            }, 3000);
+        }
         document.getElementById(btnId).onclick = () => {
+            if (timer) clearTimeout(timer);
             popup.style.transform = 'translate(-50%, -50%) scale(0.8)'; 
             popup.style.opacity = '0';
             setTimeout(() => { popup.remove(); resolve(); }, 300);
         };
     });
+}
+
+function resolveUnitFromTargetInfo(info) {
+  if (!info || !gameState || !gameState.players) return null;
+  const p = gameState.players[info.playerIndex];
+  if (!p) return null;
+  if (info.targetType === 'hero') return p.hero;
+  if (info.targetType === 'bz') return p.battleZone ? p.battleZone[info.targetSlot] : null;
+  if (info.targetType === 'bench') return p.bench ? p.bench[info.targetSlot] : null;
+  if (info.targetType === 'skill') return p.skills ? p.skills[info.targetSlot] : null;
+  if (info.targetType === 'ally') return (p.battleZone && p.battleZone[info.targetSlot]) || (p.bench && p.bench[info.targetSlot]) || null;
+  return null;
 }
 
 /* =========================================================================
@@ -6336,6 +6364,10 @@ async function executeHook(card, eventType, context) {
           
           // Pre-fetch target if needed so conditions can evaluate it properly
           let targetedUnit = context.targetUnit || null;
+          if (!targetedUnit && context.targetInfo) {
+              targetedUnit = resolveUnitFromTargetInfo(context.targetInfo);
+              if (targetedUnit) context.targetUnit = targetedUnit;
+          }
           if (!targetedUnit) {
               let requiresBoardTarget = false;
               let reqType = "targetCharacter";
@@ -6368,7 +6400,7 @@ async function executeHook(card, eventType, context) {
                       addLogEntry(`<strong>${card.name}</strong> triggered, but there are no valid targets on the board.`);
                       return;
                   }
-                  if (context.triggerPlayer.isAI) {
+                  if (context.triggerPlayer.isAI || (onlineSession.active && context.triggerPlayer.index !== onlineSession.myPlayerIndex)) {
                       targetedUnit = selectAITarget(context.triggerPlayer, card, matchingEffect, reqType);
                       if (!targetedUnit) return;
                       context.targetUnit = targetedUnit;
@@ -6550,7 +6582,9 @@ async function executeEffect(effect, sourceCard, context, preResolvedTargets = n
       if (targets.length === 0 && sourceCard.type === "Skill") targets = [p.hero];
   }
   else if (isBoardTargetType(targetType)) {
-    if (p.isAI) {
+    if (context.targetUnit) {
+      targets = [context.targetUnit];
+    } else if (p.isAI || (onlineSession.active && p.index !== onlineSession.myPlayerIndex)) {
       const aiChosen = selectAITarget(p, sourceCard, effect, targetType);
       if (!aiChosen) return;
       targets = [aiChosen];
@@ -6680,7 +6714,12 @@ async function applyEffectAction(effect, targets, sourceCard, context) {
   }
   
   if (effect.action === "chooseOne") {
-     if (context.triggerPlayer.isAI) {
+     if (context.chosenChoiceIdx !== undefined && effect.choices[context.chosenChoiceIdx]) {
+       const chosenEffect = effect.choices[context.chosenChoiceIdx];
+       await executeEffect(chosenEffect, sourceCard, context, context.targetUnit ? [context.targetUnit] : null);
+       return;
+     }
+     if (context.triggerPlayer.isAI || (onlineSession.active && context.triggerPlayer.index !== onlineSession.myPlayerIndex)) {
        const p = context.triggerPlayer;
        let chosenEffect = effect.choices[0];
        const unchargedTargets = [...p.battleZone.filter(u => u !== null), ...p.skills.filter(s => s !== null)]
@@ -8928,6 +8967,8 @@ function handleHostNetworkEvent(payload) {
     }
   } else if (payload.type === 'UI_ROLL_ANIMATION') {
     performAnimatedRoll(payload.title, payload.text, payload.finalRoll, payload.modifier, payload.targetVal, payload.forceWin, payload.rollDetails, payload.rollerIndex, true);
+  } else if (payload.type === 'UI_PASSIVE_POPUP') {
+    showPassivePopup({ name: payload.cardName }, payload.text, true);
   } else if (payload.type === 'SURRENDER') {
     const surrIdx = payload.playerIndex !== undefined ? payload.playerIndex : 1;
     const surrP = gameState.players[surrIdx];
@@ -9061,6 +9102,8 @@ function handleChallengerNetworkEvent(payload) {
     }
   } else if (payload.type === 'UI_ROLL_ANIMATION') {
     performAnimatedRoll(payload.title, payload.text, payload.finalRoll, payload.modifier, payload.targetVal, payload.forceWin, payload.rollDetails, payload.rollerIndex, true);
+  } else if (payload.type === 'UI_PASSIVE_POPUP') {
+    showPassivePopup({ name: payload.cardName }, payload.text, true);
   } else if (payload.type === 'SURRENDER') {
     const surrIdx = payload.playerIndex !== undefined ? payload.playerIndex : 0;
     const surrP = gameState.players[surrIdx];
@@ -9865,7 +9908,7 @@ async function handleChallengerAction(payload) {
   const action = payload.action;
   if (action === 'advancePhase') {
     if (isPlayerActiveTurn(pIdx)) {
-      await advancePhase();
+      await advancePhase(false, pIdx);
       broadcastOnlineState();
     }
   } else if (action === 'playAlly') {
@@ -9912,7 +9955,7 @@ async function handleChallengerAction(payload) {
       broadcastOnlineState();
     }
   } else if (action === 'playFlash') {
-    await playFlashCard(p1, payload.cardIndex);
+    await playFlashCard(p1, payload.cardIndex, { chosenChoiceIdx: payload.chosenChoiceIdx, targetInfo: payload.targetInfo });
     broadcastOnlineState();
   } else if (action === 'modifyCharge') {
     const targetOwnerIdx = payload.targetOwnerIndex !== undefined ? payload.targetOwnerIndex : pIdx;
@@ -12934,10 +12977,10 @@ async function setPhase(phaseName) {
   checkAIAction();
 }
 
-async function advancePhase(fromAI = false) {
+async function advancePhase(fromAI = false, fromNetworkPlayerIndex = null) {
   const activeP = gameState.players[gameState.activePlayerIndex];
   const isBotTurn = Boolean(activeP && activeP.isAI);
-  if (onlineSession.active) {
+  if (onlineSession.active && fromNetworkPlayerIndex === null) {
     if (!fromAI && !(isBotTurn && onlineSession.role === 'HOST') && !isPlayerActiveTurn(onlineSession.myPlayerIndex)) {
       showToast("It is not your turn!");
       return;
@@ -13164,11 +13207,7 @@ async function playCardFromHand(cardIndex) {
   const currentPhase = PHASES[gameState.currentPhaseIndex]; const card = p.hand[cardIndex]; if (!card) return;
   
   if (card.type === "Flash") {
-    if (onlineSession.active && onlineSession.role !== 'HOST') {
-      sendOnlineBroadcast({ type: 'CLIENT_ACTION', playerIndex: myIdx, action: 'playFlash', cardIndex });
-      return;
-    }
-    await playFlashCard(p, cardIndex);
+    await promptPlayFlash(p, cardIndex);
     return;
   }
   if (currentPhase !== "COMMAND") { showToast("You can only play cards during Command Phase!"); return; }
@@ -13202,7 +13241,96 @@ async function playCardFromHand(cardIndex) {
   }
 }
 
-async function playFlashCard(player, cardIndex) {
+async function promptPlayFlash(player, cardIndex) {
+  const card = player.hand[cardIndex];
+  if (!card) return;
+  const isItem = card.subtype === "Item" || (card.subtype !== "Event" && card.goldCost !== undefined);
+  const isEvent = card.subtype === "Event" || (card.subtype !== "Item" && card.manaCost !== undefined && card.goldCost === undefined);
+  const reqGold = Number(card.goldCost) || 0;
+  const reqMana = Number(card.manaCost) || 0;
+  if (isItem && player.gold < reqGold) { showToast("Not enough Gold for Item!"); return; }
+  if (isEvent && player.manaPool < reqMana) { showToast("Not enough Mana for Flash Action!"); return; }
+
+  let chosenChoiceIdx = undefined;
+  let targetInfo = null;
+
+  // 1. Check for chooseOne
+  const chooseOneAbility = card.mechanics?.passiveAbilities?.find(a => a.effect && a.effect.action === "chooseOne");
+  if (chooseOneAbility) {
+    const effect = chooseOneAbility.effect;
+    const choices = effect.choices.map((choice, idx) => {
+      let text = `Option ${idx + 1}`;
+      if (choice.action === "resourceGain") text = `Gain ${choice.amount} ${choice.type}`;
+      if (choice.action === "addCharge") text = `+${choice.amount} Charge to ${choice.target === 'targetSkill' ? 'Skill' : 'Ally'}`;
+      if (choice.action === "searchDeck") text = `Search Loot Deck`;
+      return { text: text, value: idx };
+    });
+    choices.push({ text: "Cancel", value: null });
+    const abilityText = card.abilities || "Choose an effect for this card.";
+    const selectedIdx = await showModalAsync(`Activating: ${card.name}`, `<strong>Ability:</strong> <i>${abilityText}</i><br><br>Choose an option:`, choices);
+    if (selectedIdx === null || selectedIdx === undefined) return;
+    chosenChoiceIdx = selectedIdx;
+
+    const chosenSubEffect = effect.choices[chosenChoiceIdx];
+    if (chosenSubEffect && isBoardTargetType(chosenSubEffect.target)) {
+      if (!hasValidBoardTarget(player, chosenSubEffect.target)) {
+        showToast("No valid targets on the board!");
+        return;
+      }
+      const chosenUnit = await new Promise(res => {
+        promptForBoardTarget(player, `Select a target for ${card.name}.`, (tP, tType, tSlot, tUnit) => {
+          if (tUnit && tP) {
+            targetInfo = { playerIndex: tP.index, targetType: tType, targetSlot: tSlot };
+          }
+          res(tUnit);
+        }, card, chosenSubEffect.target);
+      });
+      if (!chosenUnit) return;
+    }
+  } else {
+    // 2. Check if card has an onPlay ability requiring a board target
+    let reqType = null;
+    if (card.mechanics?.passiveAbilities) {
+      for (const ability of card.mechanics.passiveAbilities) {
+        if (ability.trigger === "onPlay" && ability.effect) {
+          if (isBoardTargetType(ability.effect.target)) reqType = ability.effect.target;
+          else if (ability.effect.successEffect && isBoardTargetType(ability.effect.successEffect.target)) reqType = ability.effect.successEffect.target;
+        }
+      }
+    }
+    if (reqType) {
+      if (!hasValidBoardTarget(player, reqType)) {
+        showToast("No valid targets on the board!");
+        return;
+      }
+      const chosenUnit = await new Promise(res => {
+        promptForBoardTarget(player, `Select a target for ${card.name}.`, (tP, tType, tSlot, tUnit) => {
+          if (tUnit && tP) {
+            targetInfo = { playerIndex: tP.index, targetType: tType, targetSlot: tSlot };
+          }
+          res(tUnit);
+        }, card, reqType);
+      });
+      if (!chosenUnit) return;
+    }
+  }
+
+  if (onlineSession.active && onlineSession.role !== 'HOST') {
+    sendOnlineBroadcast({
+      type: 'CLIENT_ACTION',
+      playerIndex: player.index,
+      action: 'playFlash',
+      cardIndex: cardIndex,
+      chosenChoiceIdx: chosenChoiceIdx,
+      targetInfo: targetInfo
+    });
+    return;
+  }
+
+  await playFlashCard(player, cardIndex, { chosenChoiceIdx, targetInfo });
+}
+
+async function playFlashCard(player, cardIndex, networkData = null) {
   const card = player.hand[cardIndex];
   if (!card) return;
   const isItem = card.subtype === "Item" || (card.subtype !== "Event" && card.goldCost !== undefined);
@@ -13218,7 +13346,15 @@ async function playFlashCard(player, cardIndex) {
   if (isItem) player.gold -= reqGold; else player.manaPool -= reqMana;
   player.hand.splice(cardIndex, 1); player.discard.push(card);
   
-  await executeHook(card, 'onPlay', { triggerPlayer: player });
+  const context = { triggerPlayer: player };
+  if (networkData) {
+    if (networkData.chosenChoiceIdx !== undefined) context.chosenChoiceIdx = networkData.chosenChoiceIdx;
+    if (networkData.targetInfo) {
+      context.targetInfo = networkData.targetInfo;
+      context.targetUnit = resolveUnitFromTargetInfo(networkData.targetInfo);
+    }
+  }
+  await executeHook(card, 'onPlay', context);
   renderAll();
   if (typeof onTutorialAction === 'function') onTutorialAction('FLASH_PLAYED', { card });
   if (onlineSession.active) {
@@ -13704,7 +13840,7 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
     return true;
   };
 
-  if (defenderPlayer.isAI || gameState.gameMode === "TUTORIAL") { 
+  if (defenderPlayer.isAI || gameState.gameMode === "TUTORIAL" || (onlineSession.active && defenderPlayer.index !== onlineSession.myPlayerIndex)) { 
       const diff = gameState.aiDifficulty || "MEDIUM";
       let finalTargetType = tType;
       let finalTargetSlot = tSlot;
@@ -14219,7 +14355,7 @@ async function openFlashStackMenuAsync(player) {
   let chosenI = await showModalAsync("Interrupt Action", "Select a Flash card or Ability to interrupt:", modalActs);
   if (chosenI !== -1) {
       let choice = acts[chosenI];
-      if (choice.actionType === 'flash') await playFlashCard(player, choice.idx);
+      if (choice.actionType === 'flash') await promptPlayFlash(player, choice.idx);
       else await window.activateSpecificAbility(player.index, choice.zone, choice.slot, choice.abIdx, choice.eqIdx);
   }
 }
