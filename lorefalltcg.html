@@ -8884,8 +8884,102 @@ function joinOnlineRoom() {
   });
 }
 
+function handleCommonOnlineUIEvents(payload) {
+  if (!payload || !payload.type) return false;
+  if (payload.type === 'UI_PHASE_CHANGE') {
+    if (payload.phaseName) {
+      showToast("Phase Shift: " + payload.phaseName + " PHASE");
+    }
+    return true;
+  }
+  if (payload.type === 'UI_ACTION_SHOWCASE') {
+    const actingPlayer = (gameState && gameState.players) ? gameState.players[payload.playerIndex] : null;
+    const actingName = actingPlayer ? actingPlayer.name : 'Opponent';
+    showActionShowcase({
+      card: payload.card,
+      actionTag: `${actingName.toUpperCase()} ACTION`,
+      title: payload.title || payload.card?.name,
+      description: payload.description,
+      targetSlotId: payload.targetSlotId,
+      isLocalPlayer: false
+    });
+    return true;
+  }
+  if (payload.type === 'UI_ACTION_SHOWCASE_ACK') {
+    dismissActionShowcase(true);
+    return true;
+  }
+  if (payload.type === 'UI_PROMPT_DEFENDER') {
+    const opp = (gameState && gameState.players) ? gameState.players[payload.targetPlayerIndex] : null;
+    if (opp) {
+      let targetUnit = (payload.tType === 'hero') ? opp.hero : (payload.tType === 'bz' ? opp.battleZone[payload.tSlot] : opp.bench[payload.tSlot]);
+      if (targetUnit) {
+        promptDefenderDeclarationAsync(payload.aInfo, opp, payload.tType, payload.tSlot, targetUnit);
+      }
+    }
+    return true;
+  }
+  if (payload.type === 'UI_DEFENDER_RESPONSE') {
+    setupClashContext(payload.aInfo, payload.defenderPlayerIndex, payload.tType, payload.tSlot, payload.isCounter, payload.heroCounterAsset, payload.defActiveWeapons, payload.strikeNum);
+    showModalAsync("Defender Response", `<div style="text-align:center; font-size:1.2rem; padding: 10px;">${payload.msg}</div>`, [{ text: "Enter Clash Arena", value: true }]).then(() => {
+      renderClashScreen();
+    });
+    return true;
+  }
+  if (payload.type === 'UI_ATTACK_ROLL_DONE') {
+    if (currentClash) {
+      currentClash.atkDamage = payload.atkDamage;
+      currentClash.atkHit = payload.atkHit;
+      currentClash.isCrit = payload.isCrit;
+      if (payload.strikesUsed !== undefined) {
+        gameState.strikesUsed = payload.strikesUsed;
+        updateStrikePips();
+      }
+      const logBox = document.getElementById('clash-log');
+      if (logBox) logBox.innerHTML += `<div style="margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #334155;"><strong>Attacker Roll:</strong><br>${payload.logMsg}</div>`;
+      updateClashPostAttackActions();
+    }
+    return true;
+  }
+  if (payload.type === 'UI_DEFENDER_ROLL_DONE') {
+    if (currentClash) {
+      currentClash.defDamage = payload.defDamage;
+      const logBox = document.getElementById('clash-log');
+      if (logBox) logBox.innerHTML += `<div style="margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #334155;"><strong>Defender Roll:</strong><br>${payload.logMsg}<br>Counter Damage Output: <strong style="color:#10b981; font-size:1.1rem;">${currentClash.defDamage}</strong></div>`;
+      const acts = document.getElementById('clash-actions');
+      if (acts) {
+        if (onlineSession.active && currentClash.attackerPlayer.index !== onlineSession.myPlayerIndex) {
+          acts.innerHTML = `<div style="text-align:center; padding:12px; color:#94a3b8; font-size:1.05rem; font-weight:bold;">Waiting for ${currentClash.attackerPlayer.name} to resolve strike...</div>`;
+        } else {
+          acts.innerHTML = `<button class="btn btn-primary" onclick="resolveClashDamage()">Resolve Strike</button>`;
+        }
+      }
+    }
+    return true;
+  }
+  if (payload.type === 'UI_CLASH_RESOLVED') {
+    if (currentClash) {
+      Object.assign(currentClash, payload.currentClash);
+      const logBox = document.getElementById('clash-log');
+      if (logBox) logBox.innerHTML += payload.logHTML;
+      updateClashHPBars();
+      const acts = document.getElementById('clash-actions');
+      if (acts) acts.innerHTML = `<button class="btn btn-primary" onclick="closeClashAndApply()">Complete Strike</button>`;
+    }
+    return true;
+  }
+  if (payload.type === 'UI_CLASH_END') {
+    const modal = document.getElementById('clash-modal');
+    if (modal) modal.style.display = 'none';
+    currentClash = null;
+    return true;
+  }
+  return false;
+}
+
 function handleHostNetworkEvent(payload) {
   if (!payload) return;
+  if (handleCommonOnlineUIEvents(payload)) return;
   if (payload.type === 'JOIN_REQUEST') {
     if (payload.password !== onlineSession.password) {
       sendOnlineBroadcast({ type: 'JOIN_REJECT', targetUser: payload.username, reason: 'Incorrect room password.' });
@@ -8998,6 +9092,7 @@ function handleHostNetworkEvent(payload) {
 
 function handleChallengerNetworkEvent(payload) {
   if (!payload) return;
+  if (handleCommonOnlineUIEvents(payload)) return;
   if (payload.type === 'JOIN_ACCEPT') {
     if (payload.targetUser && payload.targetUser !== onlineSession.myUsername) {
       // Another player joined; update lobby view
@@ -9935,6 +10030,7 @@ async function handleChallengerAction(payload) {
         targetArr[openSlot] = card;
         ensureTeamSharedZones(pIdx);
         addLogEntry(`${p1.name} deployed <strong>${card.name}</strong> to ${payload.choice === "bz" ? "Battle Zone" : "Bench"}.`);
+        await triggerCardPlayShowcase(p1, card, `${p1.name.toUpperCase()} DEPLOYED ALLY`, `Deployed to ${payload.choice === "bz" ? "Battle Zone" : "Bench"}`);
         await executeHook(card, 'onPlay', { triggerPlayer: p1 });
         await dispatchGlobalHook('onAllyEnterPlay', { triggerPlayer: p1, targetAlly: card });
         renderAll();
@@ -9997,6 +10093,7 @@ async function handleChallengerAction(payload) {
         if (!targetUnit.equipment) targetUnit.equipment = [];
         targetUnit.equipment.push(card);
         addLogEntry(`${p1.name} equipped <strong>${card.name}</strong> to ${targetUnit.name}.`);
+        await triggerCardPlayShowcase(p1, card, `${p1.name.toUpperCase()} EQUIPPED ITEM`, `Equipped ${card.name} onto ${targetUnit.name}`);
         renderAll();
         broadcastOnlineState();
       }
@@ -10006,9 +10103,30 @@ async function handleChallengerAction(payload) {
     const opp = gameState.players[oppIdx] || gameState.players[0];
     let targetUnit = (payload.tType === 'hero') ? opp.hero : (payload.tType === 'bz' ? opp.battleZone[payload.tSlot] : opp.bench[payload.tSlot]);
     if (targetUnit) {
-      await promptDefenderDeclarationAsync(payload.aInfo, opp, payload.tType, payload.tSlot, targetUnit);
+      if (!opp.isAI && oppIdx !== 0) {
+        sendOnlineBroadcast({
+          type: 'UI_PROMPT_DEFENDER',
+          aInfo: payload.aInfo,
+          targetPlayerIndex: oppIdx,
+          tType: payload.tType,
+          tSlot: payload.tSlot
+        });
+      } else {
+        await promptDefenderDeclarationAsync(payload.aInfo, opp, payload.tType, payload.tSlot, targetUnit);
+      }
       broadcastOnlineState();
     }
+  } else if (action === 'defenderDecision') {
+    const opp = gameState.players[payload.playerIndex];
+    let targetUnit = (payload.finalTargetType === 'hero') ? opp.hero : (payload.finalTargetType === 'bz' ? opp.battleZone[payload.finalTargetSlot] : opp.bench[payload.finalTargetSlot]);
+    await executeStrikeResolution(payload.aInfo, opp, payload.finalTargetType, payload.finalTargetSlot, targetUnit, payload.isCounter, payload.heroCounterAsset, payload.defActiveWeapons);
+    broadcastOnlineState();
+  } else if (action === 'resolveClashDamage') {
+    await resolveClashDamage();
+    broadcastOnlineState();
+  } else if (action === 'closeClashAndApply') {
+    await closeClashAndApply();
+    broadcastOnlineState();
   } else if (action === 'rollClashDefender') {
     await rollClashDefender();
     broadcastOnlineState();
@@ -10422,7 +10540,7 @@ function hideArenaPreview() {
 let actionShowcaseResolve = null;
 let actionShowcaseTimer = null;
 
-function showActionShowcase({ card, actionTag, title, description, targetSlotId, duration = 1600 }) {
+function showActionShowcase({ card, actionTag, title, description, targetSlotId, duration = 0, isLocalPlayer = false }) {
   return new Promise((resolve) => {
     actionShowcaseResolve = resolve;
     const overlay = document.getElementById('action-showcase-overlay');
@@ -10432,10 +10550,19 @@ function showActionShowcase({ card, actionTag, title, description, targetSlotId,
     const titleEl = document.getElementById('action-showcase-title');
     const descEl = document.getElementById('action-showcase-desc');
     const slotEl = document.getElementById('action-showcase-card-slot');
+    const ackBtn = overlay.querySelector('.action-showcase-ack-btn');
 
     if (tagEl) tagEl.innerText = actionTag || 'ACTION SHOWCASE';
     if (titleEl) titleEl.innerText = title || (card ? card.name : 'Action');
     if (descEl) descEl.innerText = description || '';
+
+    if (ackBtn) {
+      if (onlineSession.active && isLocalPlayer) {
+        ackBtn.innerText = "Waiting for Opponent... (Click, Space, or Enter to continue)";
+      } else {
+        ackBtn.innerText = "OK / Confirm (Click, Space, or Enter)";
+      }
+    }
 
     if (slotEl && card) {
       if (hasCardArt(card)) {
@@ -10443,7 +10570,7 @@ function showActionShowcase({ card, actionTag, title, description, targetSlotId,
         const safeName = (card.name || "").replace(/'/g, "\\'");
         slotEl.innerHTML = `<img src="${artUrl}" alt="${card.name}" onerror="handleCardArtError('${safeName}', this)">`;
       } else {
-        const activeP = gameState.players[gameState.activePlayerIndex] || gameState.players[0];
+        const activeP = (gameState && gameState.players) ? (gameState.players[gameState.activePlayerIndex] || gameState.players[0]) : null;
         slotEl.innerHTML = generateClassicFullCardView(card, activeP, 'hand', 0, false, "COMMAND", true);
       }
     } else if (slotEl) {
@@ -10469,7 +10596,7 @@ function showActionShowcase({ card, actionTag, title, description, targetSlotId,
   });
 }
 
-function dismissActionShowcase() {
+function dismissActionShowcase(fromNetwork = false) {
   if (actionShowcaseTimer) {
     clearTimeout(actionShowcaseTimer);
     actionShowcaseTimer = null;
@@ -10477,6 +10604,11 @@ function dismissActionShowcase() {
   const overlay = document.getElementById('action-showcase-overlay');
   if (overlay) overlay.style.display = 'none';
   document.querySelectorAll('.opponent-action-target').forEach(el => el.classList.remove('opponent-action-target'));
+  if (onlineSession.active && !fromNetwork) {
+    sendOnlineBroadcast({
+      type: 'UI_ACTION_SHOWCASE_ACK'
+    });
+  }
   if (actionShowcaseResolve) {
     const res = actionShowcaseResolve;
     actionShowcaseResolve = null;
@@ -10493,6 +10625,30 @@ window.addEventListener('keydown', (e) => {
     }
   }
 });
+
+async function triggerCardPlayShowcase(player, card, actionTag, description, targetSlotId = null) {
+  if (!player || !card) return;
+  const isLocal = !onlineSession.active || (player.index === getLocalPlayerIndex());
+  if (onlineSession.active) {
+    sendOnlineBroadcast({
+      type: 'UI_ACTION_SHOWCASE',
+      playerIndex: player.index,
+      card: card,
+      actionTag: actionTag,
+      title: card.name,
+      description: description,
+      targetSlotId: targetSlotId
+    });
+  }
+  await showActionShowcase({
+    card,
+    actionTag: isLocal ? `YOU PLAYED` : actionTag,
+    title: card.name,
+    description,
+    targetSlotId,
+    isLocalPlayer: isLocal
+  });
+}
 
 function updateTurnIndicator() {
   const ind = document.getElementById('turn-indicator');
@@ -12433,23 +12589,39 @@ function handleCardInteraction(pIdx, zone, slot) {
     const el = document.getElementById(slotId);
     
     if (el && el.classList.contains('targetable')) {
+        const aInfo = gameState.selectedAttacker;
+        gameState.selectedAttacker = null;
+        document.querySelectorAll('.card-slot').forEach(s => s.classList.remove('targetable'));
+        document.querySelectorAll('.card-mini').forEach(s => s.classList.remove('selected-attacker'));
+
         if (onlineSession.active && onlineSession.role !== 'HOST') {
           sendOnlineBroadcast({
             type: 'CLIENT_ACTION',
             playerIndex: onlineSession.myPlayerIndex,
             action: 'declareAttack',
-            aInfo: gameState.selectedAttacker,
+            aInfo: aInfo,
             targetPlayerIndex: pIdx,
             tType: zone,
             tSlot: slot
           });
-          gameState.selectedAttacker = null;
-          document.querySelectorAll('.card-slot').forEach(s => s.classList.remove('targetable'));
-          document.querySelectorAll('.card-mini').forEach(s => s.classList.remove('selected-attacker'));
+          openClashAttackerWaiting(aInfo, p, zone, slot, card);
           return;
         }
+
+        if (onlineSession.active && onlineSession.role === 'HOST' && !p.isAI) {
+          openClashAttackerWaiting(aInfo, p, zone, slot, card);
+          sendOnlineBroadcast({
+            type: 'UI_PROMPT_DEFENDER',
+            aInfo: aInfo,
+            targetPlayerIndex: pIdx,
+            tType: zone,
+            tSlot: slot
+          });
+          return;
+        }
+
         // Valid enemy clicked! Launch the Clash Arena.
-        promptDefenderDeclarationAsync(gameState.selectedAttacker, p, zone, slot, card);
+        promptDefenderDeclarationAsync(aInfo, p, zone, slot, card);
         return; 
     } else {
         // If you click a non-target or your own card, cancel the attack declaration
@@ -12898,6 +13070,13 @@ async function healCharacter(player, target, amount) {
 
 async function setPhase(phaseName) {
   gameState.currentPhaseIndex = PHASES.indexOf(phaseName); updatePhaseTracker(); showToast("Phase Shift: " + phaseName + " PHASE");
+  if (onlineSession.active) {
+    sendOnlineBroadcast({
+      type: 'UI_PHASE_CHANGE',
+      phaseName: phaseName,
+      activePlayerIndex: gameState.activePlayerIndex
+    });
+  }
   const player = gameState.players[gameState.activePlayerIndex];
   const activeMembers = isTeamsMode()
     ? gameState.players.filter(p => p && isSameTeam(p.index, gameState.activePlayerIndex) && !p.isEliminated)
@@ -13346,6 +13525,8 @@ async function playFlashCard(player, cardIndex, networkData = null) {
   if (isItem) player.gold -= reqGold; else player.manaPool -= reqMana;
   player.hand.splice(cardIndex, 1); player.discard.push(card);
   
+  await triggerCardPlayShowcase(player, card, `${player.name.toUpperCase()} PLAYED FLASH`, `Activated ${card.name} (${card.subtype || 'Action'})`);
+  
   const context = { triggerPlayer: player };
   if (networkData) {
     if (networkData.chosenChoiceIdx !== undefined) context.chosenChoiceIdx = networkData.chosenChoiceIdx;
@@ -13403,6 +13584,7 @@ function promptDeployAlly(player, cardIndex) {
       targetArr[openSlot] = card;
       ensureTeamSharedZones(player.index);
       addLogEntry(player.name + " deployed " + card.name + ".");
+      await triggerCardPlayShowcase(player, card, `${player.name.toUpperCase()} DEPLOYED ALLY`, `Deployed to ${choice === "bz" ? "Battle Zone" : "Bench"}`);
       if (typeof onTutorialAction === 'function') onTutorialAction('DEPLOY_DONE', { card, choice });
       await executeHook(card, 'onPlay', { triggerPlayer: player });
       await dispatchGlobalHook('onAllyEnterPlay', { triggerPlayer: player, targetAlly: card });
@@ -13455,6 +13637,7 @@ async function learnSkill(player, cardIndex) {
   if (isTeamsMode()) player.skillLearnedThisTurn = true;
   else gameState.skillLearnedThisTurn = true;
   addLogEntry(player.name + " learned Skill: <strong>" + card.name + "</strong>!"); 
+  await triggerCardPlayShowcase(player, card, `${player.name.toUpperCase()} LEARNED SKILL`, `Learned Level ${targetLevel} Skill: ${card.name}`);
   renderAll();
   if (typeof onTutorialAction === 'function') onTutorialAction('SKILL_LEARNED', { card });
   if (onlineSession.active) broadcastOnlineState();
@@ -13567,14 +13750,28 @@ function promptEquip(player, cardIndex) {
     return;
   }
   const actions = candidates.map(t => ({
-    text: t.label, action: () => {
+    text: t.label, action: async () => {
       closeModal();
+      if (onlineSession.active && onlineSession.role !== 'HOST') {
+        sendOnlineBroadcast({
+          type: 'CLIENT_ACTION',
+          playerIndex: player.index,
+          action: 'playEquip',
+          cardIndex: cardIndex,
+          targetType: t.isHero ? 'hero' : 'bz',
+          targetSlot: t.slot !== undefined ? t.slot : 0,
+          targetPlayerIndex: t.targetPlayer ? t.targetPlayer.index : player.index
+        });
+        return;
+      }
       if (typeof AudioManager !== 'undefined' && AudioManager.playCardPlay) AudioManager.playCardPlay();
       player.gold -= card.goldCost; player.hand.splice(cardIndex, 1);
       card.charge = 0; card.chargeAddedThisTurn = 0; card.ownerIndex = player.index;
       if (t.isHero) t.targetPlayer.hero.equipment.push(card); 
       else { const ally = player.battleZone[t.slot]; if (!ally.equipment) ally.equipment = []; ally.equipment.push(card); }
-      addLogEntry(`${player.name} equipped <strong>${card.name}</strong> to <strong>${t.isHero ? t.targetPlayer.hero.name : player.battleZone[t.slot].name}</strong>.`);
+      const equippedName = t.isHero ? t.targetPlayer.hero.name : player.battleZone[t.slot].name;
+      addLogEntry(`${player.name} equipped <strong>${card.name}</strong> to <strong>${equippedName}</strong>.`);
+      await triggerCardPlayShowcase(player, card, `${player.name.toUpperCase()} EQUIPPED ITEM`, `Equipped ${card.name} onto ${equippedName}`);
       renderAll();
       if (typeof onTutorialAction === 'function') onTutorialAction('EQUIP_DONE', { card, target: t });
       if (onlineSession.active) broadcastOnlineState();
@@ -13598,6 +13795,16 @@ async function playSynergy(player, cardIndex) {
   const openSlot = player.synergies.findIndex(s => s === null);
   if (openSlot === -1) { showToast("Synergy slots full!"); return; }
 
+  if (onlineSession.active && onlineSession.role !== 'HOST') {
+    sendOnlineBroadcast({
+      type: 'CLIENT_ACTION',
+      playerIndex: player.index,
+      action: 'playSynergy',
+      cardIndex: cardIndex
+    });
+    return;
+  }
+
   const prx = getPlayerDomPrefix(player.index);
   const handEl = document.getElementById(`p1-hand-card-${cardIndex}`);
   const destEl = document.getElementById(`${prx}-synergy-${openSlot}`);
@@ -13610,6 +13817,8 @@ async function playSynergy(player, cardIndex) {
   player.hand.splice(cardIndex, 1); 
   card.ownerIndex = player.index;
   player.synergies[openSlot] = card;
+  addLogEntry(player.name + " played Synergy: " + card.name + ".");
+  await triggerCardPlayShowcase(player, card, `${player.name.toUpperCase()} PLAYED SYNERGY`, `Activated Synergy: ${card.name}`);
   await executeHook(card, 'onPlay', { triggerPlayer: player }); 
   renderAll();
   if (typeof onTutorialAction === 'function') onTutorialAction('SYNERGY_PLAYED', { card });
@@ -13833,6 +14042,62 @@ function highlightCombatTargets() {
   }
 }
 
+function openClashAttackerWaiting(aInfo, defenderPlayer, tType, tSlot, tUnit) {
+  const modal = document.getElementById('clash-modal');
+  if (!modal) return;
+  document.getElementById('clash-strike-num').innerText = "STRIKE " + (gameState.strikesUsed + 1) + " — DECLARATION PHASE";
+
+  const aCardHTML = `<div class="fc-container" style="width:325px; margin:0; padding:8px; box-shadow:0 8px 30px rgba(0,0,0,0.7);">${generateFullCardView(aInfo.card, gameState.players[aInfo.playerIndex], aInfo.type, aInfo.slot, false, "COMBAT", true)}</div>`;
+  const dCardHTML = `<div class="fc-container" style="width:325px; margin:0; padding:8px; box-shadow:0 8px 30px rgba(0,0,0,0.7);">${generateFullCardView(tUnit, defenderPlayer, tType, tSlot, false, "COMBAT", true)}</div>`;
+
+  document.getElementById('clash-attacker-col').innerHTML = `
+      <h3 style="color:var(--mana);">${aInfo.card.name}</h3>
+      <div class="clash-card-wrapper">${aCardHTML}</div>
+  `;
+
+  document.getElementById('clash-defender-col').innerHTML = `
+      <h3 id="decl-def-title" style="color:var(--health);">${tUnit.name}</h3>
+      <div class="clash-card-wrapper" id="decl-def-wrapper">${dCardHTML}</div>
+  `;
+
+  document.getElementById('clash-log').innerHTML = `
+      <div style="font-size: 3rem; color: #f43f5e; animation: pulseRed 1s infinite alternate; text-align:center;">➔</div>
+      <div style="text-align:center; font-weight:bold; margin-bottom:10px;">TARGET DECLARED</div>
+  `;
+
+  document.getElementById('clash-actions').innerHTML = `
+      <div style="text-align:center; padding:15px; color:#38bdf8; font-size:1.15rem; font-weight:bold; background:rgba(15,23,42,0.85); border:1px solid #38bdf8; border-radius:8px;">
+        <span style="display:inline-block; animation:spin 1s linear infinite; margin-right:8px;">⏳</span> Waiting on opponent's intervene / defense decision...
+      </div>
+  `;
+
+  modal.style.display = 'flex';
+}
+
+function setupClashContext(aInfo, defenderPlayerIndex, tType, tSlot, isCounter, heroCounterAsset, defActiveWeapons, strikeNum) {
+  const attackerPlayer = gameState.players[aInfo.playerIndex];
+  const attacker = aInfo.card;
+  const defenderPlayer = gameState.players[defenderPlayerIndex];
+  const tUnit = (tType === 'hero') ? defenderPlayer.hero : (tType === 'bz' ? defenderPlayer.battleZone[tSlot] : defenderPlayer.bench[tSlot]);
+
+  const defUnit = (tType === 'hero') ? defenderPlayer.hero : tUnit;
+  let effectiveDef = getStat(defUnit, "defense", defenderPlayer) || 0;
+  let isPierced = checkKeyword(attacker, attackerPlayer, "piercing") || (aInfo.type === 'skill' && checkKeyword(attackerPlayer.hero, attackerPlayer, "piercing"));
+  let hasPierceProof = checkKeyword(defUnit, defenderPlayer, "pierceProof");
+  if (isPierced && !hasPierceProof) effectiveDef = 0;
+  else if (isPierced && hasPierceProof) isPierced = false;
+
+  currentClash = {
+    aInfo, defenderPlayer, tType, tSlot, tUnit, isCounter, heroCounterAsset,
+    strikeNum: strikeNum || ((gameState.strikesUsed || 0) + 1),
+    defActiveWeapons: defActiveWeapons || [],
+    attackerPlayer, attacker, effectiveDef, isPierced,
+    atkDamage: 0, defDamage: 0, atkHit: true, isCrit: false,
+    evaded: false, finalDamage: 0, breakthrough: 0
+  };
+  return currentClash;
+}
+
 async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlot, tUnit) {
   const isCounterRangeValid = (defAttackType) => {
     const dType = defAttackType || "Melee";
@@ -13840,7 +14105,7 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
     return true;
   };
 
-  if (defenderPlayer.isAI || gameState.gameMode === "TUTORIAL" || (onlineSession.active && defenderPlayer.index !== onlineSession.myPlayerIndex)) { 
+  if (defenderPlayer.isAI || gameState.gameMode === "TUTORIAL") { 
       const diff = gameState.aiDifficulty || "MEDIUM";
       let finalTargetType = tType;
       let finalTargetSlot = tSlot;
@@ -14237,6 +14502,20 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
 
   if (step2Choice === "hold") {
       modal.style.display = 'none';
+      if (onlineSession.active && onlineSession.role !== 'HOST') {
+        sendOnlineBroadcast({
+          type: 'CLIENT_ACTION',
+          action: 'defenderDecision',
+          playerIndex: onlineSession.myPlayerIndex,
+          aInfo: aInfo,
+          finalTargetType: finalTargetType,
+          finalTargetSlot: finalTargetSlot,
+          isCounter: false,
+          heroCounterAsset: null,
+          defActiveWeapons: []
+        });
+        return;
+      }
       await executeStrikeResolution(aInfo, defenderPlayer, finalTargetType, finalTargetSlot, finalTargetUnit, false, null, []);
   } else if (step2Choice === "counter") {
       if (finalTargetType === 'hero') {
@@ -14246,6 +14525,20 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
           let asset = await showModalAsync("Counter Asset", "Select skill to counterstrike with:", assetOpts);
           if (asset) {
               const defActiveWeapons = await promptDefenderCounterWeapons(defenderPlayer.hero, asset.attackType || "Melee");
+              if (onlineSession.active && onlineSession.role !== 'HOST') {
+                sendOnlineBroadcast({
+                  type: 'CLIENT_ACTION',
+                  action: 'defenderDecision',
+                  playerIndex: onlineSession.myPlayerIndex,
+                  aInfo: aInfo,
+                  finalTargetType: finalTargetType,
+                  finalTargetSlot: finalTargetSlot,
+                  isCounter: true,
+                  heroCounterAsset: asset,
+                  defActiveWeapons: defActiveWeapons
+                });
+                return;
+              }
               await executeStrikeResolution(aInfo, defenderPlayer, finalTargetType, finalTargetSlot, finalTargetUnit, true, asset, defActiveWeapons);
           } else {
               await promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlot, tUnit);
@@ -14253,6 +14546,20 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
       } else {
           modal.style.display = 'none';
           const defActiveWeapons = await promptDefenderCounterWeapons(finalTargetUnit, finalTargetUnit.attackType || "Melee");
+          if (onlineSession.active && onlineSession.role !== 'HOST') {
+            sendOnlineBroadcast({
+              type: 'CLIENT_ACTION',
+              action: 'defenderDecision',
+              playerIndex: onlineSession.myPlayerIndex,
+              aInfo: aInfo,
+              finalTargetType: finalTargetType,
+              finalTargetSlot: finalTargetSlot,
+              isCounter: true,
+              heroCounterAsset: null,
+              defActiveWeapons: defActiveWeapons
+            });
+            return;
+          }
           await executeStrikeResolution(aInfo, defenderPlayer, finalTargetType, finalTargetSlot, finalTargetUnit, true, null, defActiveWeapons);
       }
   }
@@ -14380,8 +14687,39 @@ async function executeStrikeResolution(aInfo, defenderPlayer, tType, tSlot, tUni
       addLogEntry(`<strong style="color:var(--mana);">${msg}</strong>`);
   }
 
-  // Only force the modal acknowledgment if a human attacked an AI defender (so Bot-vs-Bot clashes don't block on a modal)
-  if (defenderPlayer.isAI && !attackerPlayer.isAI) {
+  let resolvedDefWeapons = defActiveWeapons;
+  if (isCounter && !resolvedDefWeapons) {
+    const counterActor = (tType === 'hero' && heroCounterAsset) ? heroCounterAsset : tUnit;
+    const counterChar = (tType === 'hero') ? defenderPlayer.hero : tUnit;
+    const counterAtkType = counterActor.attackType || "Melee";
+    if (defenderPlayer.isAI) {
+      resolvedDefWeapons = (counterChar.equipment || []).filter(eq => {
+        const isWeapon = Boolean(eq.attack || (eq.rangedAttack !== undefined && Number(eq.rangedAttack) > 0) || eq.powerModifier || (eq.equipmentType && eq.equipmentType.includes("Weapon")));
+        const eqAtkType = eq.attackType || (eq.rangedAttack !== undefined ? "Ranged" : "Melee");
+        const reqWCharge = (eq.chargeReq !== undefined && Number(eq.chargeReq) > 0) ? Number(eq.chargeReq) : 1;
+        return isWeapon && (!eqAtkType || eqAtkType === counterAtkType) && (eq.charge || 0) >= reqWCharge;
+      });
+    } else {
+      resolvedDefWeapons = [];
+    }
+  }
+
+  // Force modal acknowledgment in online matches (both players) or human vs AI
+  if (onlineSession.active) {
+      sendOnlineBroadcast({
+        type: 'UI_DEFENDER_RESPONSE',
+        msg: msg,
+        aInfo: aInfo,
+        defenderPlayerIndex: defenderPlayer.index,
+        tType: tType,
+        tSlot: tSlot,
+        isCounter: isCounter,
+        heroCounterAsset: heroCounterAsset,
+        defActiveWeapons: resolvedDefWeapons,
+        strikeNum: strikeNum
+      });
+      await showModalAsync("Defender Response", `<div style="text-align:center; font-size:1.2rem; padding: 10px;">${msg}</div>`, [{ text: "Enter Clash Arena", value: true }]);
+  } else if (defenderPlayer.isAI && !attackerPlayer.isAI) {
       if (gameState.gameMode === "TUTORIAL") {
           let tutDeclMsg = `
               <div style="text-align:left; font-size:0.95rem; line-height:1.5; padding: 6px 10px;">
@@ -14401,27 +14739,10 @@ async function executeStrikeResolution(aInfo, defenderPlayer, tType, tSlot, tUni
           `;
           await showModalAsync("Defender Response — The Declaration Lock", tutDeclMsg, [{ text: "Enter Clash Arena", value: true }]);
       } else {
-          await showModalAsync("Defender Response", `<div style="text-align:center; font-size:1.2rem; padding: 10px;">${msg}</div>`, [{ text: "Acknowledge", value: true }]);
+          await showModalAsync("Defender Response", `<div style="text-align:center; font-size:1.2rem; padding: 10px;">${msg}</div>`, [{ text: "Enter Clash Arena", value: true }]);
       }
   } else if (defenderPlayer.isAI && attackerPlayer.isAI) {
       showToast(msg);
-  }
-
-  let resolvedDefWeapons = defActiveWeapons;
-  if (isCounter && !resolvedDefWeapons) {
-    const counterActor = (tType === 'hero' && heroCounterAsset) ? heroCounterAsset : tUnit;
-    const counterChar = (tType === 'hero') ? defenderPlayer.hero : tUnit;
-    const counterAtkType = counterActor.attackType || "Melee";
-    if (defenderPlayer.isAI) {
-      resolvedDefWeapons = (counterChar.equipment || []).filter(eq => {
-        const isWeapon = Boolean(eq.attack || (eq.rangedAttack !== undefined && Number(eq.rangedAttack) > 0) || eq.powerModifier || (eq.equipmentType && eq.equipmentType.includes("Weapon")));
-        const eqAtkType = eq.attackType || (eq.rangedAttack !== undefined ? "Ranged" : "Melee");
-        const reqWCharge = (eq.chargeReq !== undefined && Number(eq.chargeReq) > 0) ? Number(eq.chargeReq) : 1;
-        return isWeapon && (!eqAtkType || eqAtkType === counterAtkType) && (eq.charge || 0) >= reqWCharge;
-      });
-    } else {
-      resolvedDefWeapons = [];
-    }
   }
 
   currentClash = {
@@ -14520,8 +14841,15 @@ function renderClashScreen() {
   }
   if (currentClash.attacker.attackType === "Ranged") atkDie = "D20";
           
-  if (currentClash.attackerPlayer.isAI || (onlineSession.active && currentClash.attackerPlayer.index !== onlineSession.myPlayerIndex)) { setTimeout(rollClashAttacker, 1000); } 
-  else { 
+  if (currentClash.attackerPlayer.isAI) {
+    setTimeout(rollClashAttacker, 1000);
+  } else if (onlineSession.active && currentClash.attackerPlayer.index !== onlineSession.myPlayerIndex) {
+    document.getElementById('clash-actions').innerHTML = `
+      <div style="text-align:center; padding:12px; color:#38bdf8; font-size:1.1rem; font-weight:bold; background:rgba(15,23,42,0.85); border:1px solid #38bdf8; border-radius:8px;">
+        <span style="display:inline-block; animation:spin 1s linear infinite; margin-right:8px;">⏳</span> Waiting for ${currentClash.attackerPlayer.name} to roll attack...
+      </div>
+    `;
+  } else { 
     document.getElementById('clash-actions').innerHTML = `
       <div style="display:flex; gap:10px; width:100%; justify-content:center; align-items:center;">
         <button class="btn btn-secondary" style="background:#8b5cf6; color:#fff; font-weight:bold; padding:12px 18px;" onclick="triggerAttackerClashFlash()">⚡ Flash / Ability</button>
@@ -14957,14 +15285,48 @@ async function rollClashAttacker() {
   currentClash.isCrit = isCrit;
   document.getElementById('clash-log').innerHTML += `<div style="margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #334155;"><strong>Attacker Roll:</strong><br>${logMsg}</div>`;
 
+  if (onlineSession.active) {
+    sendOnlineBroadcast({
+      type: 'UI_ATTACK_ROLL_DONE',
+      atkDamage: currentClash.atkDamage,
+      atkHit: currentClash.atkHit,
+      isCrit: currentClash.isCrit,
+      logMsg: logMsg,
+      strikesUsed: gameState.strikesUsed
+    });
+  }
+
+  updateClashPostAttackActions();
+}
+
+function updateClashPostAttackActions() {
   const acts = document.getElementById('clash-actions');
+  if (!acts || !currentClash) return;
   const isBotVsBot = Boolean(currentClash.attackerPlayer?.isAI && currentClash.defenderPlayer?.isAI);
   if (currentClash.isCounter) {
-      if (currentClash.defenderPlayer.isAI || gameState.gameMode === "TUTORIAL" || (onlineSession.active && currentClash.defenderPlayer.index !== onlineSession.myPlayerIndex)) { acts.innerHTML = `<p style="color:#cbd5e1; font-style:italic;">Opponent counterstrikes...</p>`; setTimeout(rollClashDefender, 1200); } 
-      else { acts.innerHTML = `<button class="dice-btn dice-btn-counter" onclick="rollClashDefender()">🎲 Roll Counter</button>`; }
+    if (currentClash.defenderPlayer.isAI || gameState.gameMode === "TUTORIAL") {
+      acts.innerHTML = `<p style="color:#cbd5e1; font-style:italic;">Opponent counterstrikes...</p>`;
+      setTimeout(rollClashDefender, 1200);
+    } else if (onlineSession.active && currentClash.defenderPlayer.index !== onlineSession.myPlayerIndex) {
+      acts.innerHTML = `
+        <div style="text-align:center; padding:12px; color:#38bdf8; font-size:1.1rem; font-weight:bold; background:rgba(15,23,42,0.85); border:1px solid #38bdf8; border-radius:8px;">
+          <span style="display:inline-block; animation:spin 1s linear infinite; margin-right:8px;">⏳</span> Waiting for ${currentClash.defenderPlayer.name} to roll counterstrike...
+        </div>
+      `;
+    } else {
+      acts.innerHTML = `<button class="dice-btn dice-btn-counter" onclick="rollClashDefender()">🎲 Roll Counter</button>`;
+    }
   } else {
+    if (onlineSession.active && currentClash.attackerPlayer.index !== onlineSession.myPlayerIndex) {
+      acts.innerHTML = `
+        <div style="text-align:center; padding:12px; color:#94a3b8; font-size:1.05rem; font-weight:bold;">
+          Waiting for ${currentClash.attackerPlayer.name} to resolve strike...
+        </div>
+      `;
+    } else {
       acts.innerHTML = `<button class="btn btn-primary" onclick="resolveClashDamage()">Resolve Strike</button>`;
       if (isBotVsBot) setTimeout(() => { if (currentClash) resolveClashDamage(); }, 1100);
+    }
   }
   if (typeof dockTutorialHUDTopAfterClashRoll === 'function') dockTutorialHUDTopAfterClashRoll();
 }
@@ -15187,7 +15549,21 @@ async function rollClashDefender() {
   }
 
   document.getElementById('clash-log').innerHTML += `<div style="margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #334155;"><strong>Defender Roll:</strong><br>${logMsg}<br>Counter Damage Output: <strong style="color:#10b981; font-size:1.1rem;">${currentClash.defDamage}</strong></div>`;
-  document.getElementById('clash-actions').innerHTML = `<button class="btn btn-primary" onclick="resolveClashDamage()">Resolve Strike</button>`;
+
+  if (onlineSession.active) {
+    sendOnlineBroadcast({
+      type: 'UI_DEFENDER_ROLL_DONE',
+      defDamage: currentClash.defDamage,
+      logMsg: logMsg
+    });
+  }
+
+  const acts = document.getElementById('clash-actions');
+  if (onlineSession.active && currentClash.attackerPlayer.index !== onlineSession.myPlayerIndex) {
+    acts.innerHTML = `<div style="text-align:center; padding:12px; color:#94a3b8; font-size:1.05rem; font-weight:bold;">Waiting for ${currentClash.attackerPlayer.name} to resolve strike...</div>`;
+  } else {
+    acts.innerHTML = `<button class="btn btn-primary" onclick="resolveClashDamage()">Resolve Strike</button>`;
+  }
   if (currentClash.attackerPlayer?.isAI && currentClash.defenderPlayer?.isAI) {
     setTimeout(() => { if (currentClash) resolveClashDamage(); }, 1100);
   }
@@ -15195,6 +15571,14 @@ async function rollClashDefender() {
 }
 
 async function resolveClashDamage() {
+  if (onlineSession.active && onlineSession.role !== 'HOST') {
+    sendOnlineBroadcast({
+      type: 'CLIENT_ACTION',
+      action: 'resolveClashDamage',
+      playerIndex: onlineSession.myPlayerIndex
+    });
+    return;
+  }
   document.getElementById('clash-actions').innerHTML = ""; // Hide button
   let dUnit = currentClash.tUnit;
   let dPlayer = currentClash.defenderPlayer;
@@ -15365,6 +15749,21 @@ async function resolveClashDamage() {
   }
 
   document.getElementById('clash-actions').innerHTML = `<button class="btn btn-primary" onclick="closeClashAndApply()">Complete Strike</button>`;
+  if (onlineSession.active) {
+    sendOnlineBroadcast({
+      type: 'UI_CLASH_RESOLVED',
+      logHTML: logHTML,
+      currentClash: {
+        finalDamage: currentClash.finalDamage,
+        defDamage: currentClash.defDamage,
+        evaded: currentClash.evaded,
+        breakthrough: currentClash.breakthrough,
+        targetDamageReduced: currentClash.targetDamageReduced,
+        heroBreakthroughDamageReduced: currentClash.heroBreakthroughDamageReduced,
+        counterBreakthrough: currentClash.counterBreakthrough
+      }
+    });
+  }
   if (currentClash.attackerPlayer?.isAI && currentClash.defenderPlayer?.isAI) {
     setTimeout(() => { if (currentClash) closeClashAndApply(); }, 1200);
   }
@@ -15372,6 +15771,17 @@ async function resolveClashDamage() {
 }
 
 async function closeClashAndApply() {
+  if (onlineSession.active && onlineSession.role !== 'HOST') {
+    sendOnlineBroadcast({
+      type: 'CLIENT_ACTION',
+      action: 'closeClashAndApply',
+      playerIndex: onlineSession.myPlayerIndex
+    });
+    const modal = document.getElementById('clash-modal');
+    if (modal) modal.style.display = 'none';
+    currentClash = null;
+    return;
+  }
   document.getElementById('clash-modal').style.display = 'none';
   
   const attackerPlayer = gameState.players[currentClash.aInfo.playerIndex];
@@ -15545,7 +15955,10 @@ async function closeClashAndApply() {
 
   if (typeof onTutorialAction === 'function') onTutorialAction('CLASH_CLOSED', { currentClash });
   checkGameOver(); renderAll();
-  if (onlineSession.active && onlineSession.role === 'HOST') broadcastOnlineState();
+  if (onlineSession.active) {
+    sendOnlineBroadcast({ type: 'UI_CLASH_END' });
+    if (onlineSession.role === 'HOST') broadcastOnlineState();
+  }
   currentClash = null;
 
   const pendingIrith = gameState.pendingIrithFollowUp;
