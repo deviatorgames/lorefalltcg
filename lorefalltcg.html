@@ -5822,12 +5822,21 @@ function ensureTeamSharedZones(updatedPlayerIdx = null) {
 }
 
 function getLocalPlayerIndex() {
-  if (typeof onlineSession !== 'undefined' && onlineSession.active) {
-    if (onlineSession.role === 'HOST') return 0;
-    if (onlineSession.myPlayerIndex !== undefined && onlineSession.myPlayerIndex !== null && Number(onlineSession.myPlayerIndex) > 0) {
-      return Number(onlineSession.myPlayerIndex);
+  if (typeof onlineSession !== 'undefined') {
+    if (onlineSession.role === 'CHALLENGER') {
+      return (onlineSession.myPlayerIndex !== undefined && onlineSession.myPlayerIndex !== null && Number(onlineSession.myPlayerIndex) > 0)
+        ? Number(onlineSession.myPlayerIndex)
+        : 1;
     }
-    return 1;
+    if (onlineSession.role === 'HOST') {
+      return 0;
+    }
+    if (onlineSession.active) {
+      if (onlineSession.myPlayerIndex !== undefined && onlineSession.myPlayerIndex !== null && Number(onlineSession.myPlayerIndex) > 0) {
+        return Number(onlineSession.myPlayerIndex);
+      }
+      return 1;
+    }
   }
   return 0;
 }
@@ -8901,14 +8910,18 @@ function handleCommonOnlineUIEvents(payload) {
     const actingName = actingPlayer ? actingPlayer.name : 'Opponent';
     const myIdx = getLocalPlayerIndex();
     const isActor = (Number(payload.playerIndex) === Number(myIdx));
-    if (isActor) {
-      // Local actor already initiated this showcase locally; ignore echoed broadcast
+    if (onlineSession.role === 'HOST' && isActor) {
+      // Local host already initiated this showcase locally; ignore echoed broadcast
       return true;
     }
+    const cardTitle = payload.title || payload.card?.name;
+    const localCard = (cardTitle ? (CARDS_BY_NAME[cardTitle] || CARDS_DATA[cardTitle] || CARDS_BY_NAME[cardTitle.toLowerCase()]) : null);
+    const card = payload.card ? Object.assign({}, localCard || {}, payload.card) : (localCard || { name: cardTitle || 'Action', type: 'Action' });
+
     showActionShowcase({
-      card: payload.card,
-      actionTag: `${actingName.toUpperCase()} ACTION`,
-      title: payload.title || payload.card?.name,
+      card: card,
+      actionTag: isActor ? 'YOU PLAYED' : `${actingName.toUpperCase()} ACTION`,
+      title: cardTitle || card.name,
       description: payload.description,
       targetSlotId: payload.targetSlotId,
       playerIndex: payload.playerIndex
@@ -10620,13 +10633,18 @@ function showActionShowcase({ card, actionTag, title, description, targetSlotId,
     }
 
     if (slotEl && card) {
-      if (hasCardArt(card)) {
-        const artUrl = getCardArtUrl(card);
-        const safeName = (card.name || "").replace(/'/g, "\\'");
-        slotEl.innerHTML = `<img src="${artUrl}" alt="${card.name}" onerror="handleCardArtError('${safeName}', this)">`;
-      } else {
-        const activeP = (gameState && gameState.players) ? (gameState.players[gameState.activePlayerIndex] || gameState.players[0]) : null;
-        slotEl.innerHTML = generateClassicFullCardView(card, activeP, 'hand', 0, false, "COMMAND", true);
+      try {
+        if (hasCardArt(card)) {
+          const artUrl = getCardArtUrl(card);
+          const safeName = (card.name || "").replace(/'/g, "\\'");
+          slotEl.innerHTML = `<img src="${artUrl}" alt="${card.name}" onerror="handleCardArtError('${safeName}', this)">`;
+        } else {
+          const activeP = (gameState && gameState.players) ? (gameState.players[gameState.activePlayerIndex] || gameState.players[0] || { hero: {}, index: 0 }) : { hero: {}, index: 0 };
+          slotEl.innerHTML = generateClassicFullCardView(card, activeP, 'hand', 0, false, "COMMAND", true);
+        }
+      } catch (err) {
+        console.warn("Card render fallback in showActionShowcase:", err);
+        slotEl.innerHTML = `<div class="full-card-view"><div class="fc-title" style="padding:20px; font-size:1.2rem; text-align:center;">${card.name || 'Card'}</div></div>`;
       }
     } else if (slotEl) {
       slotEl.innerHTML = '';
@@ -10702,10 +10720,36 @@ async function triggerCardPlayShowcase(player, card, actionTag, description, tar
   const isActor = (pIdx === myIdx);
 
   if (onlineSession.active) {
+    const cleanCard = {
+      name: card.name,
+      type: card.type || 'Action',
+      subtype: card.subtype || '',
+      race: card.race || '',
+      unitClass: card.unitClass || '',
+      skillLevel: card.skillLevel || 0,
+      manaCost: card.manaCost,
+      goldCost: card.goldCost,
+      attack: card.attack,
+      attackType: card.attackType,
+      strikeType: card.strikeType,
+      health: card.health,
+      currentHealth: card.currentHealth !== undefined ? card.currentHealth : card.health,
+      charge: card.charge || 0,
+      chargeReq: card.chargeReq,
+      dexterity: card.dexterity,
+      power: card.power,
+      powerModifier: card.powerModifier,
+      rangedAttack: card.rangedAttack,
+      rarity: card.rarity,
+      faction: card.faction,
+      abilities: typeof card.abilities === 'string' ? card.abilities : '',
+      image_url: card.image_url || ''
+    };
+
     sendOnlineBroadcast({
       type: 'UI_ACTION_SHOWCASE',
       playerIndex: pIdx,
-      card: card,
+      card: cleanCard,
       actionTag: actionTag,
       title: card.name,
       description: description,
@@ -13669,6 +13713,18 @@ function promptDeployAlly(player, cardIndex) {
 
 async function learnSkill(player, cardIndex) {
   const card = player.hand[cardIndex]; 
+  if (!card) return;
+
+  if (onlineSession.active && onlineSession.role !== 'HOST') {
+    sendOnlineBroadcast({
+      type: 'CLIENT_ACTION',
+      playerIndex: player.index,
+      action: 'playSkill',
+      cardIndex: cardIndex
+    });
+    return;
+  }
+
   const targetLevel = card.skillLevel; 
   const slotIdx = targetLevel - 1;
 
