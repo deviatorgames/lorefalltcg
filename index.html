@@ -6094,10 +6094,12 @@
                                 
                                 <div className="flex flex-wrap gap-2 md:gap-4 pt-1.5 min-w-0">
                                     {forgeData.Attack && <div className="truncate"><span className="text-slate-500">ATK:</span> {forgeData.Attack} {forgeData["Attack Type"] ? `(${forgeData["Attack Type"]})` : ''}</div>}
+                                    {forgeData["Ranged Attack"] !== undefined && forgeData["Ranged Attack"] !== "" && <div className="truncate"><span className="text-slate-500">RNG ATK:</span> +{forgeData["Ranged Attack"]}</div>}
                                     {forgeData.Power !== undefined && forgeData.Power !== "" && forgeData.Attack !== "None" && <div className="truncate"><span className="text-slate-500">PWR:</span> {forgeData.Power}</div>}
                                     {forgeData["Power Modifier"] !== undefined && forgeData["Power Modifier"] !== "" && forgeData.Attack === "None" && <div className="truncate"><span className="text-slate-500">PWR MOD:</span> {forgeData["Power Modifier"] > 0 ? '+' : ''}{forgeData["Power Modifier"]}</div>}
                                     {forgeData.Health !== undefined && forgeData.Health !== "" && <div className="truncate"><span className="text-slate-500">HP:</span> {forgeData.Health}</div>}
                                     {forgeData.Dexterity !== undefined && forgeData.Dexterity !== "" && <div className="truncate"><span className="text-slate-500">DEX:</span> {forgeData.Dexterity}</div>}
+                                    {forgeData["Charge Requirement"] !== undefined && forgeData["Charge Requirement"] !== "" && <div className="truncate"><span className="text-slate-500">CHARGE:</span> {forgeData["Charge Requirement"]}⚡</div>}
                                 </div>
                             </div>
                             
