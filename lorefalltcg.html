@@ -4306,7 +4306,7 @@
 </div>
 
 <!-- Action Showcase Overlay (MTG Arena Style) -->
-<div id="action-showcase-overlay" class="action-showcase-overlay" style="display:none;" onclick="dismissActionShowcase()">
+<div id="action-showcase-overlay" class="action-showcase-overlay" style="display:none;" onclick="handleShowcaseOverlayClick()">
   <div class="action-showcase-card-container" onclick="event.stopPropagation()">
     <div id="action-showcase-banner" class="action-showcase-banner">
       <div id="action-showcase-tag" class="action-showcase-tag">OPPONENT ACTION</div>
@@ -5823,7 +5823,11 @@ function ensureTeamSharedZones(updatedPlayerIdx = null) {
 
 function getLocalPlayerIndex() {
   if (typeof onlineSession !== 'undefined' && onlineSession.active) {
-    return onlineSession.myPlayerIndex || 0;
+    if (onlineSession.role === 'HOST') return 0;
+    if (onlineSession.myPlayerIndex !== undefined && onlineSession.myPlayerIndex !== null && Number(onlineSession.myPlayerIndex) > 0) {
+      return Number(onlineSession.myPlayerIndex);
+    }
+    return 1;
   }
   return 0;
 }
@@ -8895,18 +8899,46 @@ function handleCommonOnlineUIEvents(payload) {
   if (payload.type === 'UI_ACTION_SHOWCASE') {
     const actingPlayer = (gameState && gameState.players) ? gameState.players[payload.playerIndex] : null;
     const actingName = actingPlayer ? actingPlayer.name : 'Opponent';
+    const myIdx = getLocalPlayerIndex();
+    const isActor = (Number(payload.playerIndex) === Number(myIdx));
+    if (isActor) {
+      // Local actor already initiated this showcase locally; ignore echoed broadcast
+      return true;
+    }
     showActionShowcase({
       card: payload.card,
       actionTag: `${actingName.toUpperCase()} ACTION`,
       title: payload.title || payload.card?.name,
       description: payload.description,
       targetSlotId: payload.targetSlotId,
-      isLocalPlayer: false
+      playerIndex: payload.playerIndex
     });
     return true;
   }
   if (payload.type === 'UI_ACTION_SHOWCASE_ACK') {
     dismissActionShowcase(true);
+    return true;
+  }
+  if (payload.type === 'UI_ROLL_FORCE_WIN') {
+    performAnimatedRoll(payload.title, payload.text, null, payload.modifier, payload.targetVal, true, null, payload.rollerIndex, true);
+    return true;
+  }
+  if (payload.type === 'UI_ROLL_PREPARE') {
+    performAnimatedRoll(payload.title, payload.text, null, payload.modifier, payload.targetVal, payload.forceWin, payload.rollDetails, payload.rollerIndex, true);
+    return true;
+  }
+  if (payload.type === 'UI_ROLL_TRIGGER') {
+    if (typeof activeRollAnimationContext !== 'undefined' && activeRollAnimationContext && activeRollAnimationContext.startRoll) {
+      activeRollAnimationContext.startRoll(payload.finalRoll, payload.rollDetails);
+    }
+    return true;
+  }
+  if (payload.type === 'UI_ROLL_ANIMATION') {
+    if (typeof activeRollAnimationContext !== 'undefined' && activeRollAnimationContext && activeRollAnimationContext.startRoll) {
+      activeRollAnimationContext.startRoll(payload.finalRoll, payload.rollDetails);
+    } else {
+      performAnimatedRoll(payload.title, payload.text, payload.finalRoll, payload.modifier, payload.targetVal, payload.forceWin, payload.rollDetails, payload.rollerIndex, true);
+    }
     return true;
   }
   if (payload.type === 'UI_PROMPT_DEFENDER') {
@@ -8948,7 +8980,7 @@ function handleCommonOnlineUIEvents(payload) {
       if (logBox) logBox.innerHTML += `<div style="margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #334155;"><strong>Defender Roll:</strong><br>${payload.logMsg}<br>Counter Damage Output: <strong style="color:#10b981; font-size:1.1rem;">${currentClash.defDamage}</strong></div>`;
       const acts = document.getElementById('clash-actions');
       if (acts) {
-        if (onlineSession.active && currentClash.attackerPlayer.index !== onlineSession.myPlayerIndex) {
+        if (onlineSession.active && !isLocalPlayer(currentClash.attackerPlayer.index)) {
           acts.innerHTML = `<div style="text-align:center; padding:12px; color:#94a3b8; font-size:1.05rem; font-weight:bold;">Waiting for ${currentClash.attackerPlayer.name} to resolve strike...</div>`;
         } else {
           acts.innerHTML = `<button class="btn btn-primary" onclick="resolveClashDamage()">Resolve Strike</button>`;
@@ -9104,8 +9136,10 @@ function handleChallengerNetworkEvent(payload) {
       return;
     }
     onlineSession.gametype = payload.gametype || '1V1';
-    if (payload.assignedIndex !== undefined) {
-      onlineSession.myPlayerIndex = payload.assignedIndex;
+    if (payload.assignedIndex !== undefined && Number(payload.assignedIndex) > 0) {
+      onlineSession.myPlayerIndex = Number(payload.assignedIndex);
+    } else if (!onlineSession.myPlayerIndex || onlineSession.myPlayerIndex === 0) {
+      onlineSession.myPlayerIndex = 1;
     }
     onlineSession.hostInfo = {
       username: payload.hostUsername,
@@ -9128,8 +9162,9 @@ function handleChallengerNetworkEvent(payload) {
     onlineSession.gametype = payload.gametype || onlineSession.gametype;
     if (payload.lobbyPlayers) {
       onlineSession.lobbyPlayers = payload.lobbyPlayers;
-      const myNewIdx = onlineSession.lobbyPlayers.findIndex(lp => lp && !lp.isAI && lp.username === onlineSession.myUsername);
-      if (myNewIdx !== -1) onlineSession.myPlayerIndex = myNewIdx;
+      const myNewIdx = onlineSession.lobbyPlayers.findIndex((lp, idx) => idx > 0 && lp && !lp.isAI && lp.username === onlineSession.myUsername);
+      if (myNewIdx > 0) onlineSession.myPlayerIndex = myNewIdx;
+      else if (!onlineSession.myPlayerIndex || onlineSession.myPlayerIndex === 0) onlineSession.myPlayerIndex = 1;
       onlineSession.lobbyPlayers.forEach(lp => {
         if (lp && lp.deckKey && lp.deckData && !DECK_RECIPES[lp.deckKey]) {
           DECK_RECIPES[lp.deckKey] = lp.deckData;
@@ -9146,8 +9181,11 @@ function handleChallengerNetworkEvent(payload) {
     onlineSession.active = true;
     gameState = payload.gameState;
     if (payload.lobbyPlayers) {
-      const myIdx = payload.lobbyPlayers.findIndex(lp => lp && !lp.isAI && lp.username === onlineSession.myUsername);
-      if (myIdx !== -1) onlineSession.myPlayerIndex = myIdx;
+      const myIdx = payload.lobbyPlayers.findIndex((lp, idx) => idx > 0 && lp && !lp.isAI && lp.username === onlineSession.myUsername);
+      if (myIdx > 0) onlineSession.myPlayerIndex = myIdx;
+    }
+    if (!onlineSession.myPlayerIndex || onlineSession.myPlayerIndex === 0) {
+      onlineSession.myPlayerIndex = 1;
     }
     ensureTeamSharedZones();
 
@@ -9989,7 +10027,7 @@ async function handleOnlineScoutAllComplete(payload) {
 
   addLogEntry(`All players ready! <strong>Turn 1 Begins!</strong>`, true);
   renderAll();
-  if (isPlayerActiveTurn(onlineSession.myPlayerIndex) && onlineSession.role !== 'HOST') {
+  if (isPlayerActiveTurn(getLocalPlayerIndex()) && onlineSession.role !== 'HOST') {
     renderAll();
   }
 }
@@ -10539,12 +10577,19 @@ function hideArenaPreview() {
    ========================================================================= */
 let actionShowcaseResolve = null;
 let actionShowcaseTimer = null;
+let actionShowcaseIsActor = false;
 
-function showActionShowcase({ card, actionTag, title, description, targetSlotId, duration = 0, isLocalPlayer = false }) {
+function showActionShowcase({ card, actionTag, title, description, targetSlotId, duration = 0, playerIndex = null }) {
   return new Promise((resolve) => {
     actionShowcaseResolve = resolve;
     const overlay = document.getElementById('action-showcase-overlay');
     if (!overlay) { resolve(); return; }
+
+    const myIdx = getLocalPlayerIndex();
+    const isActor = (playerIndex !== null && playerIndex !== undefined)
+      ? (Number(playerIndex) === Number(myIdx))
+      : false;
+    actionShowcaseIsActor = isActor;
 
     const tagEl = document.getElementById('action-showcase-tag');
     const titleEl = document.getElementById('action-showcase-title');
@@ -10552,15 +10597,25 @@ function showActionShowcase({ card, actionTag, title, description, targetSlotId,
     const slotEl = document.getElementById('action-showcase-card-slot');
     const ackBtn = overlay.querySelector('.action-showcase-ack-btn');
 
-    if (tagEl) tagEl.innerText = actionTag || 'ACTION SHOWCASE';
+    if (tagEl) tagEl.innerText = actionTag || (isActor ? 'YOU PLAYED' : 'OPPONENT ACTION');
     if (titleEl) titleEl.innerText = title || (card ? card.name : 'Action');
     if (descEl) descEl.innerText = description || '';
 
     if (ackBtn) {
-      if (onlineSession.active && isLocalPlayer) {
-        ackBtn.innerText = "Waiting for Opponent... (Click, Space, or Enter to continue)";
+      if (onlineSession.active && isActor) {
+        ackBtn.innerText = "⏳ Waiting for opponent to confirm...";
+        ackBtn.disabled = true;
+        ackBtn.style.opacity = "0.65";
+        ackBtn.style.cursor = "not-allowed";
+        ackBtn.style.pointerEvents = "none";
+        ackBtn.onclick = null;
       } else {
         ackBtn.innerText = "OK / Confirm (Click, Space, or Enter)";
+        ackBtn.disabled = false;
+        ackBtn.style.opacity = "1";
+        ackBtn.style.cursor = "pointer";
+        ackBtn.style.pointerEvents = "auto";
+        ackBtn.onclick = () => dismissActionShowcase();
       }
     }
 
@@ -10596,7 +10651,17 @@ function showActionShowcase({ card, actionTag, title, description, targetSlotId,
   });
 }
 
+function handleShowcaseOverlayClick() {
+  if (onlineSession.active && actionShowcaseIsActor) {
+    return; // Actor cannot bypass opponent's confirmation by clicking overlay background!
+  }
+  dismissActionShowcase();
+}
+
 function dismissActionShowcase(fromNetwork = false) {
+  if (onlineSession.active && actionShowcaseIsActor && !fromNetwork) {
+    return; // Actor cannot dismiss or bypass opponent's confirmation!
+  }
   if (actionShowcaseTimer) {
     clearTimeout(actionShowcaseTimer);
     actionShowcaseTimer = null;
@@ -10609,6 +10674,7 @@ function dismissActionShowcase(fromNetwork = false) {
       type: 'UI_ACTION_SHOWCASE_ACK'
     });
   }
+  actionShowcaseIsActor = false;
   if (actionShowcaseResolve) {
     const res = actionShowcaseResolve;
     actionShowcaseResolve = null;
@@ -10620,6 +10686,9 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Space' || e.code === 'Escape' || e.code === 'Enter') {
     const overlay = document.getElementById('action-showcase-overlay');
     if (overlay && overlay.style.display === 'flex') {
+      if (onlineSession.active && actionShowcaseIsActor) {
+        return; // Actor cannot bypass opponent's confirmation via keyboard!
+      }
       e.preventDefault();
       dismissActionShowcase();
     }
@@ -10628,11 +10697,14 @@ window.addEventListener('keydown', (e) => {
 
 async function triggerCardPlayShowcase(player, card, actionTag, description, targetSlotId = null) {
   if (!player || !card) return;
-  const isLocal = !onlineSession.active || (player.index === getLocalPlayerIndex());
+  const pIdx = player.index !== undefined ? Number(player.index) : 0;
+  const myIdx = Number(getLocalPlayerIndex());
+  const isActor = (pIdx === myIdx);
+
   if (onlineSession.active) {
     sendOnlineBroadcast({
       type: 'UI_ACTION_SHOWCASE',
-      playerIndex: player.index,
+      playerIndex: pIdx,
       card: card,
       actionTag: actionTag,
       title: card.name,
@@ -10640,13 +10712,14 @@ async function triggerCardPlayShowcase(player, card, actionTag, description, tar
       targetSlotId: targetSlotId
     });
   }
+
   await showActionShowcase({
     card,
-    actionTag: isLocal ? `YOU PLAYED` : actionTag,
+    actionTag: isActor ? `YOU PLAYED` : actionTag,
     title: card.name,
     description,
     targetSlotId,
-    isLocalPlayer: isLocal
+    playerIndex: pIdx
   });
 }
 
@@ -10688,7 +10761,7 @@ function updateTurnIndicator() {
 
 function updateBottomPiles() {
   const bottomIdx = (onlineSession.active) 
-    ? onlineSession.myPlayerIndex 
+    ? getLocalPlayerIndex() 
     : (gameState.gameMode === "TEST" ? gameState.activePlayerIndex : 0);
   const p = gameState.players[bottomIdx];
   if (!p) return;
@@ -11393,7 +11466,7 @@ function renderPlayer(pIdx, explicitPrx = null) {
 }
 
 function renderHand() {
-  const myIdx = (onlineSession.active) ? onlineSession.myPlayerIndex : (gameState.gameMode === "TEST" ? gameState.activePlayerIndex : 0);
+  const myIdx = (onlineSession.active) ? getLocalPlayerIndex() : (gameState.gameMode === "TEST" ? gameState.activePlayerIndex : 0);
   const p = gameState.players[myIdx]; 
   const handBox = document.getElementById('player-hand-container');
   if (!p || !handBox) return;
@@ -14843,7 +14916,7 @@ function renderClashScreen() {
           
   if (currentClash.attackerPlayer.isAI) {
     setTimeout(rollClashAttacker, 1000);
-  } else if (onlineSession.active && currentClash.attackerPlayer.index !== onlineSession.myPlayerIndex) {
+  } else if (onlineSession.active && !isLocalPlayer(currentClash.attackerPlayer.index)) {
     document.getElementById('clash-actions').innerHTML = `
       <div style="text-align:center; padding:12px; color:#38bdf8; font-size:1.1rem; font-weight:bold; background:rgba(15,23,42,0.85); border:1px solid #38bdf8; border-radius:8px;">
         <span style="display:inline-block; animation:spin 1s linear infinite; margin-right:8px;">⏳</span> Waiting for ${currentClash.attackerPlayer.name} to roll attack...
@@ -15307,7 +15380,7 @@ function updateClashPostAttackActions() {
     if (currentClash.defenderPlayer.isAI || gameState.gameMode === "TUTORIAL") {
       acts.innerHTML = `<p style="color:#cbd5e1; font-style:italic;">Opponent counterstrikes...</p>`;
       setTimeout(rollClashDefender, 1200);
-    } else if (onlineSession.active && currentClash.defenderPlayer.index !== onlineSession.myPlayerIndex) {
+    } else if (onlineSession.active && !isLocalPlayer(currentClash.defenderPlayer.index)) {
       acts.innerHTML = `
         <div style="text-align:center; padding:12px; color:#38bdf8; font-size:1.1rem; font-weight:bold; background:rgba(15,23,42,0.85); border:1px solid #38bdf8; border-radius:8px;">
           <span style="display:inline-block; animation:spin 1s linear infinite; margin-right:8px;">⏳</span> Waiting for ${currentClash.defenderPlayer.name} to roll counterstrike...
@@ -15317,7 +15390,7 @@ function updateClashPostAttackActions() {
       acts.innerHTML = `<button class="dice-btn dice-btn-counter" onclick="rollClashDefender()">🎲 Roll Counter</button>`;
     }
   } else {
-    if (onlineSession.active && currentClash.attackerPlayer.index !== onlineSession.myPlayerIndex) {
+    if (onlineSession.active && !isLocalPlayer(currentClash.attackerPlayer.index)) {
       acts.innerHTML = `
         <div style="text-align:center; padding:12px; color:#94a3b8; font-size:1.05rem; font-weight:bold;">
           Waiting for ${currentClash.attackerPlayer.name} to resolve strike...
@@ -15559,7 +15632,7 @@ async function rollClashDefender() {
   }
 
   const acts = document.getElementById('clash-actions');
-  if (onlineSession.active && currentClash.attackerPlayer.index !== onlineSession.myPlayerIndex) {
+  if (onlineSession.active && !isLocalPlayer(currentClash.attackerPlayer.index)) {
     acts.innerHTML = `<div style="text-align:center; padding:12px; color:#94a3b8; font-size:1.05rem; font-weight:bold;">Waiting for ${currentClash.attackerPlayer.name} to resolve strike...</div>`;
   } else {
     acts.innerHTML = `<button class="btn btn-primary" onclick="resolveClashDamage()">Resolve Strike</button>`;
@@ -15575,7 +15648,7 @@ async function resolveClashDamage() {
     sendOnlineBroadcast({
       type: 'CLIENT_ACTION',
       action: 'resolveClashDamage',
-      playerIndex: onlineSession.myPlayerIndex
+      playerIndex: getLocalPlayerIndex()
     });
     return;
   }
@@ -15775,7 +15848,7 @@ async function closeClashAndApply() {
     sendOnlineBroadcast({
       type: 'CLIENT_ACTION',
       action: 'closeClashAndApply',
-      playerIndex: onlineSession.myPlayerIndex
+      playerIndex: getLocalPlayerIndex()
     });
     const modal = document.getElementById('clash-modal');
     if (modal) modal.style.display = 'none';
@@ -17623,8 +17696,7 @@ function isLocalPlayer(playerOrIndex) {
         return false;
     }
     if (onlineSession && onlineSession.active) {
-        const myIdx = onlineSession.myPlayerIndex ?? ((onlineSession.role === 'HOST') ? 0 : 1);
-        return pIdx === myIdx;
+        return Number(pIdx) === Number(getLocalPlayerIndex());
     }
     if (gameState.gameMode === "TEST") {
         return true;
@@ -17633,15 +17705,39 @@ function isLocalPlayer(playerOrIndex) {
     return pIdx === 0;
 }
 
+let activeRollAnimationContext = null;
+
 async function performAnimatedRoll(title, text, finalRoll, modifier, targetVal, forceWin, rollDetails = null, rollerIndex = null, fromNetwork = false) {
-    if (onlineSession.active && !fromNetwork) {
-        sendOnlineBroadcast({
-            type: 'UI_ROLL_ANIMATION',
-            title, text, finalRoll, modifier, targetVal, forceWin, rollDetails, rollerIndex
-        });
+    const myIdx = getLocalPlayerIndex();
+    const isBot = Boolean(rollerIndex !== null && rollerIndex !== undefined && gameState.players && gameState.players[rollerIndex]?.isAI);
+
+    let isController = false;
+    if (onlineSession.active) {
+        if (isBot) {
+            isController = (onlineSession.role === 'HOST');
+        } else {
+            isController = (rollerIndex !== null && rollerIndex !== undefined) ? (Number(rollerIndex) === Number(myIdx)) : true;
+        }
+    } else {
+        if (isBot) isController = false;
+        else isController = (rollerIndex === null || rollerIndex === undefined || Number(rollerIndex) === Number(myIdx));
+    }
+    const isOpponent = !isController;
+
+    if (onlineSession.active && !fromNetwork && isController) {
+        if (forceWin) {
+            sendOnlineBroadcast({
+                type: 'UI_ROLL_FORCE_WIN',
+                title, text, modifier, targetVal, forceWin, rollerIndex
+            });
+        } else {
+            sendOnlineBroadcast({
+                type: 'UI_ROLL_PREPARE',
+                title, text, modifier, targetVal, forceWin, rollerIndex
+            });
+        }
     }
     return new Promise(resolve => {
-        const isOpponent = (rollerIndex !== null && rollerIndex !== undefined) ? !isLocalPlayer(rollerIndex) : false;
         const modal = document.getElementById('game-modal');
         document.getElementById('modal-title').innerText = title;
         let resultHTML = forceWin ? "<div style='color:#10b981; font-weight:bold; font-size:1.4rem; margin-top:15px; text-align:center;'>AUTO-SUCCESS!</div>" : `
@@ -17658,6 +17754,7 @@ async function performAnimatedRoll(title, text, finalRoll, modifier, targetVal, 
             if (hasResolved) return;
             hasResolved = true;
             if (autoDismissTimer) clearTimeout(autoDismissTimer);
+            activeRollAnimationContext = null;
             modal.classList.remove('active');
             const clashModal = document.getElementById('clash-modal');
             if (clashModal && clashModal.style.display && clashModal.style.display !== 'none' && typeof dockTutorialHUDTopAfterClashRoll === 'function') {
@@ -17684,9 +17781,10 @@ async function performAnimatedRoll(title, text, finalRoll, modifier, targetVal, 
             let dieType = dieMatch ? dieMatch[1] : "D20";
 
             let rollStarted = false;
-            const startRollAnimation = () => {
+            const startRollAnimation = (fVal = finalRoll, rDetails = rollDetails) => {
                 if (rollStarted) return;
                 rollStarted = true;
+                if (autoDismissTimer) { clearTimeout(autoDismissTimer); autoDismissTimer = null; }
                 if (typeof AudioManager !== 'undefined' && AudioManager.playDiceRoll) {
                     AudioManager.playDiceRoll();
                 }
@@ -17697,25 +17795,27 @@ async function performAnimatedRoll(title, text, finalRoll, modifier, targetVal, 
                 function flash() {
                     let elapsed = Date.now() - startTime;
                     if (elapsed > 1100) {
-                        el.innerText = finalRoll;
+                        const actualFinal = (fVal !== null && fVal !== undefined) ? fVal : finalRoll;
+                        const actualDetails = rDetails || rollDetails;
+                        el.innerText = actualFinal;
                         el.style.transform = "scale(1.3)";
                         setTimeout(() => el.style.transform = "scale(1)", 150);
                         
-                        let total = finalRoll + modifier;
+                        let total = actualFinal + modifier;
                         let isSuccess = targetVal ? (total >= targetVal) : null;
                         let resultMsg = isSuccess === true ? "<div style='color:#10b981; font-weight:bold; font-size:1.4rem; margin-top:10px;'>SUCCESS!</div>" : (isSuccess === false ? "<div style='color:#f43f5e; font-weight:bold; font-size:1.4rem; margin-top:10px;'>FAILED!</div>" : "");
                         
                         let rollsBreakdown = "";
-                        if (rollDetails && rollDetails.allRolls && rollDetails.allRolls.length > 1) {
-                            const rollsLabel = rollDetails.aptitudeVal > 0 
-                                ? `Aptitude (${rollDetails.aptitudeVal}x Adv, ${rollDetails.allRolls.length} rolls)`
-                                : (rollDetails.isDoubleAdv ? `Double Advantage (3 rolls)` : (rollDetails.isDisadv && !rollDetails.isAdv ? `Disadvantage (2 rolls)` : `Advantage (2 rolls)`));
-                            const keptWord = (rollDetails.isDisadv && !rollDetails.isAdv && !rollDetails.isDoubleAdv && rollDetails.aptitudeVal === 0) ? "Lowest" : "Highest";
-                            rollsBreakdown = `<div style="color:#38bdf8; font-size:1.05rem; font-weight:600; margin-bottom:8px;">🎲 ${rollsLabel}: [${rollDetails.allRolls.join(', ')}] &rarr; <strong>${keptWord}: ${finalRoll}</strong></div>`;
+                        if (actualDetails && actualDetails.allRolls && actualDetails.allRolls.length > 1) {
+                            const rollsLabel = actualDetails.aptitudeVal > 0 
+                                ? `Aptitude (${actualDetails.aptitudeVal}x Adv, ${actualDetails.allRolls.length} rolls)`
+                                : (actualDetails.isDoubleAdv ? `Double Advantage (3 rolls)` : (actualDetails.isDisadv && !actualDetails.isAdv ? `Disadvantage (2 rolls)` : `Advantage (2 rolls)`));
+                            const keptWord = (actualDetails.isDisadv && !actualDetails.isAdv && !actualDetails.isDoubleAdv && actualDetails.aptitudeVal === 0) ? "Lowest" : "Highest";
+                            rollsBreakdown = `<div style="color:#38bdf8; font-size:1.05rem; font-weight:600; margin-bottom:8px;">🎲 ${rollsLabel}: [${actualDetails.allRolls.join(', ')}] &rarr; <strong>${keptWord}: ${actualFinal}</strong></div>`;
                         }
 
                         const calcText = document.getElementById('roll-calc-text');
-                        calcText.innerHTML = `${rollsBreakdown}Base Roll: ${finalRoll}<br>Modifier: +${modifier}<br>Total: <strong>${total}</strong>${resultMsg}`;
+                        calcText.innerHTML = `${rollsBreakdown}Base Roll: ${actualFinal}<br>Modifier: +${modifier}<br>Total: <strong>${total}</strong>${resultMsg}`;
                         calcText.style.opacity = 1;
                         
                         c.innerHTML = "";
@@ -17728,7 +17828,7 @@ async function performAnimatedRoll(title, text, finalRoll, modifier, targetVal, 
                         if (typeof updateTutorialUI === 'function') setTimeout(updateTutorialUI, 30);
 
                         if (isOpponent) {
-                            autoDismissTimer = setTimeout(finishAndResolve, 2200);
+                            autoDismissTimer = setTimeout(finishAndResolve, 2400);
                         }
                     } else {
                         let maxDie = parseInt(dieType.replace(/\D/g, "")) || 20;
@@ -17740,20 +17840,67 @@ async function performAnimatedRoll(title, text, finalRoll, modifier, targetVal, 
                 flash();
             };
 
+            activeRollAnimationContext = {
+                startRoll: (fVal, rDetails) => {
+                    startRollAnimation(fVal, rDetails);
+                },
+                finish: finishAndResolve
+            };
+
             const btn = document.createElement('button');
             btn.className = 'btn btn-primary';
-            btn.innerText = isOpponent ? `🎲 Opponent Rolling ${dieType}...` : `🎲 Roll ${dieType}`;
-            btn.style.background = isOpponent ? "linear-gradient(135deg, #475569, #334155)" : "linear-gradient(135deg, #f43f5e, #be123c)";
-            btn.style.width = "100%";
-            btn.style.padding = "16px";
-            btn.style.fontSize = "1.2rem";
-            btn.onclick = startRollAnimation;
-            c.appendChild(btn);
-            modal.classList.add('active');
-            if (typeof updateTutorialUI === 'function') setTimeout(updateTutorialUI, 30);
 
             if (isOpponent) {
-                setTimeout(startRollAnimation, 350);
+                const rollerPlayer = (gameState && gameState.players && rollerIndex !== null && rollerIndex !== undefined) ? gameState.players[rollerIndex] : null;
+                const rollerName = rollerPlayer ? rollerPlayer.name : "Opponent";
+                btn.innerText = `⏳ Waiting for ${rollerName} to roll ${dieType}...`;
+                btn.style.background = "linear-gradient(135deg, #475569, #334155)";
+                btn.style.width = "100%";
+                btn.style.padding = "16px";
+                btn.style.fontSize = "1.2rem";
+                btn.disabled = true;
+                btn.style.pointerEvents = "none";
+                btn.style.cursor = "not-allowed";
+                btn.style.opacity = "0.75";
+                c.appendChild(btn);
+                modal.classList.add('active');
+                if (typeof updateTutorialUI === 'function') setTimeout(updateTutorialUI, 30);
+
+                if (!onlineSession.active) {
+                    setTimeout(() => startRollAnimation(finalRoll, rollDetails), 350);
+                }
+            } else {
+                btn.innerText = `🎲 Roll ${dieType}`;
+                btn.style.background = "linear-gradient(135deg, #f43f5e, #be123c)";
+                btn.style.width = "100%";
+                btn.style.padding = "16px";
+                btn.style.fontSize = "1.2rem";
+                btn.disabled = false;
+                btn.style.pointerEvents = "auto";
+                btn.onclick = () => {
+                    btn.style.display = 'none';
+                    if (onlineSession.active) {
+                        sendOnlineBroadcast({
+                            type: 'UI_ROLL_TRIGGER',
+                            finalRoll,
+                            modifier,
+                            targetVal,
+                            forceWin,
+                            rollDetails,
+                            rollerIndex
+                        });
+                    }
+                    startRollAnimation(finalRoll, rollDetails);
+                };
+                c.appendChild(btn);
+                modal.classList.add('active');
+                if (typeof updateTutorialUI === 'function') setTimeout(updateTutorialUI, 30);
+
+                if (isBot && onlineSession.active && isController) {
+                    setTimeout(() => {
+                        if (!hasResolved && !rollStarted) btn.click();
+                    }, 600);
+                }
             }
         }
     });
