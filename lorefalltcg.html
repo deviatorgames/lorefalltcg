@@ -5822,6 +5822,11 @@ function ensureTeamSharedZones(updatedPlayerIdx = null) {
 }
 
 function getLocalPlayerIndex() {
+  if (gameState && gameState.gameMode === "TEST") {
+    return (gameState.activePlayerIndex !== undefined && gameState.activePlayerIndex !== null)
+      ? Number(gameState.activePlayerIndex)
+      : 0;
+  }
   if (typeof onlineSession !== 'undefined') {
     if (onlineSession.role === 'CHALLENGER') {
       return (onlineSession.myPlayerIndex !== undefined && onlineSession.myPlayerIndex !== null && Number(onlineSession.myPlayerIndex) > 0)
@@ -7776,7 +7781,9 @@ async function startGame() {
   if (typeof resetMobileDrawerPosition === 'function') resetMobileDrawerPosition();
   const sbToolbar = document.getElementById('sandbox-toolbar');
   if (sbToolbar) sbToolbar.style.display = (gameState.gameMode === "TEST") ? 'flex' : 'none';
-  const p1IsAI = false; const p2IsAI = (gameState.gameMode === "AI");
+  const isSandbox = (gameState.gameMode === "TEST");
+  const p1IsAI = false; 
+  const p2IsAI = !isSandbox && (gameState.gameMode === "AI");
   const diffLabel = gameState.aiDifficulty === "EASY" ? "Easy" : (gameState.aiDifficulty === "HARD" ? "Hard" : "Medium");
   const p1Name = currentLoggedInUser ? currentLoggedInUser : "Player 1";
   const oppSelect = document.getElementById('opponent-deck-select');
@@ -8332,6 +8339,7 @@ function selectMenuCategory(cat) {
 }
 
 function setSinglePlayerMode(mode) {
+  setGameMode(mode);
   const btnStd = document.getElementById('btn-sp-standard');
   const btnSbx = document.getElementById('btn-sp-sandbox');
   if (btnStd) btnStd.classList.toggle('active', mode === 'AI');
@@ -10806,7 +10814,7 @@ function updateTurnIndicator() {
 function updateBottomPiles() {
   const bottomIdx = (onlineSession.active) 
     ? getLocalPlayerIndex() 
-    : (gameState.gameMode === "TEST" ? gameState.activePlayerIndex : 0);
+    : getBottomPrimaryIndex();
   const p = gameState.players[bottomIdx];
   if (!p) return;
   const lootEl = document.getElementById("p1-loot-count");
@@ -11510,7 +11518,7 @@ function renderPlayer(pIdx, explicitPrx = null) {
 }
 
 function renderHand() {
-  const myIdx = (onlineSession.active) ? getLocalPlayerIndex() : (gameState.gameMode === "TEST" ? gameState.activePlayerIndex : 0);
+  const myIdx = (onlineSession.active) ? getLocalPlayerIndex() : getBottomPrimaryIndex();
   const p = gameState.players[myIdx]; 
   const handBox = document.getElementById('player-hand-container');
   if (!p || !handBox) return;
