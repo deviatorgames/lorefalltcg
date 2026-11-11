@@ -5646,11 +5646,25 @@ function registerCardInEngine(id, type, rawData, imageUrl = null) {
     const rngAbMatch = resolvedAbilities.match(/(?:^|\n|\bUser\s+gets\s+)\+?(\d+)\s+ranged\s+attack\b/i);
     if (rngAbMatch) resolvedRangedAtk = parseInt(rngAbMatch[1], 10);
   }
+  // Behind-the-scenes base ranged attack stat for Heroes is strictly 0 (heroes have no innate base ranged attack; all ranged attack comes from skills, weapons, and auras)
+  if (finalEngineType === "Hero") {
+    resolvedRangedAtk = 0;
+  }
   const rawAttackVal = cleanFieldVal(rawData["Attack"]) !== undefined ? cleanFieldVal(rawData["Attack"]) : (existing ? existing.attack : undefined);
   let resolvedAttackType = cleanFieldVal(rawData["Attack Type"]) !== undefined ? cleanFieldVal(rawData["Attack Type"]) : (existing ? existing.attackType : undefined);
   if (!resolvedAttackType) {
-    if (resolvedRangedAtk !== undefined) resolvedAttackType = "Ranged";
-    else if (rawAttackVal !== undefined || (finalEngineType === "Equipment" && resolvedPowerMod !== undefined)) resolvedAttackType = "Melee";
+    if (finalEngineType === "Hero") {
+      const heroClassLower = String(cleanFieldVal(rawData["Class"]) || "").toLowerCase();
+      if (heroClassLower === "ranger" || heroClassLower === "archer" || heroClassLower === "hunter") {
+        resolvedAttackType = "Ranged";
+      } else {
+        resolvedAttackType = "Melee";
+      }
+    } else if (resolvedRangedAtk !== undefined) {
+      resolvedAttackType = "Ranged";
+    } else if (rawAttackVal !== undefined || (finalEngineType === "Equipment" && resolvedPowerMod !== undefined)) {
+      resolvedAttackType = "Melee";
+    }
   }
   const isEquipmentWeapon = finalEngineType === "Equipment" && Boolean(rawAttackVal !== undefined || resolvedRangedAtk !== undefined || resolvedPowerMod !== undefined || (eqType && eqType.includes("Weapon")));
 
@@ -5727,6 +5741,9 @@ function createCardInstance(idOrName) {
   c.charge = 0;
   c.chargeAddedThisTurn = 0;
   c.isExhausted = false;
+  if (c.type === "Hero") {
+    c.rangedAttack = 0;
+  }
   return c;
 }
 
@@ -7188,6 +7205,10 @@ function countControlled(player, unitClassOrRace, excludeCard) {
 function getStat(card, statName, player) {
   if (!card) return 0;
   let base = card[statName] || 0;
+  if (card.type === "Hero" && statName === "rangedAttack") {
+    base = 0;
+    card.rangedAttack = 0;
+  }
 
   // Check for Proficiency rangedAttack override (e.g. Piercing Shot: "Proficiency 2: Piercing Shot's ranged attack is 4.")
   if (statName === 'rangedAttack' && card.mechanics && card.mechanics.staticModifiers && player) {
@@ -7303,19 +7324,36 @@ function getStat(card, statName, player) {
 
   // Board-wide friendly aura modifiers (e.g. Inspiring Commander "+1 power to Soldiers", Sylvanglade Bowmaster "Other elves you control get +2 ranged attack")
   if (player && (card.type === "Ally" || card.type === "Hero")) {
+    const appliedAuras = new Set();
     [...player.battleZone, ...player.bench].forEach(u => {
       if (!u || !u.mechanics || !u.mechanics.staticModifiers) return;
-      u.mechanics.staticModifiers.forEach(mod => {
+      const uKey = u.instanceId || u.id || u.name;
+      u.mechanics.staticModifiers.forEach((mod, mIdx) => {
         if (!mod.effect || mod.effect.action !== "statBonus") return;
         const sVal = mod.effect.stat === statName ? mod.effect.value : (mod.effect.stats ? mod.effect.stats[statName] : 0);
         if (!sVal) return;
         if (mod.effect.target === "allFriendlySoldiers" && card.unitClass === "Soldier") {
-          if (evaluateCondition(mod.condition, u, { triggerPlayer: player })) base += sVal;
+          const auraKey = `${uKey}_soldier_${statName}`;
+          if (appliedAuras.has(auraKey)) return;
+          if (evaluateCondition(mod.condition, u, { triggerPlayer: player })) {
+            base += sVal;
+            appliedAuras.add(auraKey);
+          }
         } else if (mod.effect.target === "allFriendlyMatchingGroup") {
           if (mod.effect.excludeSelf && u === card) return;
           const g = (mod.effect.groupName || "").toLowerCase();
-          if ((card.race && card.race.toLowerCase() === g) || (card.unitClass && card.unitClass.toLowerCase() === g) || (card.heroClass && card.heroClass.toLowerCase() === g)) {
-            if (evaluateCondition(mod.condition, u, { triggerPlayer: player })) base += sVal;
+          const matchesGroup = (
+            (card.race && (card.race.toLowerCase() === g || card.race.toLowerCase().includes(g))) ||
+            (card.unitClass && (card.unitClass.toLowerCase() === g || card.unitClass.toLowerCase().includes(g))) ||
+            (card.heroClass && (card.heroClass.toLowerCase() === g || card.heroClass.toLowerCase().includes(g)))
+          );
+          if (matchesGroup) {
+            const auraKey = `${uKey}_group_${g}_${statName}`;
+            if (appliedAuras.has(auraKey)) return;
+            if (evaluateCondition(mod.condition, u, { triggerPlayer: player })) {
+              base += sVal;
+              appliedAuras.add(auraKey);
+            }
           }
         }
       });
@@ -7402,7 +7440,7 @@ function createPlayer(index, name, deckKey, isAI = false) {
   return {
     index, name, deckKey, isAI, isEliminated: false, cardsDrawnThisTurn: 0,
     skillLearnedThisTurn: false, tradedThisTurn: false,
-    hero: { ...heroCard, currentHealth: heroCard.health, equipment: [], isExhausted: false, ownerIndex: index },
+    hero: { ...heroCard, rangedAttack: 0, currentHealth: heroCard.health, equipment: [], isExhausted: false, ownerIndex: index },
     manaPool: 0, gold: 3, hand: [], deck: deck, discard: [],
     tokens: getDeckRecipeTokens(recipe),
     battleZone: [null, null, null], bench: [null, null, null], skills: [null, null, null], synergies: [null, null, null]
@@ -12236,7 +12274,7 @@ function generateClassicFullCardView(card, p, zone, slot, isMyTurn, phase, omitA
   let attackBoxHTML = ""; let canStrike = false;
   let isExhausted = (zone === 'skill' || zone === 'hero') ? p.hero.isExhausted : card.isExhausted;
   const hasPowerModBand = (card.type === "Equipment" && !card.attack && card.rangedAttack === undefined && card.powerModifier !== undefined);
-  const hasAttackOrCharge = Boolean(card.attack || card.rangedAttack !== undefined || hasPowerModBand || (card.chargeReq !== undefined && card.type !== "Hero"));
+  const hasAttackOrCharge = Boolean((card.type !== "Hero" && (card.attack || card.rangedAttack !== undefined)) || hasPowerModBand || (card.chargeReq !== undefined && card.type !== "Hero"));
 
   if (hasAttackOrCharge) {
     const hasAtkStat = Boolean(card.attack || card.rangedAttack !== undefined || hasPowerModBand);
@@ -12412,7 +12450,7 @@ function generateFullCardView(card, p, zone, slot, isMyTurn, phase, omitActions 
     let attackBadgeHTML = ""; let canStrike = false;
     let isExhausted = (zone === 'skill' || zone === 'hero') ? p.hero.isExhausted : card.isExhausted;
     const hasPowerModBand = (card.type === "Equipment" && !card.attack && card.rangedAttack === undefined && card.powerModifier !== undefined);
-    const hasAttackBand = Boolean(card.attack || card.rangedAttack !== undefined || hasPowerModBand);
+    const hasAttackBand = Boolean(card.type !== "Hero" && (card.attack || card.rangedAttack !== undefined || hasPowerModBand));
     
     if (hasAttackBand) {
         const atkVal = hasPowerModBand
@@ -15136,7 +15174,7 @@ async function rollClashAttacker() {
       if (hasVolley) {
           let hits = 0;
           let baseRng = getStat(currentClash.attacker, 'rangedAttack', currentClash.attackerPlayer);
-          let charBonusRng = (aUnit !== currentClash.attacker) ? ((aUnit.tempRanged || 0) + (aUnit.strikeTempRanged || 0)) : 0;
+          let charBonusRng = (aUnit !== currentClash.attacker) ? (getStat(aUnit, 'rangedAttack', currentClash.attackerPlayer) || 0) : 0;
           let weaponBonusRng = 0;
           for (let eq of (currentClash.aInfo.activeWeapons || [])) {
               const reqWCharge = (eq.chargeReq !== undefined && Number(eq.chargeReq) > 0) ? Number(eq.chargeReq) : 1;
@@ -15158,6 +15196,9 @@ async function rollClashAttacker() {
           currentClash.atkHit = hits > 0;
           currentClash.atkDamage = hits * perHitDmg;
           gameState.strikesUsed = gameState.maxStrikes; updateStrikePips();
+          if (charBonusRng > 0 && aUnit !== currentClash.attacker) {
+              logMsg += `<span style="color:var(--mana);">Hero Ranged Bonus (${aUnit.name}): +${charBonusRng}</span><br>`;
+          }
           logMsg += `Volley Total Hits: <strong>${hits}</strong> &rarr; Damage: <strong style="color:#10b981; font-size:1.1rem;">${currentClash.atkDamage}</strong>`;
       } else {
           let accRollObj = rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal); 
@@ -15191,7 +15232,7 @@ async function rollClashAttacker() {
 
           if (currentClash.atkHit) {
               let baseRng = getStat(currentClash.attacker, 'rangedAttack', currentClash.attackerPlayer);
-              let charBonusRng = (aUnit !== currentClash.attacker) ? ((aUnit.tempRanged || 0) + (aUnit.strikeTempRanged || 0)) : 0;
+              let charBonusRng = (aUnit !== currentClash.attacker) ? (getStat(aUnit, 'rangedAttack', currentClash.attackerPlayer) || 0) : 0;
               let weaponBonusRng = 0;
               let weaponNames = [];
               const activeWeapons = currentClash.aInfo.activeWeapons || [];
@@ -15210,10 +15251,17 @@ async function rollClashAttacker() {
                   currentClash.atkDamage = 6;
               }
               logMsg += `Accuracy: ${totalAcc} ${advText} <span style="color:#10b981; font-weight:bold;">(HIT)</span><br>`;
+              const bonusParts = [];
+              if (charBonusRng > 0 && aUnit !== currentClash.attacker) {
+                  bonusParts.push(`Hero: +${charBonusRng}`);
+                  logMsg += `<span style="color:var(--mana);">Hero Ranged Bonus (${aUnit.name}): +${charBonusRng}</span><br>`;
+              }
               if (weaponBonusRng > 0) {
+                  bonusParts.push(`Weapon: +${weaponBonusRng}`);
                   logMsg += `<span style="color:var(--gold);">Weapon Bonus (${weaponNames.join(', ')}): +${weaponBonusRng}</span><br>`;
               }
-              logMsg += `Damage: <strong style="color:#10b981; font-size:1.1rem;">${currentClash.atkDamage}</strong> (Base: ${baseRng}, Bonus: ${totalRng - baseRng})`;
+              const bonusDetailStr = bonusParts.length > 0 ? ` (${bonusParts.join(', ')})` : '';
+              logMsg += `Damage: <strong style="color:#10b981; font-size:1.1rem;">${currentClash.atkDamage}</strong> (Base: ${baseRng}, Bonus: ${totalRng - baseRng}${bonusDetailStr})`;
               if(isCrit) logMsg += " <span class='log-crit'>(CRIT!)</span>";
           } else { 
               logMsg += `Accuracy: ${totalAcc} ${advText} <span style="color:#f43f5e; font-weight:bold;">(MISS)</span>`; 
@@ -15531,7 +15579,7 @@ async function rollClashDefender() {
 
       if (counterHit) {
           let baseRng = getStat(counterActor, 'rangedAttack', currentClash.defenderPlayer);
-          let bonusRng = (charWithStats !== counterActor) ? ((charWithStats.tempRanged || 0) + (charWithStats.strikeTempRanged || 0)) : 0;
+          let bonusRng = (charWithStats !== counterActor) ? (getStat(charWithStats, 'rangedAttack', currentClash.defenderPlayer) || 0) : 0;
           let weaponBonusRng = 0;
           let weaponNames = [];
           const defActiveWeapons = currentClash.defActiveWeapons || [];
@@ -15548,10 +15596,17 @@ async function rollClashDefender() {
           let totalRng = baseRng + bonusRng + weaponBonusRng;
           currentClash.defDamage = totalRng * (isCrit ? 2 : 1);
           logMsg += `Counter Accuracy: ${totalAcc} ${advText} <span style="color:#10b981; font-weight:bold;">(HIT)</span><br>`;
+          const bonusParts = [];
+          if (bonusRng > 0 && charWithStats !== counterActor) {
+              bonusParts.push(`Hero: +${bonusRng}`);
+              logMsg += `<span style="color:var(--mana);">Hero Counter Bonus (${charWithStats.name}): +${bonusRng}</span><br>`;
+          }
           if (weaponBonusRng > 0) {
+              bonusParts.push(`Weapon: +${weaponBonusRng}`);
               logMsg += `<span style="color:var(--gold);">Counter Weapon Bonus (${weaponNames.join(', ')}): +${weaponBonusRng}</span><br>`;
           }
-          logMsg += `Damage: <strong style="color:#10b981; font-size:1.1rem;">${currentClash.defDamage}</strong> (Base: ${baseRng}, Bonus: ${totalRng - baseRng})`;
+          const bonusDetailStr = bonusParts.length > 0 ? ` (${bonusParts.join(', ')})` : '';
+          logMsg += `Damage: <strong style="color:#10b981; font-size:1.1rem;">${currentClash.defDamage}</strong> (Base: ${baseRng}, Bonus: ${totalRng - baseRng}${bonusDetailStr})`;
           if (isCrit) logMsg += " <span class='log-crit'>(CRIT!)</span>";
       } else {
           currentClash.defDamage = 0;
@@ -16402,7 +16457,7 @@ function estimateCardExpectedDamage(card, player) {
   const charUnit = isSkill ? player.hero : card;
   if (card.attackType === "Ranged") {
     let baseRng = getStat(card, 'rangedAttack', player);
-    let bonusRng = (charUnit !== card) ? ((charUnit.tempRanged || 0) + (charUnit.strikeTempRanged || 0)) : 0;
+    let bonusRng = (charUnit !== card) ? (getStat(charUnit, 'rangedAttack', player) || 0) : 0;
     if (charUnit.equipment) {
       charUnit.equipment.forEach(eq => {
         const eqAtkType = eq.attackType || (eq.rangedAttack !== undefined ? "Ranged" : "Melee");
