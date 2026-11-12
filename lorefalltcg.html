@@ -10107,10 +10107,41 @@ async function handleChallengerAction(payload) {
     const card = p1.hand[payload.cardIndex];
     if (card && p1.manaPool >= card.manaCost) {
       let targetArr = payload.choice === "bz" ? p1.battleZone : p1.bench;
-      const openSlot = (payload.targetSlot !== undefined && targetArr[payload.targetSlot] === null)
-        ? payload.targetSlot
-        : targetArr.findIndex(s => s === null);
-      if (openSlot !== -1) {
+      const targetSlot = (payload.replaceSlot !== undefined && payload.replaceSlot !== null)
+        ? payload.replaceSlot
+        : ((payload.targetSlot !== undefined && targetArr[payload.targetSlot] === null)
+            ? payload.targetSlot
+            : targetArr.findIndex(s => s === null));
+
+      if (targetSlot !== -1 && targetSlot !== undefined) {
+        if (targetArr[targetSlot] !== null) {
+          const discarded = targetArr[targetSlot];
+          if (discarded.equipment && discarded.equipment.length > 0) {
+            discarded.equipment.forEach(eq => {
+              const eqOwner = gameState.players[eq.ownerIndex ?? p1.index] || p1;
+              eqOwner.discard.push(eq);
+              addLogEntry(`Equipment <strong>${eq.name}</strong> was discarded.`);
+            });
+            discarded.equipment = [];
+          }
+          const leftoverCharge = discarded.charge || 0;
+          const discardedOwner = gameState.players[discarded.ownerIndex ?? p1.index] || p1;
+          discardedOwner.discard.push(discarded);
+          addLogEntry(`${p1.name} discarded <strong>${discarded.name}</strong> from ${payload.choice === "bz" ? "Battle Zone" : "Bench"} to make room for <strong>${card.name}</strong>.`);
+          
+          if (payload.choice === "bz" && leftoverCharge > 0) {
+            const eligible = p1.bench.filter(u => u && (u.charge || 0) < (u.chargeReq || 1));
+            if (eligible.length > 0) {
+              const heir = eligible[0];
+              const prevCh = heir.charge || 0;
+              heir.charge = Math.min(heir.chargeReq || 1, prevCh + leftoverCharge);
+              const gained = heir.charge - prevCh;
+              addLogEntry(`<strong style="color:#a855f7;">Charge Inheritance:</strong> <strong>${heir.name}</strong> inherited +${gained} Charge from ${discarded.name}!`);
+            }
+          }
+          targetArr[targetSlot] = null;
+        }
+
         p1.manaPool -= card.manaCost;
         p1.hand.splice(payload.cardIndex, 1);
         card.currentHealth = card.health;
@@ -10124,7 +10155,7 @@ async function handleChallengerAction(payload) {
           card.dexterity = (card.dexterity || 0) + p1.nextAllyBonusDex;
           p1.nextAllyBonusDex = 0;
         }
-        targetArr[openSlot] = card;
+        targetArr[targetSlot] = card;
         ensureTeamSharedZones(pIdx);
         addLogEntry(`${p1.name} deployed <strong>${card.name}</strong> to ${payload.choice === "bz" ? "Battle Zone" : "Bench"}.`);
         await triggerCardPlayShowcase(p1, card, `${p1.name.toUpperCase()} DEPLOYED ALLY`, `Deployed to ${payload.choice === "bz" ? "Battle Zone" : "Bench"}`);
@@ -10638,6 +10669,30 @@ let actionShowcaseResolve = null;
 let actionShowcaseTimer = null;
 let actionShowcaseIsActor = false;
 
+function hasRemoteHumanOpponent(forPlayerIndex = null) {
+  if (!onlineSession.active) return false;
+  const myIdx = forPlayerIndex !== null ? Number(forPlayerIndex) : Number(getLocalPlayerIndex());
+  if (gameState && Array.isArray(gameState.players) && gameState.players.length > 0) {
+    return gameState.players.some(p => {
+      if (!p || p.isAI || p.isEliminated) return false;
+      const pIdx = Number(p.index);
+      if (pIdx === myIdx) return false;
+      if (isTeamsMode() && isSameTeam(pIdx, myIdx)) return false;
+      return true;
+    });
+  }
+  if (Array.isArray(onlineSession.lobbyPlayers)) {
+    return onlineSession.lobbyPlayers.some((lp, idx) => {
+      if (!lp || lp.isAI) return false;
+      const pIdx = Number(idx);
+      if (pIdx === myIdx) return false;
+      if (isTeamsMode() && isSameTeam(pIdx, myIdx)) return false;
+      return true;
+    });
+  }
+  return false;
+}
+
 function showActionShowcase({ card, actionTag, title, description, targetSlotId, duration = 0, playerIndex = null }) {
   return new Promise((resolve) => {
     actionShowcaseResolve = resolve;
@@ -10661,7 +10716,8 @@ function showActionShowcase({ card, actionTag, title, description, targetSlotId,
     if (descEl) descEl.innerText = description || '';
 
     if (ackBtn) {
-      if (onlineSession.active && isActor) {
+      const needsRemoteAck = onlineSession.active && isActor && hasRemoteHumanOpponent();
+      if (needsRemoteAck) {
         ackBtn.innerText = "⏳ Waiting for opponent to confirm...";
         ackBtn.disabled = true;
         ackBtn.style.opacity = "0.65";
@@ -10712,18 +10768,29 @@ function showActionShowcase({ card, actionTag, title, description, targetSlotId,
       clearTimeout(actionShowcaseTimer);
       actionShowcaseTimer = null;
     }
+
+    if (duration > 0) {
+      actionShowcaseTimer = setTimeout(() => {
+        dismissActionShowcase(true);
+      }, duration);
+    } else if (onlineSession.active && isActor && hasRemoteHumanOpponent()) {
+      // Safety auto-dismiss fallback timer in case remote opponent is AFK or network packet dropped
+      actionShowcaseTimer = setTimeout(() => {
+        dismissActionShowcase(true);
+      }, 4500);
+    }
   });
 }
 
 function handleShowcaseOverlayClick() {
-  if (onlineSession.active && actionShowcaseIsActor) {
+  if (onlineSession.active && actionShowcaseIsActor && hasRemoteHumanOpponent()) {
     return; // Actor cannot bypass opponent's confirmation by clicking overlay background!
   }
   dismissActionShowcase();
 }
 
 function dismissActionShowcase(fromNetwork = false) {
-  if (onlineSession.active && actionShowcaseIsActor && !fromNetwork) {
+  if (onlineSession.active && actionShowcaseIsActor && hasRemoteHumanOpponent() && !fromNetwork) {
     return; // Actor cannot dismiss or bypass opponent's confirmation!
   }
   if (actionShowcaseTimer) {
@@ -10750,7 +10817,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Space' || e.code === 'Escape' || e.code === 'Enter') {
     const overlay = document.getElementById('action-showcase-overlay');
     if (overlay && overlay.style.display === 'flex') {
-      if (onlineSession.active && actionShowcaseIsActor) {
+      if (onlineSession.active && actionShowcaseIsActor && hasRemoteHumanOpponent()) {
         return; // Actor cannot bypass opponent's confirmation via keyboard!
       }
       e.preventDefault();
@@ -13708,13 +13775,47 @@ async function playFlashCard(player, cardIndex, networkData = null) {
 
 function promptDeployAlly(player, cardIndex) {
   const card = player.hand[cardIndex];
+  if (!card) return;
+  const bzCount = player.battleZone.filter(s => s !== null).length;
+  const benchCount = player.bench.filter(s => s !== null).length;
+  const bzLabel = bzCount >= 3 ? "Battle Zone (Full — Replace)" : `Battle Zone (${bzCount}/3)`;
+  const benchLabel = benchCount >= 3 ? "Bench (Full — Replace)" : `Bench (${benchCount}/3)`;
+
   showModalAsync("Deploy " + card.name, "Choose where to deploy:", [
-    { text: "Battle Zone", value: "bz" }, { text: "Bench", value: "bench" }, { text: "Cancel", value: null }
+    { text: bzLabel, value: "bz" },
+    { text: benchLabel, value: "bench" },
+    { text: "Cancel", value: null }
   ]).then(async choice => {
       if (!choice) return;
       let targetArr = choice === "bz" ? player.battleZone : player.bench;
-      const openSlot = targetArr.findIndex(s => s === null);
-      if (openSlot === -1) { showToast("Zone is full!"); return; }
+      let openSlot = targetArr.findIndex(s => s === null);
+      let targetSlot = openSlot;
+      let replaceSlot = null;
+      let discardedAlly = null;
+
+      if (openSlot === -1) {
+        const zoneName = choice === "bz" ? "Battle Zone" : "Bench";
+        const replaceOptions = targetArr.map((ally, idx) => {
+          const hp = ally.currentHealth !== undefined ? ally.currentHealth : ally.health;
+          const chg = ally.charge || 0;
+          const atk = ally.attack || ally.rangedAttack || 0;
+          return {
+            text: `Discard ${ally.name} (❤️${hp} | ⚡${chg} | ⚔️${atk})`,
+            value: idx
+          };
+        });
+        replaceOptions.push({ text: "Cancel", value: null });
+
+        const chosenIdx = await showModalAsync(
+          `Replace Ally in ${zoneName}?`,
+          `Your ${zoneName} is full (3/3). Select an ally to discard to make room for <strong>${card.name}</strong>:`,
+          replaceOptions
+        );
+        if (chosenIdx === null || chosenIdx === undefined) return;
+        replaceSlot = chosenIdx;
+        targetSlot = chosenIdx;
+        discardedAlly = targetArr[replaceSlot];
+      }
 
       if (onlineSession.active && onlineSession.role !== 'HOST') {
         sendOnlineBroadcast({
@@ -13723,14 +13824,56 @@ function promptDeployAlly(player, cardIndex) {
           action: 'playAlly',
           cardIndex: cardIndex,
           choice: choice,
-          targetSlot: openSlot
+          targetSlot: targetSlot,
+          replaceSlot: replaceSlot
         });
         return;
       }
 
+      if (discardedAlly) {
+        const zoneName = choice === "bz" ? "Battle Zone" : "Bench";
+        addLogEntry(`${player.name} discarded <strong>${discardedAlly.name}</strong> from ${zoneName} to make room for <strong>${card.name}</strong>.`);
+        if (discardedAlly.equipment && discardedAlly.equipment.length > 0) {
+          discardedAlly.equipment.forEach(eq => {
+            const eqOwner = gameState.players[eq.ownerIndex ?? player.index] || player;
+            eqOwner.discard.push(eq);
+            addLogEntry(`Equipment <strong>${eq.name}</strong> attached to ${discardedAlly.name} was discarded.`);
+          });
+          discardedAlly.equipment = [];
+        }
+        const leftoverCharge = discardedAlly.charge || 0;
+        const allyOwner = gameState.players[discardedAlly.ownerIndex ?? player.index] || player;
+        allyOwner.discard.push(discardedAlly);
+
+        if (choice === "bz" && leftoverCharge > 0) {
+          const eligibleBenchAllies = player.bench.filter(u => u && (u.charge || 0) < (u.chargeReq || 1));
+          if (eligibleBenchAllies.length > 0) {
+            let chosenHeir = null;
+            if (player.isAI || eligibleBenchAllies.length === 1) {
+              chosenHeir = eligibleBenchAllies[0];
+            } else {
+              const inheritOpts = eligibleBenchAllies.map(ally => ({
+                text: `${ally.name} (${ally.charge || 0}/${ally.chargeReq || 1} Charge)`,
+                value: ally
+              }));
+              chosenHeir = await showModalAsync("Charge Inheritance", `<strong>${discardedAlly.name}</strong> was discarded with ${leftoverCharge} Charge!<br>Choose a Benched Ally to inherit the Charge:`, inheritOpts);
+              if (!chosenHeir) chosenHeir = eligibleBenchAllies[0];
+            }
+            if (chosenHeir) {
+              const prevCh = chosenHeir.charge || 0;
+              chosenHeir.charge = Math.min(chosenHeir.chargeReq || 1, prevCh + leftoverCharge);
+              const gained = chosenHeir.charge - prevCh;
+              addLogEntry(`<strong style="color:#a855f7;">Charge Inheritance:</strong> <strong>${chosenHeir.name}</strong> on the Bench inherited <strong>+${gained} Charge</strong> from <strong>${discardedAlly.name}</strong> (${chosenHeir.charge}/${chosenHeir.chargeReq})!`);
+            }
+          }
+        }
+        await dispatchGlobalHook('onAllyLeavePlay', { triggerPlayer: player, ally: discardedAlly });
+        targetArr[targetSlot] = null;
+      }
+
       const prx = getPlayerBoardZonePrefix(player.index);
       const handEl = document.getElementById(`p1-hand-card-${cardIndex}`);
-      const destEl = document.getElementById(`${prx}-${choice}-${openSlot}`);
+      const destEl = document.getElementById(`${prx}-${choice}-${targetSlot}`);
       if (typeof AudioManager !== 'undefined' && AudioManager.playCardPlay) AudioManager.playCardPlay();
       if (handEl && destEl) {
         await animateCardGlide(handEl, destEl, { flip: true });
@@ -13744,7 +13887,7 @@ function promptDeployAlly(player, cardIndex) {
           addLogEntry(`${card.name} entered the Battle Zone with +${player.nextAllyBonusDex} Dexterity from Vanguard Momentum!`);
           player.nextAllyBonusDex = 0;
       }
-      targetArr[openSlot] = card;
+      targetArr[targetSlot] = card;
       ensureTeamSharedZones(player.index);
       addLogEntry(player.name + " deployed " + card.name + ".");
       await triggerCardPlayShowcase(player, card, `${player.name.toUpperCase()} DEPLOYED ALLY`, `Deployed to ${choice === "bz" ? "Battle Zone" : "Bench"}`);
