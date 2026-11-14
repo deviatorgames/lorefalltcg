@@ -5329,11 +5329,18 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
 
       const eff = parseEnglishEffectClause(sRest, type, cardName);
       if (eff) {
-        mech.passiveAbilities.push({
-          trigger: "onStrikeDeclared",
-          condition: { type: "strikeCount", value: sNum },
-          effect: eff
-        });
+        if (eff.action === "grantKeyword" && String(eff.value || "").toLowerCase() === "overreach") {
+          mech.staticModifiers.push({
+            condition: { type: "strikeCount", value: sNum },
+            effect: { action: "grantKeyword", value: "overreach", target: eff.target || "self" }
+          });
+        } else {
+          mech.passiveAbilities.push({
+            trigger: "onStrikeDeclared",
+            condition: { type: "strikeCount", value: sNum },
+            effect: eff
+          });
+        }
       }
       return;
     }
@@ -5650,8 +5657,12 @@ function registerCardInEngine(id, type, rawData, imageUrl = null) {
   if (finalEngineType === "Hero") {
     resolvedRangedAtk = 0;
   }
-  const rawAttackVal = cleanFieldVal(rawData["Attack"]) !== undefined ? cleanFieldVal(rawData["Attack"]) : (existing ? existing.attack : undefined);
+  let rawAttackVal = cleanFieldVal(rawData["Attack"]) !== undefined ? cleanFieldVal(rawData["Attack"]) : (existing ? existing.attack : undefined);
   let resolvedAttackType = cleanFieldVal(rawData["Attack Type"]) !== undefined ? cleanFieldVal(rawData["Attack Type"]) : (existing ? existing.attackType : undefined);
+  if (finalEngineType === "Equipment" && resolvedAttackType === "Ranged" && resolvedRangedAtk === undefined && rawAttackVal !== undefined && /^\+?\d+$/.test(String(rawAttackVal).trim())) {
+    resolvedRangedAtk = parseInt(String(rawAttackVal).trim(), 10);
+    rawAttackVal = undefined;
+  }
   if (!resolvedAttackType) {
     if (finalEngineType === "Hero") {
       const heroClassLower = String(cleanFieldVal(rawData["Class"]) || "").toLowerCase();
@@ -6509,8 +6520,17 @@ function evaluateCondition(condition, card, context) {
 
   // Allegiance condition
   if (condition.type === "allegiance") {
-    const checkClass = condition.unitClass || card.unitClass || card.race;
-    return countControlled(p, checkClass, card) > 0;
+    const checkClass = condition.unitClass || card.unitClass || card.heroClass || card.race;
+    if (countControlled(p, checkClass, card) > 0) return true;
+    if (p && p.hero && p.hero !== card && checkClass) {
+      const tStr = String(checkClass).trim().toLowerCase();
+      if ((p.hero.unitClass && p.hero.unitClass.trim().toLowerCase() === tStr) ||
+          (p.hero.heroClass && p.hero.heroClass.trim().toLowerCase() === tStr) ||
+          (p.hero.race && p.hero.race.trim().toLowerCase() === tStr)) {
+        return true;
+      }
+    }
+    return false;
   }
   
   // Target class checks for targeted spells/items
@@ -6543,7 +6563,8 @@ function evaluateCondition(condition, card, context) {
   if (condition.type === "isFriendlyAllyDamageReduced") return context.defenderUnit && context.defenderUnit.type === "Ally" && (context.damageReduced || 0) > 0;
   if (condition.type === "isAnyFriendlyDamageReduced") return Boolean(context.defenderUnit && (context.damageReduced || 0) > 0);
   if (condition.type === "strikeCount") {
-      if (context.strikeCount !== condition.value) return false;
+      const effectiveStrikeCount = context.strikeCount !== undefined ? context.strikeCount : ((gameState.strikesUsed || 0) + 1);
+      if (effectiveStrikeCount !== condition.value) return false;
       const curAttacker = context.aInfo || gameState.selectedAttacker;
       if (!curAttacker) return false;
       if (curAttacker.card === card || curAttacker.card?.name === card.name) return true;
@@ -7288,7 +7309,7 @@ function getStat(card, statName, player) {
               );
               if (isUsingThisSkill) {
                   sk.mechanics.staticModifiers.forEach(mod => {
-                      if (mod.effect && mod.effect.action === "statBonus" && (mod.effect.target === "selfEquippedCharacter" || mod.effect.target === "self")) {
+                      if (mod.effect && mod.effect.action === "statBonus" && mod.effect.target === "selfEquippedCharacter") {
                           const sVal = mod.effect.stat === statName ? mod.effect.value : (mod.effect.stats ? mod.effect.stats[statName] : 0);
                           if (sVal && evaluateCondition(mod.condition, sk, { triggerPlayer: player })) {
                               base += sVal;
@@ -10769,15 +10790,13 @@ function showActionShowcase({ card, actionTag, title, description, targetSlotId,
       actionShowcaseTimer = null;
     }
 
-    if (duration > 0) {
+    const hasLocalHuman = (gameState && Array.isArray(gameState.players))
+      ? gameState.players.some((p, idx) => p && !p.isAI && isLocalPlayer(idx))
+      : true;
+    if (duration > 0 && !hasLocalHuman) {
       actionShowcaseTimer = setTimeout(() => {
         dismissActionShowcase(true);
       }, duration);
-    } else if (onlineSession.active && isActor && hasRemoteHumanOpponent()) {
-      // Safety auto-dismiss fallback timer in case remote opponent is AFK or network packet dropped
-      actionShowcaseTimer = setTimeout(() => {
-        dismissActionShowcase(true);
-      }, 4500);
     }
   });
 }
@@ -10831,6 +10850,11 @@ async function triggerCardPlayShowcase(player, card, actionTag, description, tar
   const pIdx = player.index !== undefined ? Number(player.index) : 0;
   const myIdx = Number(getLocalPlayerIndex());
   const isActor = (pIdx === myIdx);
+
+  // In singleplayer (or when no remote human opponent is present), skip play-card prompts for your own cards
+  if ((!onlineSession.active || !hasRemoteHumanOpponent()) && !player.isAI && isActor) {
+    return;
+  }
 
   if (onlineSession.active) {
     const cleanCard = {
@@ -12821,6 +12845,7 @@ function handleCardInteraction(pIdx, zone, slot) {
     if (el && el.classList.contains('targetable')) {
         const aInfo = gameState.selectedAttacker;
         gameState.selectedAttacker = null;
+        gameState.irithMandatoryStrike = false;
         document.querySelectorAll('.card-slot').forEach(s => s.classList.remove('targetable'));
         document.querySelectorAll('.card-mini').forEach(s => s.classList.remove('selected-attacker'));
 
@@ -12854,6 +12879,11 @@ function handleCardInteraction(pIdx, zone, slot) {
         promptDefenderDeclarationAsync(aInfo, p, zone, slot, card);
         return; 
     } else {
+        if (gameState.irithMandatoryStrike) {
+          showToast("Irith Goldenthorn must strike after! Please select a valid enemy target.", true);
+          highlightCombatTargets();
+          return;
+        }
         // If you click a non-target or your own card, cancel the attack declaration
         gameState.selectedAttacker = null;
         document.querySelectorAll('.card-slot').forEach(s => s.classList.remove('targetable'));
@@ -14258,6 +14288,11 @@ async function selectCombatAttacker(playerIndex, type, slot) {
   const p = gameState.players[playerIndex];
   if (!p || p.isEliminated) return;
   if (gameState.strikesUsed >= gameState.maxStrikes) { showToast("Strike limit reached!"); return; }
+  if (gameState.irithMandatoryStrike && (type !== 'skill' || (gameState.selectedAttacker && Number(playerIndex) !== Number(gameState.selectedAttacker.playerIndex)))) {
+    showToast("Irith Goldenthorn must strike next! Choose an enemy target for Irith.", true);
+    highlightCombatTargets();
+    return;
+  }
 
   let attacker = (type === 'ally') ? p.battleZone[slot] : (type === 'bench_ally' ? p.bench[slot] : p.skills[slot]);
   let activeChar = (type === 'skill') ? p.hero : attacker; 
@@ -15217,6 +15252,19 @@ function checkKeyword(card, player, keyword) {
    }
    if (hasKw) return true;
 
+   if (kw === "overreach" && card.mechanics && card.mechanics.passiveAbilities) {
+       card.mechanics.passiveAbilities.forEach(ab => {
+           if (ab && ab.trigger === "onStrikeDeclared" && ab.effect && ab.effect.action === "grantKeyword" && matchesKw(ab.effect.value)) {
+               if (evaluateCondition(ab.condition, card, { triggerPlayer: player })) {
+                   if (!ab.effect.target || ab.effect.target === "self" || ab.effect.target === "selfEquippedCharacter") {
+                       hasKw = true;
+                   }
+               }
+           }
+       });
+       if (hasKw) return true;
+   }
+
    if (card.type === "Hero") {
        player.skills.forEach(sk => {
            if (sk && sk.mechanics && sk.mechanics.staticModifiers) {
@@ -15269,13 +15317,19 @@ function checkKeyword(card, player, keyword) {
        });
    }
 
-   [...player.battleZone, ...player.bench].forEach(u => {
+   const auraSources = [player.hero, ...(player.battleZone || []), ...(player.bench || []), ...(player.synergies || []), ...(player.hero?.equipment || [])];
+   auraSources.forEach(u => {
        if (u && u !== card && u.mechanics && u.mechanics.staticModifiers) {
            u.mechanics.staticModifiers.forEach(mod => {
                if (mod.effect && mod.effect.action === "grantKeyword" && matchesKw(mod.effect.value)) {
                    const targetClass = (card.unitClass || card.heroClass || "").trim().toLowerCase();
                    const uClass = (u.unitClass || u.heroClass || "").trim().toLowerCase();
-                   const matchesClass = Boolean(targetClass && uClass && targetClass === uClass);
+                   const targetRace = (card.race || "").trim().toLowerCase();
+                   const uRace = (u.race || "").trim().toLowerCase();
+                   const matchesClass = Boolean(
+                       (targetClass && uClass && targetClass === uClass) ||
+                       (!uClass && targetRace && uRace && targetRace === uRace)
+                   );
                    if (mod.effect.target === "allFriendlySameClass" && matchesClass) {
                        if (evaluateCondition(mod.condition, u, { triggerPlayer: player })) hasKw = true;
                    }
@@ -15382,9 +15436,8 @@ async function rollClashAttacker() {
               for (let eq of activeWeapons) {
                   const reqWCharge = (eq.chargeReq !== undefined && Number(eq.chargeReq) > 0) ? Number(eq.chargeReq) : 1;
                   if (eq.rangedAttack && (eq.charge || 0) >= reqWCharge) {
-                      weaponBonusRng += eq.rangedAttack;
+                      weaponBonusRng += Number(eq.rangedAttack);
                       weaponNames.push(`${eq.name} +${eq.rangedAttack}`);
-                      await performAnimatedRoll("Equipment Ranged Perk", `<strong>${aUnit.name}</strong> applies perk from ${eq.name}! (+${eq.rangedAttack})`, eq.rangedAttack, 0, null, false, null, currentClash.attackerPlayer.index);
                   }
               }
               let totalRng = baseRng + charBonusRng + weaponBonusRng;
@@ -15523,7 +15576,8 @@ async function rollClashAttacker() {
       let extraDiceTotal = 0;
       const activeWeapons = currentClash.aInfo.activeWeapons || [];
       for (let eq of activeWeapons) {
-          if (eq.attack) {
+          const eqAtkType = eq.attackType || (eq.rangedAttack !== undefined ? "Ranged" : "Melee");
+          if (eq.attack && eqAtkType !== "Ranged") {
               let wDie = eq.temp_overrideAttackDie || eq.attack;
               let eqAdv = checkKeyword(eq, currentClash.attackerPlayer, "advantage");
               let eqDisadv = checkKeyword(eq, currentClash.attackerPlayer, "disadvantage");
@@ -15730,9 +15784,8 @@ async function rollClashDefender() {
               const eqAtkType = eq.attackType || (eq.rangedAttack !== undefined ? "Ranged" : "Melee");
               const reqWCharge = (eq.chargeReq !== undefined && Number(eq.chargeReq) > 0) ? Number(eq.chargeReq) : 1;
               if (eq !== counterActor && eqAtkType === "Ranged" && eq.rangedAttack && (eq.charge || 0) >= reqWCharge) {
-                  weaponBonusRng += eq.rangedAttack;
+                  weaponBonusRng += Number(eq.rangedAttack);
                   weaponNames.push(`${eq.name} +${eq.rangedAttack}`);
-                  await performAnimatedRoll("Equipment Counter Perk", `<strong>${charName}</strong> applies ranged perk from ${eq.name}! (+${eq.rangedAttack})`, eq.rangedAttack, 0, null, false, null, currentClash.defenderPlayer.index);
                   if (!isFreeCounter) eq.charge = Math.max(0, (eq.charge || 0) - reqWCharge);
               }
           }
@@ -16308,11 +16361,22 @@ async function closeClashAndApply() {
           if (pendingIrith.tType === 'hero') {
               targetAlive = pendingIrith.defenderPlayer.hero.currentHealth > 0;
               targetUnit = pendingIrith.defenderPlayer.hero;
-          } else if (pendingIrith.tType === 'ally') {
+          } else if (pendingIrith.tType === 'bz' || pendingIrith.tType === 'ally') {
               targetAlive = pendingIrith.defenderPlayer.battleZone.includes(pendingIrith.tUnit) && pendingIrith.tUnit.currentHealth > 0;
+          } else if (pendingIrith.tType === 'bench') {
+              targetAlive = pendingIrith.defenderPlayer.bench.includes(pendingIrith.tUnit) && pendingIrith.tUnit.currentHealth > 0;
           }
 
           addLogEntry(`<strong>${hero.name}</strong> must strike after if able!`);
+
+          if (!attackerPlayer.isAI) {
+              gameState.selectedAttacker = pendingIrith.originalAInfo;
+              gameState.irithMandatoryStrike = true;
+              highlightCombatTargets();
+              renderAll();
+              showToast(`${hero.name} must strike after! Choose any valid enemy target.`, false);
+              return;
+          }
 
           if (targetAlive) {
               await promptDefenderDeclarationAsync(pendingIrith.originalAInfo, pendingIrith.defenderPlayer, pendingIrith.tType, pendingIrith.tSlot, targetUnit);
@@ -16321,24 +16385,15 @@ async function closeClashAndApply() {
               const opp = pendingIrith.defenderPlayer;
               const hasBzAllies = opp.battleZone.some(s => s !== null);
               const isRanged = pendingIrith.originalAInfo.card.attackType === "Ranged" || pendingIrith.originalAInfo.type === "skill";
-              
+
               if (!hasBzAllies || isRanged) {
                   await promptDefenderDeclarationAsync(pendingIrith.originalAInfo, opp, 'hero', 0, opp.hero);
                   return;
               } else {
                   const firstValidAlly = opp.battleZone.find(s => s !== null);
                   const validAllySlot = opp.battleZone.indexOf(firstValidAlly);
-                  const validAlliesCount = opp.battleZone.filter(s => s !== null).length;
-                  if (validAlliesCount === 1 || attackerPlayer.isAI) {
-                      await promptDefenderDeclarationAsync(pendingIrith.originalAInfo, opp, 'ally', validAllySlot, firstValidAlly);
-                      return;
-                  } else {
-                      gameState.selectedAttacker = pendingIrith.originalAInfo;
-                      gameState.irithMandatoryStrike = true;
-                      highlightCombatTargets();
-                      showToast("Target was defeated! Irith must strike after — choose an enemy.", false);
-                      return;
-                  }
+                  await promptDefenderDeclarationAsync(pendingIrith.originalAInfo, opp, 'bz', validAllySlot, firstValidAlly);
+                  return;
               }
           }
       }
