@@ -160,6 +160,19 @@
   }
   .card-slot:hover { border-color: rgba(255,255,255,0.35); }
   .card-slot.valid-target { border-color: var(--mana); background: rgba(56, 189, 248, 0.15); box-shadow: inset 0 0 15px rgba(56, 189, 248, 0.4); animation: pulseMana 1.5s infinite alternate;}
+  .card-slot.flash-ability-highlight,
+  .hand-card.flash-ability-highlight {
+    border: 2px solid #a855f7 !important;
+    box-shadow: 0 0 16px rgba(168, 85, 247, 0.85), inset 0 0 12px rgba(168, 85, 247, 0.35) !important;
+    animation: pulseFlashHighlight 1.2s ease-in-out infinite alternate !important;
+    cursor: pointer !important;
+    z-index: 6;
+  }
+  .hand-card.flash-ability-highlight { transform: translateY(-10px); }
+  @keyframes pulseFlashHighlight {
+    from { box-shadow: 0 0 10px rgba(168, 85, 247, 0.65), inset 0 0 8px rgba(168, 85, 247, 0.25); }
+    to { box-shadow: 0 0 22px rgba(192, 132, 252, 1), inset 0 0 16px rgba(168, 85, 247, 0.5); }
+  }
 
   /* Scaled Hero Slot (substantially enlarged centerpiece in 5:7 format) */
   .hero-card-slot {
@@ -5168,7 +5181,7 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
     return JSON.parse(JSON.stringify(existingMechanics));
   }
 
-  const rawAbText = (data["Abilities"] || "").trim();
+  const rawAbText = (data["Abilities"] || data.abilities || "").trim();
   const mech = {
     staticModifiers: [],
     passiveAbilities: [],
@@ -5176,7 +5189,7 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
   };
   if (!rawAbText) return mech;
 
-  const cardName = (data["Card Name"] || data["Hero Name"] || "").trim();
+  const cardName = (data["Card Name"] || data["Hero Name"] || data.name || "").trim();
   const cleanText = stripAbilityReminders(rawAbText);
 
   // 2. Equipment user restrictions ("User must be Irith Goldenthorn." / "User must be an assassin, ranger, or warrior.")
@@ -5209,9 +5222,9 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
     if (/^(Curse|Poison|Leach|Leech|Overreach|Revive|Advantage|Allegiance|Piercing|Knockback|Freeze|Aptitude|Overcharge)\s*:\s*\(/i.test(chunk)) {
       return;
     }
-    // Split single-newline subclauses if they start with Proficiency X: or Strike X: or [Mana:X]
+    // Split single-newline subclauses if they start with Proficiency X: or Strike X: or [Mana:X] or activated ability prefixes
     const subLines = chunk.split(/\n/).map(l => l.trim()).filter(Boolean);
-    if (subLines.length > 1 && subLines.some(l => /^(Proficiency\s+\d+|Strike\s+\d+|\[Mana|\[Gold|Pay\s+\d+)/i.test(l))) {
+    if (subLines.length > 1 && subLines.some(l => /^(Proficiency\s+\d+|Strike\s+\d+|\[Mana|\[Gold|Pay\s+\d+|Spend\s+\d+|Exhaust\b|Tap\b|Once\s+per\s+turn|Up\s+to\s+twice\s+per\s+turn|During\s+(?:your\s+|any\s+)?(?:command|combat))/i.test(l))) {
       subLines.forEach(l => clauses.push(l));
     } else {
       clauses.push(chunk);
@@ -5385,7 +5398,7 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
     }
 
     // --- B. ACTIVATED ABILITIES ([Mana:X], Pay X mana:, [Gold:X], Exhaust ..., Stone Pulse Meditation, etc.) ---
-    const isActivated = /^(\[(?:Mana|Gold)\b|\[\d+\s*(?:Mana|Gold)\]|\d+\s*(?:Mana|Gold)\s*[:\-]|Pay\s+\d+|Spend\s+\d+|Exhaust\b|Tap\b|Once\s+per\s+turn|Up\s+to\s+twice\s+per\s+turn|If\s+you\s+have\s+struck\s+twice\s+this\s+turn|During\s+your\s+(?:command|combat)\s+phase)/i.test(clause);
+    const isActivated = /^(\[(?:Mana|Gold)\b|\[\d+\s*(?:Mana|Gold)\]|\d+\s*(?:Mana|Gold)\s*[:\-]|Pay\s+\d+|Spend\s+\d+|Exhaust\b|Tap\b|Once\s+per\s+turn|Up\s+to\s+twice\s+per\s+turn|If\s+you\s+have\s+struck\s+twice\s+this\s+turn|During\s+(?:your\s+|any\s+)?(?:command|combat)(?:\s+phase)?)/i.test(clause);
     if (isActivated) {
       // Stone Pulse Meditation: "If you have struck twice this turn, you may have target ally or skill gain 2 charge. If you do, sacrifice your third strike."
       if (/struck\s+twice\s+this\s+turn.*target\s+ally\s+or\s+skill\s+gain\s+(\d+)\s+charge.*sacrifice\s+your\s+third\s+strike/i.test(clause)) {
@@ -5456,8 +5469,8 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
           continue;
         }
 
-        // Phase restrictions: (Once per turn )?during your command/combat phase
-        const phaseMatch = restText.match(/^(?:Once\s+per\s+turn\s*,?\s*)?during\s+your\s+(command|combat)\s+phase\s*[:\-,]?/i);
+        // Phase restrictions: (Once per turn )?during your/any command/combat phase
+        const phaseMatch = restText.match(/^(?:Once\s+per\s+turn\s*,?\s*)?during\s+(?:your\s+|any\s+)?(command|combat)(?:\s+phase)?\s*[:\-,]?/i);
         if (phaseMatch) {
           if (/Once/i.test(phaseMatch[0])) cost.oncePerTurn = true;
           cost.phase = phaseMatch[1].toLowerCase();
@@ -12404,7 +12417,20 @@ function renderHand() {
 
     el.onmouseenter = (e) => showArenaPreview(e, myIdx, 'hand', idx);
     el.onmouseleave = () => hideArenaPreview();
-    el.onclick = () => { hideArenaPreview(); openCardDetail(myIdx, 'hand', idx); };
+    el.onclick = () => {
+      hideArenaPreview();
+      if (gameState.flashSelectionState) {
+        const fs = gameState.flashSelectionState;
+        const matching = fs.acts.filter(a => a.actionType === 'flash' && a.idx === idx);
+        if (matching.length === 0) {
+          showToast("That card is not a playable Flash card right now.");
+          return;
+        }
+        executeFlashSelectionChoice(matching);
+        return;
+      }
+      openCardDetail(myIdx, 'hand', idx);
+    };
     handBox.appendChild(el);
   });
 
@@ -13485,6 +13511,26 @@ function handleCardInteraction(pIdx, zone, slot) {
   else if (zone === 'synergy') card = p.synergies[slot];
   else if (zone === 'equip') card = p.hero.equipment[slot];
 
+  // 0. Handle Clash Flash / Ability Board Selection
+  if (gameState.flashSelectionState) {
+    const fs = gameState.flashSelectionState;
+    if (pIdx !== fs.player.index) {
+      showToast("Select one of your highlighted cards or Flash cards in hand!");
+      return;
+    }
+    const matching = fs.acts.filter(a =>
+      a.actionType === 'ability' &&
+      (a.zone === zone || (zone === 'bz' && a.zone === 'allyEquip')) &&
+      a.slot === slot
+    );
+    if (matching.length === 0) {
+      showToast("That card has no available Ability right now.");
+      return;
+    }
+    executeFlashSelectionChoice(matching);
+    return;
+  }
+
   // 1. Handle Live-Table Ability Targeting (Items, Spells, Passives)
   if (gameState.targetingState) {
     const reqType = gameState.targetingState.targetType;
@@ -13993,9 +14039,20 @@ function promptForBoardTarget(player, titleMsg, onSelectCallback, sourceCard, ta
     }
 }
 
+function clearFlashSelectionHighlights() {
+    document.querySelectorAll('.flash-ability-highlight').forEach(el => el.classList.remove('flash-ability-highlight'));
+}
+
 function cancelTargeting(isUserInitiated = false) {
     document.getElementById('targeting-banner').style.display = 'none';
     document.querySelectorAll('.card-slot').forEach(s => s.classList.remove('valid-target'));
+    clearFlashSelectionHighlights();
+    if (gameState.flashSelectionState) {
+        const fs = gameState.flashSelectionState;
+        gameState.flashSelectionState = null;
+        if (isUserInitiated && fs.resolve) fs.resolve();
+        return;
+    }
     if(isUserInitiated && gameState.targetingState && gameState.targetingState.callback) {
         gameState.targetingState.callback(null, null, null, null); 
     }
@@ -15657,6 +15714,38 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
   }
 }
 
+async function executeFlashSelectionChoice(matchingActs) {
+  const fs = gameState.flashSelectionState;
+  if (!fs) return;
+  const { player, resolve } = fs;
+  gameState.flashSelectionState = null;
+  clearFlashSelectionHighlights();
+  const banner = document.getElementById('targeting-banner');
+  if (banner) banner.style.display = 'none';
+
+  let chosen = matchingActs[0];
+  if (matchingActs.length > 1) {
+    const modalActs = matchingActs.map((a, i) => ({ text: a.text, value: i }));
+    modalActs.push({ text: "Cancel", value: -1 });
+    const picked = await showModalAsync("Select Ability", "Choose which ability to activate:", modalActs);
+    if (picked === -1 || picked === undefined || picked === null) {
+      if (resolve) resolve();
+      return;
+    }
+    chosen = matchingActs[picked];
+  }
+
+  try {
+    if (chosen.actionType === 'flash') {
+      await promptPlayFlash(player, chosen.idx);
+    } else {
+      await window.activateSpecificAbility(player.index, chosen.zone, chosen.slot, chosen.abIdx, chosen.eqIdx);
+    }
+  } finally {
+    if (resolve) resolve();
+  }
+}
+
 async function openFlashStackMenuAsync(player) {
   if (player && player.index !== undefined && gameState.players && gameState.players[player.index]) {
       player = gameState.players[player.index];
@@ -15708,30 +15797,31 @@ async function openFlashStackMenuAsync(player) {
           }
           if (c.mechanics && c.mechanics.activatedAbilities) {
               c.mechanics.activatedAbilities.forEach((ab, abIdx) => {
+                  const cost = ab.cost || {};
                   let canAfford = true;
-                  if (ab.cost.mana && player.manaPool < ab.cost.mana) canAfford = false;
-                  if (ab.cost.gold && player.gold < ab.cost.gold) canAfford = false;
-                  if (ab.cost.exhaust && (c.type === "Hero" ? player.hero.isExhausted : c.isExhausted)) canAfford = false;
-                  if (ab.cost.exhaustHero && player.hero && player.hero.isExhausted) canAfford = false;
-                  if (ab.cost.oncePerTurn && c.usedThisTurn) canAfford = false;
-                  if (ab.cost.maxUsesPerTurn && (c.usesThisTurn || 0) >= ab.cost.maxUsesPerTurn) canAfford = false;
-                  if (ab.cost.phase) {
-                      const reqP = ab.cost.phase.toLowerCase();
-                      if (reqP !== "combat" && reqP !== "clash" && reqP !== "any" && reqP !== "anytime") {
+                  if (cost.mana && player.manaPool < cost.mana) canAfford = false;
+                  if (cost.gold && player.gold < cost.gold) canAfford = false;
+                  if (cost.exhaust && (c.type === "Hero" ? player.hero.isExhausted : c.isExhausted)) canAfford = false;
+                  if (cost.exhaustHero && player.hero && player.hero.isExhausted) canAfford = false;
+                  if (cost.oncePerTurn && c.usedThisTurn) canAfford = false;
+                  if (cost.maxUsesPerTurn && (c.usesThisTurn || 0) >= cost.maxUsesPerTurn) canAfford = false;
+                  if (cost.phase) {
+                      const reqP = String(cost.phase).toLowerCase();
+                      if (!reqP.includes("combat") && !reqP.includes("clash") && reqP !== "any" && reqP !== "anytime" && reqP !== "flash" && reqP !== "reaction") {
                           canAfford = false;
                       }
                   }
-                  if (ab.cost.exhaust && c.type !== "Hero" && c.chargeReq !== undefined && (c.charge || 0) < c.chargeReq) canAfford = false;
-                  if (ab.cost.requiresStrikesUsed && (gameState.strikesUsed || 0) < ab.cost.requiresStrikesUsed) canAfford = false;
-                  if (ab.cost.sacrificeStrike && (gameState.strikesUsed || 0) >= gameState.maxStrikes) canAfford = false;
-                  if (ab.cost.maxSpend && player.manaPool < (ab.cost.mana || 1)) canAfford = false;
-                  if (ab.cost.discard) {
-                      const count = player.hand.filter(h => h.type === ab.cost.discard.type).length;
-                      if (count < (ab.cost.discard.count || 1)) canAfford = false;
+                  if (cost.exhaust && c.type !== "Hero" && c.chargeReq !== undefined && (c.charge || 0) < c.chargeReq) canAfford = false;
+                  if (cost.requiresStrikesUsed && (gameState.strikesUsed || 0) < cost.requiresStrikesUsed) canAfford = false;
+                  if (cost.sacrificeStrike && (gameState.strikesUsed || 0) >= gameState.maxStrikes) canAfford = false;
+                  if (cost.maxSpend && player.manaPool < (cost.mana || 1)) canAfford = false;
+                  if (cost.discard) {
+                      const count = (player.hand || []).filter(h => h.type === cost.discard.type).length;
+                      if (count < (cost.discard.count || 1)) canAfford = false;
                   }
                   
                   if (canAfford) {
-                      let costStr = ab.cost.mana ? `${ab.cost.mana}M` : (ab.cost.gold ? `${ab.cost.gold}G` : (ab.cost.exhaust ? `Exhaust` : `Cost`));
+                      let costStr = cost.mana ? `${cost.mana}M` : (cost.gold ? `${cost.gold}G` : (cost.exhaust ? `Exhaust` : `Free`));
                       acts.push({ 
                           text: `[Ability] ${c.name} (${costStr})`, 
                           actionType: 'ability', 
@@ -15747,16 +15837,59 @@ async function openFlashStackMenuAsync(player) {
   });
 
   if (acts.length === 0) { showToast("No playable Flash cards or Abilities."); return; }
-  
-  let modalActs = acts.map((a, i) => ({ text: a.text, value: i }));
-  modalActs.push({ text: "Cancel", value: -1 });
-  
-  let chosenI = await showModalAsync("Interrupt Action", "Select a Flash card or Ability to interrupt:", modalActs);
-  if (chosenI !== -1) {
-      let choice = acts[chosenI];
-      if (choice.actionType === 'flash') await promptPlayFlash(player, choice.idx);
-      else await window.activateSpecificAbility(player.index, choice.zone, choice.slot, choice.abIdx, choice.eqIdx);
+
+  const renderedHandIdx = (onlineSession.active) ? getLocalPlayerIndex() : getBottomPrimaryIndex();
+  const canSelectOnBoard = (player.index === renderedHandIdx) || !acts.some(a => a.actionType === 'flash');
+
+  if (!canSelectOnBoard) {
+    let modalActs = acts.map((a, i) => ({ text: a.text, value: i }));
+    modalActs.push({ text: "Cancel", value: -1 });
+    let chosenI = await showModalAsync("Interrupt Action", "Select a Flash card or Ability to interrupt:", modalActs);
+    if (chosenI !== -1) {
+        let choice = acts[chosenI];
+        if (choice.actionType === 'flash') await promptPlayFlash(player, choice.idx);
+        else await window.activateSpecificAbility(player.index, choice.zone, choice.slot, choice.abIdx, choice.eqIdx);
+    }
+    return;
   }
+
+  return new Promise(resolve => {
+    gameState.flashSelectionState = { player, acts, resolve };
+
+    clearFlashSelectionHighlights();
+    const previewEl = document.getElementById('targeting-card-preview');
+    if (previewEl) {
+      previewEl.innerHTML = `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:2rem; background:rgba(139,92,246,0.2); border:2px solid #a855f7; border-radius:8px; color:#e9d5ff;">⚡</div>`;
+    }
+    const textEl = document.getElementById('targeting-text');
+    if (textEl) textEl.innerText = "⚡ Select a Card with an Ability or a Flash Card";
+    const abEl = document.getElementById('targeting-ability');
+    if (abEl) abEl.innerText = "Click any highlighted card on your board or Flash card in your hand, or click Cancel to return to the strike.";
+    const banner = document.getElementById('targeting-banner');
+    if (banner) banner.style.display = 'flex';
+
+    const domPrx = getPlayerDomPrefix(player.index);
+    const bzPrx = getPlayerBoardZonePrefix(player.index);
+
+    acts.forEach(act => {
+      if (act.actionType === 'flash') {
+        const handEl = document.getElementById(`p1-hand-card-${act.idx}`);
+        if (handEl) handEl.classList.add('flash-ability-highlight');
+      } else {
+        let slotId = null;
+        if (act.zone === 'hero') slotId = `${domPrx}-hero-slot`;
+        else if (act.zone === 'bz' || act.zone === 'allyEquip') slotId = `${bzPrx}-bz-${act.slot}`;
+        else if (act.zone === 'bench') slotId = `${bzPrx}-bench-${act.slot}`;
+        else if (act.zone === 'skill') slotId = `${domPrx}-skill-${act.slot}`;
+        else if (act.zone === 'synergy') slotId = `${domPrx}-synergy-${act.slot}`;
+        else if (act.zone === 'equip') slotId = `${domPrx}-equip-${act.slot}`;
+        if (slotId) {
+          const el = document.getElementById(slotId);
+          if (el) el.classList.add('flash-ability-highlight');
+        }
+      }
+    });
+  });
 }
 
 async function executeStrikeResolution(aInfo, defenderPlayer, tType, tSlot, tUnit, isCounter, heroCounterAsset, defActiveWeapons = null) {
