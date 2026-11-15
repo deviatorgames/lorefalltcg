@@ -5242,7 +5242,7 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
     if (/attacks\s+on\s+strike\s+1.*roll\s+for\s+chance\s+to\s+summon\s+an\s+Elf\s+Companion\s+token/i.test(clause)) {
       mech.passiveAbilities.push({
         trigger: "onStrikeDeclared",
-        condition: { type: "strikeCount", value: 1 },
+        condition: { type: "strikeCount", value: 1, requireYourTurn: true },
         effect: {
           action: "chanceRoll",
           successEffect: { action: "irithSummonCompanion", unit: "Elf Companion", target: "friendlyBoard" }
@@ -7010,6 +7010,8 @@ function evaluateCondition(condition, card, context) {
   if (condition.type === "isFriendlyAllyDamageReduced") return context.defenderUnit && context.defenderUnit.type === "Ally" && (context.damageReduced || 0) > 0;
   if (condition.type === "isAnyFriendlyDamageReduced") return Boolean(context.defenderUnit && (context.damageReduced || 0) > 0);
   if (condition.type === "strikeCount") {
+      if (condition.requireYourTurn && (!isPlayerActiveTurn(p.index) || context.isCounter)) return false;
+      if (card && /irith\s+goldenthorn/i.test(card.name || "") && condition.value === 1 && (!isPlayerActiveTurn(p.index) || context.isCounter)) return false;
       const effectiveStrikeCount = context.strikeCount !== undefined ? context.strikeCount : ((gameState.strikesUsed || 0) + 1);
       if (effectiveStrikeCount !== condition.value) return false;
       const curAttacker = context.aInfo || gameState.selectedAttacker;
