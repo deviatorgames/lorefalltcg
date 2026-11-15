@@ -12344,8 +12344,10 @@ function renderPlayer(pIdx, explicitPrx = null) {
   };
 }
 
-function renderHand() {
-  const myIdx = (onlineSession.active) ? getLocalPlayerIndex() : getBottomPrimaryIndex();
+function renderHand(overridePlayerIdx = null) {
+  const myIdx = (overridePlayerIdx !== null && overridePlayerIdx !== undefined)
+    ? overridePlayerIdx
+    : ((onlineSession.active) ? getLocalPlayerIndex() : getBottomPrimaryIndex());
   const p = gameState.players[myIdx]; 
   const handBox = document.getElementById('player-hand-container');
   if (!p || !handBox) return;
@@ -14050,6 +14052,7 @@ function cancelTargeting(isUserInitiated = false) {
     if (gameState.flashSelectionState) {
         const fs = gameState.flashSelectionState;
         gameState.flashSelectionState = null;
+        if (fs.temporarilyRenderedHand) renderHand();
         if (isUserInitiated && fs.resolve) fs.resolve();
         return;
     }
@@ -15717,7 +15720,7 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
 async function executeFlashSelectionChoice(matchingActs) {
   const fs = gameState.flashSelectionState;
   if (!fs) return;
-  const { player, resolve } = fs;
+  const { player, resolve, temporarilyRenderedHand } = fs;
   gameState.flashSelectionState = null;
   clearFlashSelectionHighlights();
   const banner = document.getElementById('targeting-banner');
@@ -15729,6 +15732,7 @@ async function executeFlashSelectionChoice(matchingActs) {
     modalActs.push({ text: "Cancel", value: -1 });
     const picked = await showModalAsync("Select Ability", "Choose which ability to activate:", modalActs);
     if (picked === -1 || picked === undefined || picked === null) {
+      if (temporarilyRenderedHand) renderHand();
       if (resolve) resolve();
       return;
     }
@@ -15742,6 +15746,7 @@ async function executeFlashSelectionChoice(matchingActs) {
       await window.activateSpecificAbility(player.index, chosen.zone, chosen.slot, chosen.abIdx, chosen.eqIdx);
     }
   } finally {
+    if (temporarilyRenderedHand) renderHand();
     if (resolve) resolve();
   }
 }
@@ -15839,22 +15844,13 @@ async function openFlashStackMenuAsync(player) {
   if (acts.length === 0) { showToast("No playable Flash cards or Abilities."); return; }
 
   const renderedHandIdx = (onlineSession.active) ? getLocalPlayerIndex() : getBottomPrimaryIndex();
-  const canSelectOnBoard = (player.index === renderedHandIdx) || !acts.some(a => a.actionType === 'flash');
-
-  if (!canSelectOnBoard) {
-    let modalActs = acts.map((a, i) => ({ text: a.text, value: i }));
-    modalActs.push({ text: "Cancel", value: -1 });
-    let chosenI = await showModalAsync("Interrupt Action", "Select a Flash card or Ability to interrupt:", modalActs);
-    if (chosenI !== -1) {
-        let choice = acts[chosenI];
-        if (choice.actionType === 'flash') await promptPlayFlash(player, choice.idx);
-        else await window.activateSpecificAbility(player.index, choice.zone, choice.slot, choice.abIdx, choice.eqIdx);
-    }
-    return;
+  const temporarilyRenderedHand = (player.index !== renderedHandIdx) && acts.some(a => a.actionType === 'flash');
+  if (temporarilyRenderedHand) {
+    renderHand(player.index);
   }
 
   return new Promise(resolve => {
-    gameState.flashSelectionState = { player, acts, resolve };
+    gameState.flashSelectionState = { player, acts, resolve, temporarilyRenderedHand };
 
     clearFlashSelectionHighlights();
     const previewEl = document.getElementById('targeting-card-preview');
