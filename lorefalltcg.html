@@ -2637,6 +2637,223 @@
     100% { outline-color: #fb7185; box-shadow: 0 0 35px rgba(251, 113, 133, 1), inset 0 0 30px rgba(244, 63, 94, 0.8); }
   }
 
+  /* Ability Source & Target Board Highlights + Narration Banner */
+  .ability-source-glow {
+    position: relative;
+    outline: 3px solid #38bdf8 !important;
+    box-shadow: 0 0 28px rgba(56, 189, 248, 0.95), inset 0 0 20px rgba(56, 189, 248, 0.45) !important;
+    animation: pulseAbilitySource 0.85s ease-in-out infinite alternate !important;
+    z-index: 40;
+  }
+  @keyframes pulseAbilitySource {
+    0% { outline-color: #38bdf8; box-shadow: 0 0 16px rgba(56, 189, 248, 0.75); }
+    100% { outline-color: #facc15; box-shadow: 0 0 34px rgba(250, 204, 21, 0.95), inset 0 0 22px rgba(56, 189, 248, 0.65); }
+  }
+  .ability-target-glow {
+    position: relative;
+    outline: 3px solid #f43f5e !important;
+    box-shadow: 0 0 30px rgba(244, 63, 94, 0.95), inset 0 0 22px rgba(244, 63, 94, 0.55) !important;
+    animation: pulseTargetReticle 0.75s ease-in-out infinite alternate !important;
+    z-index: 41;
+  }
+  .ability-float-badge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.64rem;
+    font-weight: 900;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 60;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.85);
+  }
+  .ability-float-badge.source {
+    background: linear-gradient(135deg, #0284c7, #38bdf8);
+    color: #fff;
+    border: 1px solid #bae6fd;
+  }
+  .ability-float-badge.target {
+    background: linear-gradient(135deg, #be123c, #f43f5e);
+    color: #fff;
+    border: 1px solid #fecdd3;
+  }
+  #ability-narration-banner {
+    position: fixed;
+    top: 56px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-16px);
+    z-index: 840;
+    min-width: 320px;
+    max-width: 680px;
+    width: max-content;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.96));
+    border: 2px solid #38bdf8;
+    border-radius: 12px;
+    padding: 10px 18px;
+    color: #f8fafc;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85), 0 0 22px rgba(56, 189, 248, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    text-align: center;
+  }
+  #ability-narration-banner.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  #ability-narration-banner.has-local-target {
+    border-color: #f43f5e;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85), 0 0 26px rgba(244, 63, 94, 0.5);
+  }
+
+  /* Stat & Resource Gain Flashes + Clickable/Ready Charge */
+  @keyframes statGainPop {
+    0%   { transform: scale(1); filter: brightness(1); }
+    25%  { transform: scale(1.38); filter: brightness(2.2); }
+    65%  { transform: scale(1.15); filter: brightness(1.5); }
+    100% { transform: scale(1); filter: brightness(1); }
+  }
+  .stat-gain-flash {
+    animation: statGainPop 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+    border-radius: 6px;
+  }
+  .stat-gain-hp { box-shadow: 0 0 18px rgba(16, 185, 129, 0.95) !important; color: #6ee7b7 !important; }
+  .stat-gain-mana { box-shadow: 0 0 18px rgba(56, 189, 248, 0.95) !important; color: #7dd3fc !important; }
+  .stat-gain-gold { box-shadow: 0 0 18px rgba(250, 204, 21, 0.95) !important; color: #fde047 !important; }
+  .stat-gain-charge { box-shadow: 0 0 18px rgba(56, 189, 248, 0.95) !important; }
+
+  @keyframes statFloatUp {
+    0%   { opacity: 0; transform: translate(-50%, 4px) scale(0.8); }
+    20%  { opacity: 1; transform: translate(-50%, -8px) scale(1.08); }
+    80%  { opacity: 1; transform: translate(-50%, -22px) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -32px) scale(0.92); }
+  }
+  .stat-gain-float {
+    position: fixed;
+    pointer-events: none;
+    z-index: 950;
+    font-size: 0.85rem;
+    font-weight: 900;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid currentColor;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
+    white-space: nowrap;
+    animation: statFloatUp 1.15s ease-out forwards;
+  }
+
+  @keyframes chargeClickableGlow {
+    0% {
+      opacity: 0.55;
+      transform: translate(-50%, -50%) scale(0.92);
+      box-shadow: 0 0 8px 2px rgba(56, 189, 248, 0.85), inset 0 0 6px rgba(56, 189, 248, 0.45);
+    }
+    100% {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1.22);
+      box-shadow: 0 0 16px 5px rgba(56, 189, 248, 1), 0 0 24px 7px rgba(250, 204, 21, 0.65), inset 0 0 10px rgba(186, 230, 253, 0.7);
+    }
+  }
+  .mini-charge-icon.charge-clickable {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+  }
+  .mini-charge-icon.charge-clickable::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 118%;
+    height: 118%;
+    border-radius: 50%;
+    border: 1.5px solid rgba(125, 211, 252, 0.95);
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.35) 0%, rgba(56, 189, 248, 0) 70%);
+    pointer-events: none;
+    z-index: -1;
+    animation: chargeClickableGlow 0.95s ease-in-out infinite alternate;
+  }
+  .mini-charge-icon.charge-clickable:hover::after {
+    border-color: #fde047;
+    box-shadow: 0 0 18px 6px rgba(250, 204, 21, 1) !important;
+  }
+  .mini-charge-icon.charge-ready span {
+    color: #4ade80 !important;
+    text-shadow: 0 0 8px rgba(74, 222, 128, 0.95), 0 1px 3px #000 !important;
+  }
+  .card-mini.card-charged-ready {
+    box-shadow: 0 0 15px rgba(34, 197, 94, 0.7), inset 0 0 10px rgba(74, 222, 128, 0.25);
+    border: 1.5px solid #22c55e;
+  }
+
+  /* Mana Phase Card Draw Flash (Self) & Flying Card-Back (Opponent) */
+  #draw-flash-overlay {
+    position: fixed;
+    bottom: 130px;
+    left: 50%;
+    transform: translateX(-50%) scale(0.85);
+    z-index: 845;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.28s cubic-bezier(0.18, 0.89, 0.32, 1.25);
+  }
+  #draw-flash-overlay.visible {
+    display: flex;
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+  #draw-flash-badge {
+    background: linear-gradient(135deg, #0284c7, #38bdf8);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 4px 14px;
+    border-radius: 999px;
+    border: 1px solid #bae6fd;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.85);
+  }
+  #draw-flash-card {
+    width: 195px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.95), 0 0 28px rgba(56, 189, 248, 0.65);
+    border: 2px solid #38bdf8;
+    background: #0f172a;
+  }
+  #draw-flash-card img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .flying-card-back {
+    position: fixed;
+    width: 68px;
+    height: 96px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border: 2px solid #f59e0b;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.9), 0 0 18px rgba(245, 158, 11, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    color: #f59e0b;
+    pointer-events: none;
+    z-index: 845;
+    transition: left 0.75s cubic-bezier(0.22, 1, 0.36, 1), top 0.75s cubic-bezier(0.22, 1, 0.36, 1), transform 0.75s ease, opacity 0.25s ease;
+  }
+
   /* Card Animations */
   @keyframes cardFlipDeploy {
     0% {
@@ -3102,7 +3319,44 @@
   .clash-arena { display: flex; justify-content: space-between; gap: 20px; margin-top: 12px; width: 100%; align-items: stretch; }
   .clash-combatant { width: 345px; display: flex; flex-direction: column; align-items: center; gap: 8px; flex-shrink: 0; }
   .clash-center { flex: 1; min-width: 280px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.4); border-radius: 10px; padding: 16px; border: 1px dashed #334155; }
-  .clash-card-wrapper { display: flex; justify-content: center; width: 100%; min-height: 460px; margin: 4px 0; pointer-events: none; }
+  .clash-card-wrapper { position: relative; display: flex; justify-content: center; align-items: center; width: 100%; min-height: 460px; margin: 4px 0; pointer-events: none; }
+  .clash-slash-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 280px;
+    height: 280px;
+    max-width: 95%;
+    max-height: 95%;
+    object-fit: contain;
+    pointer-events: none;
+    z-index: 25;
+    filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.75));
+  }
+  @keyframes clashCardHit {
+    0%   { transform: translate(0, 0); filter: brightness(1); }
+    12%  { transform: translate(-7px, 4px) rotate(-1.5deg); filter: brightness(2.6) saturate(1.2); }
+    28%  { transform: translate(7px, -4px) rotate(1.5deg); filter: brightness(2.2); }
+    45%  { transform: translate(-5px, -3px) rotate(-1deg); filter: brightness(1.65); }
+    65%  { transform: translate(4px, 3px) rotate(0.8deg); filter: brightness(1.3); }
+    85%  { transform: translate(-2px, 1px); filter: brightness(1.1); }
+    100% { transform: translate(0, 0); filter: brightness(1); }
+  }
+  .clash-card-hit-anim .fc-container {
+    animation: clashCardHit 0.48s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .card-slot.board-card-hit-anim {
+    animation: clashCardHit 0.48s cubic-bezier(0.22, 1, 0.36, 1);
+    z-index: 55;
+  }
+  .card-slot .clash-slash-overlay {
+    width: 150px;
+    height: 150px;
+    max-width: 135%;
+    max-height: 135%;
+    z-index: 65;
+  }
   .clash-log { font-size: 0.95rem; text-align: center; margin-bottom: 20px; min-height: 80px; width: 100%; color: #e2e8f0; }
   .dice-btn { background: linear-gradient(135deg, #f43f5e, #be123c); font-size: 1.2rem; padding: 14px 28px; border: 2px solid #fda4af; border-radius: 8px; color: #fff; cursor: pointer; font-weight: bold; box-shadow: 0 4px 15px rgba(244,63,94,0.5); transition: transform 0.1s; width: 100%; text-transform: uppercase; }
   .dice-btn:active { transform: scale(0.95); }
@@ -4317,6 +4571,11 @@
     <button class="action-showcase-ack-btn" onclick="dismissActionShowcase()">OK / Confirm (Click, Space, or Enter)</button>
   </div>
 </div>
+<div id="ability-narration-banner"></div>
+<div id="draw-flash-overlay">
+  <div id="draw-flash-badge">CARD DRAWN</div>
+  <div id="draw-flash-card"></div>
+</div>
 
 <div id="clash-modal">
   <div class="clash-box">
@@ -5007,7 +5266,7 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
     }
 
     // Fortuitous Surge: "Whenever you win a chance roll, you gain 1 mana."
-    if (/Whenever\s+you\s+win\s+a\s+chance\s+roll,\s+you\s+gain\s+(\d+)\s+mana/i.test(clause)) {
+    if (/(?:Whenever|Each\s+time)\s+you\s+win\s+a\s+chance\s+roll,?\s*(?:you\s+)?gain\s+(\d+)\s+mana/i.test(clause)) {
       const m = clause.match(/gain\s+(\d+)\s+mana/i);
       mech.passiveAbilities.push({
         trigger: "onChanceWin",
@@ -6189,6 +6448,180 @@ async function showPassivePopup(card, text, fromNetwork = false) {
     });
 }
 
+let activeAbilityHighlights = null;
+let abilityNarrationHideTimer = null;
+
+function findCardBoardInfo(card) {
+  if (!card || !gameState || !gameState.players) return null;
+  for (let pIdx = 0; pIdx < gameState.players.length; pIdx++) {
+    const p = gameState.players[pIdx];
+    if (!p) continue;
+    if (p.hero === card) return { playerIndex: pIdx, playerName: p.name, zone: 'hero', slot: 0, cardName: card.name };
+    if (p.hero && p.hero.equipment) {
+      const eqIdx = p.hero.equipment.indexOf(card);
+      if (eqIdx !== -1) return { playerIndex: pIdx, playerName: p.name, zone: 'equip', slot: eqIdx, cardName: card.name };
+    }
+    if (p.battleZone) {
+      const bzIdx = p.battleZone.indexOf(card);
+      if (bzIdx !== -1) return { playerIndex: pIdx, playerName: p.name, zone: 'bz', slot: bzIdx, cardName: card.name };
+      for (let i = 0; i < p.battleZone.length; i++) {
+        const u = p.battleZone[i];
+        if (u && u.equipment) {
+          const eqIdx = u.equipment.indexOf(card);
+          if (eqIdx !== -1) return { playerIndex: pIdx, playerName: p.name, zone: 'allyEquip', slot: i, equipIdx: eqIdx, cardName: card.name };
+        }
+      }
+    }
+    if (p.bench) {
+      const bIdx = p.bench.indexOf(card);
+      if (bIdx !== -1) return { playerIndex: pIdx, playerName: p.name, zone: 'bench', slot: bIdx, cardName: card.name };
+    }
+    if (p.skills) {
+      const sIdx = p.skills.indexOf(card);
+      if (sIdx !== -1) return { playerIndex: pIdx, playerName: p.name, zone: 'skill', slot: sIdx, cardName: card.name };
+    }
+    if (p.synergies) {
+      const synIdx = p.synergies.indexOf(card);
+      if (synIdx !== -1) return { playerIndex: pIdx, playerName: p.name, zone: 'synergy', slot: synIdx, cardName: card.name };
+    }
+  }
+  return null;
+}
+
+function getSlotElementForCardInfo(info) {
+  if (!info || info.playerIndex === undefined) return null;
+  const pIdx = info.playerIndex;
+  const z = info.zone || info.targetType;
+  const slot = info.slot !== undefined ? info.slot : (info.targetSlot !== undefined ? info.targetSlot : 0);
+  if (z === 'hero' || z === 'equip') return document.getElementById(`${getPlayerDomPrefix(pIdx)}-hero-slot`);
+  if (z === 'bz' || z === 'allyEquip') return document.getElementById(`${getPlayerBoardZonePrefix(pIdx)}-bz-${slot}`);
+  if (z === 'bench') return document.getElementById(`${getPlayerBoardZonePrefix(pIdx)}-bench-${slot}`);
+  if (z === 'skill') return document.getElementById(`${getPlayerDomPrefix(pIdx)}-skill-${slot}`);
+  if (z === 'synergy') return document.getElementById(`${getPlayerDomPrefix(pIdx)}-synergy-${slot}`);
+  return null;
+}
+
+function clearAbilityBoardHighlights() {
+  document.querySelectorAll('.ability-source-glow').forEach(el => el.classList.remove('ability-source-glow'));
+  document.querySelectorAll('.ability-target-glow').forEach(el => el.classList.remove('ability-target-glow'));
+  document.querySelectorAll('.ability-float-badge').forEach(el => el.remove());
+}
+
+function applyAbilityBoardHighlights() {
+  clearAbilityBoardHighlights();
+  if (!activeAbilityHighlights) return;
+  if (Date.now() > activeAbilityHighlights.expiresAt) {
+    activeAbilityHighlights = null;
+    return;
+  }
+  const addBadge = (el, cls, text) => {
+    if (!el) return;
+    const badge = document.createElement('div');
+    badge.className = `ability-float-badge ${cls}`;
+    badge.textContent = text;
+    el.appendChild(badge);
+  };
+  if (activeAbilityHighlights.sourceInfo) {
+    const srcEl = getSlotElementForCardInfo(activeAbilityHighlights.sourceInfo);
+    if (srcEl) {
+      srcEl.classList.add('ability-source-glow');
+      addBadge(srcEl, 'source', `⚡ ${activeAbilityHighlights.sourceName || 'Ability'}`);
+    }
+  }
+  if (Array.isArray(activeAbilityHighlights.targetInfos)) {
+    activeAbilityHighlights.targetInfos.forEach(tInfo => {
+      const tgtEl = getSlotElementForCardInfo(tInfo);
+      if (tgtEl) {
+        tgtEl.classList.add('ability-target-glow');
+        addBadge(tgtEl, 'target', `🎯 Targeted`);
+      }
+    });
+  }
+}
+
+function showAbilityNarrationBanner({ actorName, sourceName, abilityText, targetInfos = [], sourceInfo = null }) {
+  const banner = document.getElementById('ability-narration-banner');
+  if (!banner) return;
+  const myIdx = Number(getLocalPlayerIndex());
+  const localTargeted = targetInfos.some(t => Number(t.playerIndex) === myIdx);
+
+  let targetHTML = '';
+  if (targetInfos.length > 0) {
+    const targetNames = targetInfos.map(t => {
+      const isMine = Number(t.playerIndex) === myIdx;
+      return isMine
+        ? `<strong style="color:#fda4af;">YOUR ${t.cardName}</strong>`
+        : `<strong style="color:#fca5a5;">${t.playerName}'s ${t.cardName}</strong>`;
+    }).join(', ');
+    targetHTML = `<div style="margin-top:4px; font-size:0.86rem; color:#fecdd3; font-weight:700;">🎯 Targeting ${targetNames}</div>`;
+  }
+
+  const cleanAbility = abilityText ? String(abilityText).replace(/\n+/g, ' ').trim() : 'Activated ability';
+  const truncatedAbility = cleanAbility.length > 140 ? cleanAbility.slice(0, 137) + '...' : cleanAbility;
+
+  banner.classList.toggle('has-local-target', localTargeted);
+  banner.innerHTML = `
+    <div style="font-size:0.72rem; letter-spacing:1.2px; text-transform:uppercase; color:#38bdf8; font-weight:900;">
+      ⚡ ${actorName || 'Player'} — ${sourceName || 'Card'}
+    </div>
+    <div style="font-size:0.86rem; color:#e2e8f0; margin-top:2px;">${truncatedAbility}</div>
+    ${targetHTML}
+  `;
+  banner.classList.add('visible');
+
+  if (abilityNarrationHideTimer) clearTimeout(abilityNarrationHideTimer);
+  abilityNarrationHideTimer = setTimeout(() => {
+    banner.classList.remove('visible');
+    activeAbilityHighlights = null;
+    clearAbilityBoardHighlights();
+  }, 3600);
+}
+
+function narrateAbilityActivation({ sourceCard, sourcePlayer, abilityText = '', targets = [], fromNetwork = false }) {
+  if (!sourceCard || gameState.gameMode === "TUTORIAL" || gameState.gameMode === "INDEPTH_TUTORIAL") return;
+  const sourceInfo = findCardBoardInfo(sourceCard);
+  const targetInfos = (Array.isArray(targets) ? targets : [])
+    .map(t => findCardBoardInfo(t))
+    .filter(Boolean);
+
+  const actorName = sourcePlayer ? sourcePlayer.name : (sourceInfo ? sourceInfo.playerName : 'Player');
+  const actorIndex = sourcePlayer ? sourcePlayer.index : (sourceInfo ? sourceInfo.playerIndex : 0);
+  const sourceName = sourceCard.name || (sourceInfo ? sourceInfo.cardName : 'Card');
+  const finalAbilityText = abilityText || (typeof sourceCard.abilities === 'string' ? sourceCard.abilities : '') || 'Ability activated';
+
+  activeAbilityHighlights = {
+    sourceInfo,
+    targetInfos,
+    sourceName,
+    expiresAt: Date.now() + 3600
+  };
+  applyAbilityBoardHighlights();
+  showAbilityNarrationBanner({
+    actorName,
+    sourceName,
+    abilityText: finalAbilityText,
+    targetInfos,
+    sourceInfo
+  });
+
+  if (targetInfos.length > 0) {
+    const tgtSummary = targetInfos.map(t => `${t.playerName}'s ${t.cardName}`).join(', ');
+    addLogEntry(`<span style="color:#38bdf8;">⚡ <strong>${sourceName}</strong></span> targets <span style="color:#fb7185;">🎯 <strong>${tgtSummary}</strong></span> (${finalAbilityText}).`);
+  }
+
+  if (onlineSession.active && !fromNetwork) {
+    sendOnlineBroadcast({
+      type: 'UI_ABILITY_NARRATION',
+      actorName,
+      actorIndex,
+      sourceName,
+      abilityText: finalAbilityText,
+      sourceInfo,
+      targetInfos
+    });
+  }
+}
+
 function resolveUnitFromTargetInfo(info) {
   if (!info || !gameState || !gameState.players) return null;
   const p = gameState.players[info.playerIndex];
@@ -6472,8 +6905,8 @@ async function executeHook(card, eventType, context) {
                 for (let i = 0; i < triggerCount; i++) {
                     // 1. Show the Trigger Popup first!
                     const act = ability.effect.action;
+                    const specificText = getSpecificAbilityText(card, ability);
                     if (["draw", "heal", "buffHealth", "dealDamage", "chanceRoll", "summonToken", "addCharge", "lookAndDraw", "lookAndDrawConditional", "searchDeck"].includes(act)) {
-                        const specificText = getSpecificAbilityText(card, ability);
                         await showPassivePopup(card, specificText + (i > 0 ? " (2nd Trigger)" : ""));
                     }
 
@@ -6481,7 +6914,8 @@ async function executeHook(card, eventType, context) {
                     let currentTarget = targetedUnit;
 
                     // 3. Execute the effect
-                    await executeEffect(ability.effect, card, context, currentTarget ? [currentTarget] : null);
+                    const effectCtx = context.abilityText ? context : { ...context, abilityText: specificText };
+                    await executeEffect(ability.effect, card, effectCtx, currentTarget ? [currentTarget] : null);
                     renderAll();
                 }
             }
@@ -6609,18 +7043,35 @@ function evaluateCondition(condition, card, context) {
 }
 
 async function executeEffect(effect, sourceCard, context, preResolvedTargets = null) {
+  const p = context.triggerPlayer;
   if (preResolvedTargets) {
+      const preTgtType = effect.target || (effect.action === "multipleEffects" && effect.effects?.[0]?.target) || effect.successEffect?.target;
+      const extTargets = isBoardTargetType(preTgtType) ? preResolvedTargets.filter(t => t && !t.hand) : [];
+      narrateAbilityActivation({
+        sourceCard,
+        sourcePlayer: p,
+        abilityText: context.abilityText || '',
+        targets: extTargets
+      });
       await applyEffectAction(effect, preResolvedTargets, sourceCard, context);
       return;
   }
 
-  const p = context.triggerPlayer;
   let targetType = effect.target;
 
   if (!targetType && effect.action === "multipleEffects" && effect.effects.length > 0) targetType = effect.effects[0].target;
   if (!targetType && effect.successEffect) targetType = effect.successEffect.target;
   
   if (!targetType) {
+    narrateAbilityActivation({
+      sourceCard,
+      sourcePlayer: p,
+      abilityText: context.abilityText || '',
+      targets: []
+    });
+    if (context.isActivatedAbility && p && sourceCard) {
+      await triggerCardPlayShowcase(p, sourceCard, `${p.name.toUpperCase()} ACTIVATED ABILITY`, context.abilityText || `Activated ${sourceCard.name}'s ability`);
+    }
     await applyEffectAction(effect, [sourceCard], sourceCard, context);
     return;
   }
@@ -6665,7 +7116,22 @@ async function executeEffect(effect, sourceCard, context, preResolvedTargets = n
   else if (targetType === "allFriendlyDefendingAllies") targets = p.battleZone.filter(u => u !== null);
   else if (targetType === "friendlyBoard") targets = [p];
   
-  if (targets.length > 0) await applyEffectAction(effect, targets, sourceCard, context);
+  if (targets.length > 0) {
+    const extTargets = isBoardTargetType(targetType) ? targets.filter(t => t && !t.hand) : [];
+    narrateAbilityActivation({
+      sourceCard,
+      sourcePlayer: p,
+      abilityText: context.abilityText || '',
+      targets: extTargets
+    });
+    if (context.isActivatedAbility && p && sourceCard) {
+      const tgtInfo = extTargets.length > 0 ? findCardBoardInfo(extTargets[0]) : null;
+      const baseDesc = context.abilityText || `Activated ${sourceCard.name}'s ability`;
+      const fullDesc = tgtInfo ? `${baseDesc}\n🎯 Targeting ${tgtInfo.playerName}'s ${tgtInfo.cardName}` : baseDesc;
+      await triggerCardPlayShowcase(p, sourceCard, `${p.name.toUpperCase()} ACTIVATED ABILITY`, fullDesc, null, tgtInfo);
+    }
+    await applyEffectAction(effect, targets, sourceCard, context);
+  }
 }
 
 async function spawnToken(player, tokenIdOrName, startReady = false, forcedZone = null, tokenInfo = null) {
@@ -6841,11 +7307,20 @@ async function applyEffectAction(effect, targets, sourceCard, context) {
     else if (effect.action === "dealDamage") {
        let dmgAmt = effect.amount === "damageReduced" ? (context.damageReduced || 0) : effect.amount;
        const ownerPlayer = gameState.players.find(pl => pl && (pl.hero === target || pl.battleZone.includes(target) || pl.bench.includes(target))) || getPrimaryOpponentForPlayer(context.triggerPlayer.index);
+       const dmgTargetInfo = findCardBoardInfo(target);
        target.currentHealth -= dmgAmt;
        if (ownerPlayer !== context.triggerPlayer) {
            gameState.enemyTookNonCombatDamageThisTurn = true;
        }
        addLogEntry(`${effect.type === 'nonCombat' ? 'Non-Combat ' : ''}Damage: ${target.name} takes ${dmgAmt} damage.`);
+       if (dmgAmt > 0 && dmgTargetInfo) {
+           renderAll();
+           playBoardSlashAnimation(dmgTargetInfo);
+           if (onlineSession.active) {
+               sendOnlineBroadcast({ type: 'UI_BOARD_SLASH', targetInfo: dmgTargetInfo });
+           }
+           await new Promise(r => setTimeout(r, 520));
+       }
        if (target.currentHealth <= 0 && target.type !== "Hero") {
            await checkDefeated(ownerPlayer, target);
        } else if (target.currentHealth <= 0 && target.type === "Hero") {
@@ -8985,13 +9460,40 @@ function handleCommonOnlineUIEvents(payload) {
     const localCard = (cardTitle ? (CARDS_BY_NAME[cardTitle] || CARDS_DATA[cardTitle] || CARDS_BY_NAME[cardTitle.toLowerCase()]) : null);
     const card = payload.card ? Object.assign({}, localCard || {}, payload.card) : (localCard || { name: cardTitle || 'Action', type: 'Action' });
 
+    let resolvedTargetSlotId = payload.targetSlotId || null;
+    if (!resolvedTargetSlotId && payload.targetInfo) {
+      const slotEl = getSlotElementForCardInfo(payload.targetInfo);
+      if (slotEl && slotEl.id) resolvedTargetSlotId = slotEl.id;
+    }
+
     showActionShowcase({
       card: card,
-      actionTag: isActor ? 'YOU PLAYED' : `${actingName.toUpperCase()} ACTION`,
+      actionTag: isActor ? 'YOU PLAYED' : (payload.actionTag || `${actingName.toUpperCase()} ACTION`),
       title: cardTitle || card.name,
       description: payload.description,
-      targetSlotId: payload.targetSlotId,
+      targetSlotId: resolvedTargetSlotId,
       playerIndex: payload.playerIndex
+    });
+    return true;
+  }
+  if (payload.type === 'UI_ABILITY_NARRATION') {
+    const myIdx = Number(getLocalPlayerIndex());
+    if (onlineSession.role === 'HOST' && Number(payload.actorIndex) === myIdx) {
+      return true;
+    }
+    activeAbilityHighlights = {
+      sourceInfo: payload.sourceInfo || null,
+      targetInfos: Array.isArray(payload.targetInfos) ? payload.targetInfos : [],
+      sourceName: payload.sourceName || 'Card',
+      expiresAt: Date.now() + 3600
+    };
+    applyAbilityBoardHighlights();
+    showAbilityNarrationBanner({
+      actorName: payload.actorName,
+      sourceName: payload.sourceName,
+      abilityText: payload.abilityText,
+      targetInfos: Array.isArray(payload.targetInfos) ? payload.targetInfos : [],
+      sourceInfo: payload.sourceInfo || null
     });
     return true;
   }
@@ -9069,12 +9571,44 @@ function handleCommonOnlineUIEvents(payload) {
     }
     return true;
   }
+  if (payload.type === 'UI_BOARD_SLASH') {
+    if (payload.targetInfo) {
+      playBoardSlashAnimation(payload.targetInfo);
+    }
+    return true;
+  }
+  if (payload.type === 'UI_DRAW_ANIMATION') {
+    const p = gameState?.players?.[payload.playerIndex];
+    if (p) {
+      playCardDrawVisual(p, payload.card || null);
+    }
+    return true;
+  }
   if (payload.type === 'UI_CLASH_RESOLVED') {
     if (currentClash) {
       Object.assign(currentClash, payload.currentClash);
       const logBox = document.getElementById('clash-log');
       if (logBox) logBox.innerHTML += payload.logHTML;
       updateClashHPBars();
+      if (!currentClash.evaded && currentClash.atkHit) {
+        playClashSlashAnimation('clash-defender-col');
+        const defAllyDied = Boolean(currentClash.tType !== 'hero' && currentClash.tUnit && currentClash.finalDamage >= currentClash.tUnit.currentHealth);
+        if (defAllyDied) currentClash.tUnit._defeatSlashPlayed = true;
+        if (typeof AudioManager !== 'undefined') {
+          if (defAllyDied && AudioManager.playSlash2) AudioManager.playSlash2();
+          else if (AudioManager.playSlash1) AudioManager.playSlash1();
+        }
+      }
+      if (currentClash.defDamage > 0) {
+        playClashSlashAnimation('clash-attacker-col');
+        const aUnitClient = currentClash.aInfo?.type === 'skill' ? currentClash.attackerPlayer?.hero : currentClash.attacker;
+        const atkAllyDied = Boolean(aUnitClient && aUnitClient.type !== 'Hero' && currentClash.defDamage >= aUnitClient.currentHealth);
+        if (atkAllyDied) aUnitClient._defeatSlashPlayed = true;
+        if (typeof AudioManager !== 'undefined') {
+          if (atkAllyDied && AudioManager.playSlash2) AudioManager.playSlash2();
+          else if (AudioManager.playSlash1) AudioManager.playSlash1();
+        }
+      }
       const acts = document.getElementById('clash-actions');
       if (acts) acts.innerHTML = `<button class="btn btn-primary" onclick="closeClashAndApply()">Complete Strike</button>`;
     }
@@ -10845,7 +11379,7 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
-async function triggerCardPlayShowcase(player, card, actionTag, description, targetSlotId = null) {
+async function triggerCardPlayShowcase(player, card, actionTag, description, targetSlotId = null, targetInfo = null) {
   if (!player || !card) return;
   const pIdx = player.index !== undefined ? Number(player.index) : 0;
   const myIdx = Number(getLocalPlayerIndex());
@@ -10854,6 +11388,12 @@ async function triggerCardPlayShowcase(player, card, actionTag, description, tar
   // In singleplayer (or when no remote human opponent is present), skip play-card prompts for your own cards
   if ((!onlineSession.active || !hasRemoteHumanOpponent()) && !player.isAI && isActor) {
     return;
+  }
+
+  let localTargetSlotId = targetSlotId;
+  if (!localTargetSlotId && targetInfo) {
+    const slotEl = getSlotElementForCardInfo(targetInfo);
+    if (slotEl && slotEl.id) localTargetSlotId = slotEl.id;
   }
 
   if (onlineSession.active) {
@@ -10890,7 +11430,8 @@ async function triggerCardPlayShowcase(player, card, actionTag, description, tar
       actionTag: actionTag,
       title: card.name,
       description: description,
-      targetSlotId: targetSlotId
+      targetSlotId: targetSlotId,
+      targetInfo: targetInfo || null
     });
   }
 
@@ -10899,7 +11440,7 @@ async function triggerCardPlayShowcase(player, card, actionTag, description, tar
     actionTag: isActor ? `YOU PLAYED` : actionTag,
     title: card.name,
     description,
-    targetSlotId,
+    targetSlotId: localTargetSlotId,
     playerIndex: pIdx
   });
 }
@@ -11021,6 +11562,7 @@ function renderAll() {
   updateClashHPBars(); 
   updateTurnIndicator();
   updateBottomPiles();
+  if (typeof applyAbilityBoardHighlights === 'function') applyAbilityBoardHighlights();
   if (typeof updateTutorialUI === 'function' && typeof tutorialState !== 'undefined' && tutorialState && tutorialState.active) {
     updateTutorialUI();
   }
@@ -11433,6 +11975,90 @@ function updateSlotContentSafe(el, newHTML) {
   el.innerHTML = newHTML;
 }
 
+let lastRenderedPlayerStats = {};
+let lastRenderedGameRef = null;
+let drawFlashTimer = null;
+
+function triggerStatGainFlash(el, floatLabel, typeClass) {
+  if (!el) return;
+  el.classList.remove('stat-gain-flash', 'stat-gain-hp', 'stat-gain-mana', 'stat-gain-gold', 'stat-gain-charge');
+  void el.offsetWidth;
+  el.classList.add('stat-gain-flash', typeClass);
+  setTimeout(() => {
+    el.classList.remove('stat-gain-flash', typeClass);
+  }, 800);
+
+  if (floatLabel) {
+    const rect = el.getBoundingClientRect();
+    if (rect.width > 0 || rect.height > 0) {
+      const pop = document.createElement('div');
+      pop.className = `stat-gain-float ${typeClass}`;
+      pop.textContent = floatLabel;
+      pop.style.left = `${rect.left + rect.width / 2}px`;
+      pop.style.top = `${Math.max(10, rect.top - 6)}px`;
+      document.body.appendChild(pop);
+      setTimeout(() => pop.remove(), 1180);
+    }
+  }
+}
+
+function playCardDrawVisual(player, card) {
+  if (!player) return;
+  const pIdx = player.index;
+  const isSelf = isLocalPlayer(pIdx) && !player.isAI;
+  const prx = getPlayerDomPrefix(pIdx);
+
+  if (isSelf && card) {
+    const overlay = document.getElementById('draw-flash-overlay');
+    const cardBox = document.getElementById('draw-flash-card');
+    const badge = document.getElementById('draw-flash-badge');
+    if (overlay && cardBox) {
+      if (badge) badge.textContent = `CARD DRAWN • ${card.name}`;
+      if (hasCardArt(card)) {
+        const artUrl = getCardArtUrl(card);
+        const safeName = (card.name || '').replace(/'/g, "\\'");
+        cardBox.innerHTML = `<img src="${artUrl}" alt="${card.name}" onerror="handleCardArtError('${safeName}', this)">`;
+      } else {
+        cardBox.innerHTML = generateClassicFullCardView(card, player, 'hand', 0, false, "MANA", true);
+      }
+      overlay.classList.add('visible');
+      if (drawFlashTimer) clearTimeout(drawFlashTimer);
+      drawFlashTimer = setTimeout(() => {
+        overlay.classList.remove('visible');
+      }, 1750);
+    }
+    return;
+  }
+
+  // Opponent draw: animate a card-back sliding from their deck toward their hero
+  const deckEl = document.getElementById(`${prx}-loot-count`)?.parentElement || document.getElementById(`${prx}-loot-count`);
+  const heroEl = document.getElementById(`${prx}-hero-slot`);
+  if (!deckEl || !heroEl) return;
+  const dRect = deckEl.getBoundingClientRect();
+  const hRect = heroEl.getBoundingClientRect();
+  if (dRect.width === 0 || hRect.width === 0) return;
+
+  const flyer = document.createElement('div');
+  flyer.className = 'flying-card-back';
+  flyer.innerHTML = '✦';
+  flyer.style.left = `${dRect.left + dRect.width / 2 - 34}px`;
+  flyer.style.top = `${dRect.top + dRect.height / 2 - 48}px`;
+  flyer.style.transform = 'scale(0.75) rotate(-8deg)';
+  document.body.appendChild(flyer);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      flyer.style.left = `${hRect.left + hRect.width / 2 - 34}px`;
+      flyer.style.top = `${hRect.top + hRect.height / 2 - 48}px`;
+      flyer.style.transform = 'scale(1.05) rotate(4deg)';
+    });
+  });
+  setTimeout(() => {
+    flyer.style.opacity = '0';
+    setTimeout(() => flyer.remove(), 260);
+  }, 820);
+}
+
 function renderPlayer(pIdx, explicitPrx = null) {
   const p = gameState.players[pIdx]; 
   if (!p) return;
@@ -11644,6 +12270,65 @@ function renderPlayer(pIdx, explicitPrx = null) {
   }
   const profBadgeEl = document.getElementById(prx + "-prof-badge");
   if (profBadgeEl) profBadgeEl.innerText = "Prof: " + prof;
+
+  // Detect Health, Mana, Gold, and Charge gains & flash/light up changed stats
+  if (lastRenderedGameRef !== gameState) {
+    lastRenderedGameRef = gameState;
+    lastRenderedPlayerStats = {};
+  }
+  const prev = lastRenderedPlayerStats[pIdx];
+  const curCards = {};
+  const trackUnit = (u, slotEl) => {
+    if (!u || !u.instanceId) return;
+    const hp = u.currentHealth ?? u.health ?? 0;
+    const chg = u.charge ?? 0;
+    curCards[u.instanceId] = { hp, chg };
+    const prevU = prev?.cards?.[u.instanceId];
+    if (prevU && slotEl) {
+      if (hp > prevU.hp) {
+        triggerStatGainFlash(slotEl.querySelector('.mini-hp') || slotEl, `+${hp - prevU.hp} HP`, 'stat-gain-hp');
+      }
+      if (chg > prevU.chg) {
+        triggerStatGainFlash(slotEl.querySelector('.mini-charge-icon') || slotEl, `+${chg - prevU.chg}⚡`, 'stat-gain-charge');
+        if (typeof AudioManager !== 'undefined' && AudioManager.playManaPowerUp) AudioManager.playManaPowerUp();
+      }
+    }
+  };
+
+  if (prev) {
+    const heroSlot = document.getElementById(prx + "-hero-slot");
+    if (p.manaPool > prev.manaPool) {
+      const diff = p.manaPool - prev.manaPool;
+      triggerStatGainFlash(document.getElementById(prx + "-mana-val"), `+${diff} Mana`, 'stat-gain-mana');
+      if (heroSlot) triggerStatGainFlash(heroSlot.querySelector('.mini-mana'), null, 'stat-gain-mana');
+      if (typeof AudioManager !== 'undefined' && AudioManager.playManaPowerUp) AudioManager.playManaPowerUp();
+    }
+    if (p.gold > prev.gold) {
+      const diff = p.gold - prev.gold;
+      triggerStatGainFlash(document.getElementById(prx + "-gold-val"), `+${diff} Gold`, 'stat-gain-gold');
+      if (typeof AudioManager !== 'undefined' && AudioManager.playGold) AudioManager.playGold();
+    }
+    if (p.hero.currentHealth > prev.heroHP) {
+      const diff = p.hero.currentHealth - prev.heroHP;
+      triggerStatGainFlash(document.getElementById(prx + "-hp-val"), `+${diff} HP`, 'stat-gain-hp');
+      if (heroSlot) triggerStatGainFlash(heroSlot.querySelector('.mini-hp'), null, 'stat-gain-hp');
+    }
+  }
+
+  for (let s = 0; s < 3; s++) {
+    if (prx === 'p1' || prx === 'p2') {
+      trackUnit(p.battleZone[s], document.getElementById(prx + "-bz-" + s));
+      trackUnit(p.bench[s], document.getElementById(prx + "-bench-" + s));
+    }
+    trackUnit(p.skills[s], document.getElementById(prx + "-skill-" + s));
+  }
+
+  lastRenderedPlayerStats[pIdx] = {
+    manaPool: p.manaPool,
+    gold: p.gold,
+    heroHP: p.hero.currentHealth,
+    cards: curCards
+  };
 }
 
 function renderHand() {
@@ -11799,7 +12484,7 @@ function createCardHTML(card, pIdx, zone, slot) {
 
     return `
       <div class="card-mini hero-mini ${ex} ${sel} ${deployAnimClass} ${activatableClass}" data-instance-id="${card.instanceId || ''}">
-        <img class="card-mini-img" src="${artUrl}" alt="${card.name}" decoding="async" onerror="${hasBoardCardArt(card) ? `handleBoardCardArtError('${safeName}', this)` : `handleCardArtError('${safeName}', this)`}">
+        <img class="card-mini-img" src="${artUrl}" alt="${card.name}" onerror="${hasBoardCardArt(card) ? `handleBoardCardArtError('${safeName}', this)` : `handleCardArtError('${safeName}', this)`}">
         <div class="mini-stat-overlay">
           ${manaVal !== "" ? `<div class="mini-mana"><span>${manaVal}</span></div>` : ''}
           ${dexVal !== "" ? `<div class="mini-dex"><span>${dexVal}</span></div>` : ''}
@@ -11850,8 +12535,22 @@ function createCardHTML(card, pIdx, zone, slot) {
       atkPosClass = "mini-ally-atk";      // middle bottom
     }
 
+    const localIdx = getLocalPlayerIndex();
+    const canClickCharge = Boolean(
+      p && !p.isAI && isPlayerActiveTurn(localIdx) && isSameTeam(localIdx, pIdx) &&
+      currentPhase === "COMMAND" &&
+      (zone === 'bz' || zone === 'bench' || zone === 'skill') &&
+      card.chargeReq !== undefined && card.type !== "Hero"
+    );
+    const isChargedReady = Boolean(card.chargeReq !== undefined && card.type !== "Hero" && (card.charge || 0) >= (card.chargeReq || 1));
+    const chargedCardClass = isChargedReady ? 'card-charged-ready' : '';
+    const chExtraClass = `${canClickCharge ? 'charge-clickable' : ''} ${isChargedReady ? 'charge-ready' : ''}`.trim();
+    const chClickAttr = canClickCharge
+      ? ` onclick="event.stopPropagation(); modifyCharge(${pIdx}, '${zone}', ${slot}, 1);" title="Click to +1 Charge (1 Mana)"`
+      : '';
+
     let chBadge = (card.chargeReq !== undefined && card.type !== "Hero")
-      ? `<div class="${chClass}"><span>${card.charge || 0}/${card.chargeReq}</span></div>`
+      ? `<div class="${chClass} ${chExtraClass}"${chClickAttr}><span>${card.charge || 0}/${card.chargeReq}</span></div>`
       : "";
     let eqBadge = (card.equipment && card.equipment.length > 0 && zone !== 'hero')
       ? `<div style="position:absolute; top:20%; left:4px; background:rgba(15,23,42,0.92); color:var(--gold); border:1px solid var(--gold); border-radius:4px; font-size:0.55rem; font-weight:800; padding:1px 3px; z-index:4;">🛡️${card.equipment.length}</div>`
@@ -11864,8 +12563,8 @@ function createCardHTML(card, pIdx, zone, slot) {
     const zoneClass = isSkill ? 'skill-mini' : (isAlly ? 'ally-mini' : (isSynergy ? 'synergy-mini' : ''));
 
     return `
-      <div class="card-mini ${zoneClass} ${ex} ${sel} ${deployAnimClass} ${activatableClass}" data-instance-id="${card.instanceId || ''}">
-        <img class="card-mini-img ${isFullCard ? 'board-crop-img' : ''}" src="${artUrl}" alt="${card.name}" decoding="async" onload="if(this.naturalHeight > this.naturalWidth * 1.2) this.classList.add('board-crop-img');" onerror="handleBoardCardArtError('${safeName}', this)">
+      <div class="card-mini ${zoneClass} ${ex} ${sel} ${deployAnimClass} ${activatableClass} ${chargedCardClass}" data-instance-id="${card.instanceId || ''}">
+        <img class="card-mini-img ${isFullCard ? 'board-crop-img' : ''}" src="${artUrl}" alt="${card.name}" onload="if(this.naturalHeight > this.naturalWidth * 1.2) this.classList.add('board-crop-img');" onerror="handleBoardCardArtError('${safeName}', this)">
         ${ownerBadgeHTML}
         <div class="mini-stat-overlay">
           ${manaVal !== "" ? `<div class="${costClass}"><span>${manaVal}</span></div>` : ''}
@@ -13175,7 +13874,11 @@ window.activateSpecificAbility = async function(pIdx, zone, slot, abilityIndex, 
       if (typeof clonedEffect.amount === "number") clonedEffect.amount *= spent;
       
       addLogEntry(`<strong>${p.name}</strong> spent ${costMana * spent} Mana on <strong>${card.name}</strong>!`);
-      await executeEffect(clonedEffect, card, { triggerPlayer: p });
+      await executeEffect(clonedEffect, card, {
+        triggerPlayer: p,
+        isActivatedAbility: true,
+        abilityText: `Spent ${costMana * spent} Mana: ${ability.text || (typeof card.abilities === 'string' ? card.abilities : card.name)}`
+      });
       renderAll();
       if (onlineSession.active) broadcastOnlineState();
       return;
@@ -13197,7 +13900,11 @@ window.activateSpecificAbility = async function(pIdx, zone, slot, abilityIndex, 
           updateStrikePips();
       }
       
-      let contextData = { triggerPlayer: p };
+      let contextData = {
+        triggerPlayer: p,
+        isActivatedAbility: true,
+        abilityText: ability.text || (typeof card.abilities === 'string' ? card.abilities : `${card.name}'s ability`)
+      };
       if (discardReq) {
           let discardedLevel = 0;
           for(let i=0; i<discardReq.count; i++) {
@@ -13388,6 +14095,7 @@ async function setPhase(phaseName) {
         if (cTotal >= 20) {
           p.isCursed = false;
           addLogEntry(`<strong style="color:#10b981;">Curse Lifted!</strong> (${cRoll} + ${cDex} = ${cTotal})`);
+          await dispatchGlobalHook('onChanceWin', { triggerPlayer: p, rollerUnit: p.hero });
         } else {
           addLogEntry(`<span style="color:#a855f7;">Curse persists (${cRoll} + ${cDex} = ${cTotal} < 20). ${p.name}'s units have Disadvantage!</span>`);
         }
@@ -13406,6 +14114,7 @@ async function setPhase(phaseName) {
         await checkDefeated(player, pUnit);
       } else {
         addLogEntry(`<span style="color:#10b981;">${pUnit.name} survived Poison this turn (${pRoll} + ${pDex} = ${pTotal}).</span>`);
+        await dispatchGlobalHook('onChanceWin', { triggerPlayer: player, rollerUnit: pUnit });
       }
     }
   }
@@ -13538,12 +14247,42 @@ async function runManaPhase() {
     ? (gameState.turnNumber === 1 && isSameTeam(gameState.activePlayerIndex, gameState.firstPlayerIndex))
     : (gameState.turnNumber === 1 && gameState.activePlayerIndex === gameState.firstPlayerIndex);
 
+  let anySelfDrew = false;
+  let anyDrew = false;
   for (const p of activeMembers) {
     if (!isFirstTurnSkipDraw) {
-      await drawCard(p, false);
+      const drawn = await drawCard(p, false);
+      if (drawn) {
+        anyDrew = true;
+        if (isLocalPlayer(p.index) && !p.isAI) anySelfDrew = true;
+        playCardDrawVisual(p, drawn);
+        if (onlineSession.active && onlineSession.role === 'HOST') {
+          sendOnlineBroadcast({
+            type: 'UI_DRAW_ANIMATION',
+            playerIndex: p.index,
+            card: {
+              name: drawn.name, type: drawn.type, subtype: drawn.subtype,
+              manaCost: drawn.manaCost, goldCost: drawn.goldCost,
+              abilities: typeof drawn.abilities === 'string' ? drawn.abilities : '',
+              image_url: drawn.image_url || ''
+            }
+          });
+        }
+      }
     } else {
       addLogEntry(`First Turn Rule: <strong>${p.name}</strong> skips the Draw Step.`);
     }
+  }
+
+  updatePhaseTracker(); renderAll();
+  if (onlineSession.active && onlineSession.role === 'HOST') {
+    broadcastOnlineState();
+  }
+  if (anyDrew) {
+    await new Promise(r => setTimeout(r, anySelfDrew ? 1650 : 1050));
+  }
+
+  for (const p of activeMembers) {
     if (!p.isEliminated) {
       let manaGen = p.hero.mana;
       p.manaPool += manaGen;
@@ -13565,7 +14304,7 @@ async function runManaPhase() {
     if (PHASES[gameState.currentPhaseIndex] === "MANA") {
       await setPhase("COMMAND");
     }
-  }, 600);
+  }, 1150);
 }
 
 async function resolveEndPhase() {
@@ -15385,6 +16124,7 @@ async function rollClashAttacker() {
               if (accRoll === 20 || totalAcc >= 11) {
                   hits++;
                   logMsg += `Arrow #${arrow}: ${totalAcc} <span style="color:#10b981; font-weight:bold;">(HIT)</span><br>`;
+                  await dispatchGlobalHook('onChanceWin', { triggerPlayer: currentClash.attackerPlayer, rollerUnit: aUnit });
               } else {
                   logMsg += `Arrow #${arrow}: ${totalAcc} <span style="color:#f43f5e; font-weight:bold;">(MISS)</span><br>`;
                   break;
@@ -15410,6 +16150,7 @@ async function rollClashAttacker() {
 
           if (accRoll === 20 || totalAcc >= 11) {
               currentClash.atkHit = true;
+              await dispatchGlobalHook('onChanceWin', { triggerPlayer: currentClash.attackerPlayer, rollerUnit: aUnit });
           } else {
               currentClash.atkHit = false;
           }
@@ -15760,6 +16501,9 @@ async function rollClashDefender() {
       if (forceWin) totalAcc = 99;
 
       let counterHit = (accRoll === 20 || totalAcc >= 11);
+      if (counterHit) {
+          await dispatchGlobalHook('onChanceWin', { triggerPlayer: currentClash.defenderPlayer, rollerUnit: charWithStats });
+      }
 
       if (counterHit && !isCrit && hasCritChance) {
           let confirmRollObj = rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
@@ -15958,6 +16702,63 @@ async function rollClashDefender() {
   if (typeof dockTutorialHUDTopAfterClashRoll === 'function') dockTutorialHUDTopAfterClashRoll();
 }
 
+const SLASH_ATTACK_FRAMES = Array.from({ length: 21 }, (_, i) =>
+  `Animations/SlashAttack/slash-attack-hit_${String(i).padStart(4, '0')}.png`
+);
+const _preloadedSlashImages = SLASH_ATTACK_FRAMES.map(src => {
+  const img = new Image();
+  img.src = src;
+  return img;
+});
+
+function playSlashAnimationOnContainer(containerEl, hitClass) {
+  if (!containerEl) return;
+
+  containerEl.querySelectorAll('.clash-slash-overlay').forEach(el => el.remove());
+  containerEl.classList.remove(hitClass);
+  void containerEl.offsetWidth;
+  containerEl.classList.add(hitClass);
+
+  const overlay = document.createElement('img');
+  overlay.className = 'clash-slash-overlay';
+  overlay.alt = '';
+  overlay.src = SLASH_ATTACK_FRAMES[0];
+  containerEl.appendChild(overlay);
+
+  const frameDurationMs = 26;
+  const startTime = performance.now();
+  let lastFrame = 0;
+
+  function step(now) {
+    if (!overlay.isConnected) return;
+    const frameIdx = Math.floor((now - startTime) / frameDurationMs);
+    if (frameIdx >= SLASH_ATTACK_FRAMES.length) {
+      overlay.remove();
+      containerEl.classList.remove(hitClass);
+      return;
+    }
+    if (frameIdx !== lastFrame) {
+      lastFrame = frameIdx;
+      overlay.src = SLASH_ATTACK_FRAMES[frameIdx];
+    }
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function playClashSlashAnimation(colId) {
+  const wrapper = document.querySelector(`#${colId} .clash-card-wrapper`);
+  playSlashAnimationOnContainer(wrapper, 'clash-card-hit-anim');
+}
+
+function playBoardSlashAnimation(targetInfo) {
+  const slotEl = getSlotElementForCardInfo(targetInfo);
+  playSlashAnimationOnContainer(slotEl, 'board-card-hit-anim');
+  if (typeof AudioManager !== 'undefined' && AudioManager.playSlash1) {
+    AudioManager.playSlash1();
+  }
+}
+
 async function resolveClashDamage() {
   if (onlineSession.active && onlineSession.role !== 'HOST') {
     sendOnlineBroadcast({
@@ -16127,6 +16928,13 @@ async function resolveClashDamage() {
       let dMax = dUnit.maxHealth || dUnit.health;
       document.getElementById('clash-d-fill').style.width = Math.max(0, (newDHP / dMax) * 100) + '%';
       document.getElementById('clash-d-hp').innerText = `${newDHP} / ${dMax}`;
+      playClashSlashAnimation('clash-defender-col');
+      const defAllyDied = Boolean(currentClash.tType !== 'hero' && finalDamage >= dUnit.currentHealth);
+      if (defAllyDied) dUnit._defeatSlashPlayed = true;
+      if (typeof AudioManager !== 'undefined') {
+          if (defAllyDied && AudioManager.playSlash2) AudioManager.playSlash2();
+          else if (AudioManager.playSlash1) AudioManager.playSlash1();
+      }
   }
 
   if (currentClash.defDamage > 0) {
@@ -16134,6 +16942,13 @@ async function resolveClashDamage() {
       let aMax = aUnit.maxHealth || aUnit.health;
       document.getElementById('clash-a-fill').style.width = Math.max(0, (newAHP / aMax) * 100) + '%';
       document.getElementById('clash-a-hp').innerText = `${newAHP} / ${aMax}`;
+      playClashSlashAnimation('clash-attacker-col');
+      const atkAllyDied = Boolean(aUnit && aUnit.type !== 'Hero' && currentClash.defDamage >= aUnit.currentHealth);
+      if (atkAllyDied) aUnit._defeatSlashPlayed = true;
+      if (typeof AudioManager !== 'undefined') {
+          if (atkAllyDied && AudioManager.playSlash2) AudioManager.playSlash2();
+          else if (AudioManager.playSlash1) AudioManager.playSlash1();
+      }
   }
 
   document.getElementById('clash-actions').innerHTML = `<button class="btn btn-primary" onclick="closeClashAndApply()">Complete Strike</button>`;
@@ -16341,6 +17156,16 @@ async function closeClashAndApply() {
       });
   });
 
+  const breakthroughHeroTargets = [];
+  if (!currentClash.evaded && currentClash.atkHit && currentClash.breakthrough > 0 && currentClash.tType === 'bz') {
+    const btHeroPlayer = currentClash.breakthroughHeroPlayer || gameState.players[tUnit.ownerIndex ?? currentClash.defenderPlayer.index] || currentClash.defenderPlayer;
+    if (btHeroPlayer) breakthroughHeroTargets.push({ playerIndex: btHeroPlayer.index, zone: 'hero', slot: 0 });
+  }
+  if (currentClash.defDamage > 0 && currentClash.counterBreakthrough > 0) {
+    const aBtOwner = gameState.players[aUnit.ownerIndex ?? attackerPlayer.index] || attackerPlayer;
+    if (aBtOwner) breakthroughHeroTargets.push({ playerIndex: aBtOwner.index, zone: 'hero', slot: 0 });
+  }
+
   if (typeof onTutorialAction === 'function') onTutorialAction('CLASH_CLOSED', { currentClash });
   checkGameOver(); renderAll();
   if (onlineSession.active) {
@@ -16348,6 +17173,13 @@ async function closeClashAndApply() {
     if (onlineSession.role === 'HOST') broadcastOnlineState();
   }
   currentClash = null;
+
+  for (const btInfo of breakthroughHeroTargets) {
+    playBoardSlashAnimation(btInfo);
+    if (onlineSession.active) {
+      sendOnlineBroadcast({ type: 'UI_BOARD_SLASH', targetInfo: btInfo });
+    }
+  }
 
   const pendingIrith = gameState.pendingIrithFollowUp;
   gameState.pendingIrithFollowUp = null;
@@ -16403,6 +17235,11 @@ async function closeClashAndApply() {
 }
 
 async function checkDefeated(player, unit) {
+  if (unit && unit._defeatSlashPlayed) {
+    delete unit._defeatSlashPlayed;
+  } else if (typeof AudioManager !== 'undefined' && AudioManager.playSlash2) {
+    AudioManager.playSlash2();
+  }
   // Visual death animation on the board before removal
   const prx = getPlayerBoardZonePrefix(player.index);
   let slotEl = null;
@@ -16774,7 +17611,11 @@ async function aiTryActivateAbilities(activeP, phaseName, diff) {
           let clonedEffect = JSON.parse(JSON.stringify(ability.effect));
           if (typeof clonedEffect.amount === "number") clonedEffect.amount *= spend;
           addLogEntry(`<strong>${activeP.name}</strong> spent ${spend * costPerPt} Mana on <strong>${card.name}</strong>!`);
-          await executeEffect(clonedEffect, card, { triggerPlayer: activeP });
+          await executeEffect(clonedEffect, card, {
+            triggerPlayer: activeP,
+            isActivatedAbility: true,
+            abilityText: `Spent ${spend * costPerPt} Mana: ${ability.text || (typeof card.abilities === 'string' ? card.abilities : card.name)}`
+          });
           renderAll();
         }
         continue;
@@ -16821,7 +17662,11 @@ async function aiTryActivateAbilities(activeP, phaseName, diff) {
         if (!hasChargedEnemy) continue;
       }
 
-      let contextData = { triggerPlayer: activeP };
+      let contextData = {
+        triggerPlayer: activeP,
+        isActivatedAbility: true,
+        abilityText: ability.text || (typeof card.abilities === 'string' ? card.abilities : `${card.name}'s ability`)
+      };
       if (discardReq) {
         const validSkills = activeP.hand.filter(c => c.type === discardReq.type);
         if (validSkills.length < discardReq.count) continue;
@@ -21779,7 +22624,15 @@ const AUDIO_DATA = {
     'https://raw.githubusercontent.com/deviatorgames/Lorefall-Card-Art/main/The%20Weight%20of%20the%20Draw.wav',
     'https://raw.githubusercontent.com/deviatorgames/lorefalltcg/main/The%20Weight%20of%20the%20Draw.wav'
   ],
-  get bgmUrls() { return this.bgmFallbacks; }
+  get bgmUrls() { return this.bgmFallbacks; },
+  manaPowerUp: 'mana power up.wav',
+  manaPowerUpFallbacks: ['mana%20power%20up.wav'],
+  goldGain: 'Gold Sound.wav',
+  goldGainFallbacks: ['Gold%20Sound.wav'],
+  slash1: 'a_slash_damage_1.wav',
+  slash1Fallbacks: [],
+  slash2: 'a_slash_damage_2.wav',
+  slash2Fallbacks: []
 };
 
 function createSoundInstance(type, index) {
@@ -21801,6 +22654,18 @@ function createSoundInstance(type, index) {
     const dIdx = (index !== undefined && index !== null) ? (index % AUDIO_DATA.diceRolls.length) : 0;
     primaryUri = AUDIO_DATA.diceRolls[dIdx];
     list = AUDIO_DATA.diceFallbacks[dIdx] || AUDIO_DATA.diceFallbacks[0];
+  } else if (type === 'manaPowerUp') {
+    primaryUri = AUDIO_DATA.manaPowerUp;
+    list = AUDIO_DATA.manaPowerUpFallbacks;
+  } else if (type === 'goldGain') {
+    primaryUri = AUDIO_DATA.goldGain;
+    list = AUDIO_DATA.goldGainFallbacks;
+  } else if (type === 'slash1') {
+    primaryUri = AUDIO_DATA.slash1;
+    list = AUDIO_DATA.slash1Fallbacks;
+  } else if (type === 'slash2') {
+    primaryUri = AUDIO_DATA.slash2;
+    list = AUDIO_DATA.slash2Fallbacks;
   }
   const a = new Audio(primaryUri);
   if (type === 'bgm') {
@@ -21839,11 +22704,18 @@ const AudioManager = {
   cardDetails: [],
   cardPlays: [],
   dicePool: [],
+  manaPowerUps: [],
+  goldGains: [],
+  slash1s: [],
+  slash2s: [],
   lastHover: 0,
   lastClick: 0,
   lastCardDetail: 0,
   lastCardPlay: 0,
   lastDiceRoll: 0,
+  lastManaPowerUp: 0,
+  lastGoldGain: 0,
+  lastSlash: 0,
   hasStartedBGM: false,
 
   init() {
@@ -21898,6 +22770,22 @@ const AudioManager = {
         const cp = createSoundInstance('cardPlay');
         cp.preload = 'auto';
         this.cardPlays.push(cp);
+
+        const mp = createSoundInstance('manaPowerUp');
+        mp.preload = 'auto';
+        this.manaPowerUps.push(mp);
+
+        const gg = createSoundInstance('goldGain');
+        gg.preload = 'auto';
+        this.goldGains.push(gg);
+
+        const s1 = createSoundInstance('slash1');
+        s1.preload = 'auto';
+        this.slash1s.push(s1);
+
+        const s2 = createSoundInstance('slash2');
+        s2.preload = 'auto';
+        this.slash2s.push(s2);
       } catch(e) {}
     }
 
@@ -22067,6 +22955,45 @@ const AudioManager = {
     } catch(e) {}
   },
 
+  _playSfxFromPool(poolKey, type, debounceKey, debounceMs = 80) {
+    if (this.clickMuted || this.clickVolume <= 0) return;
+    const now = performance.now();
+    if (debounceKey && now - (this[debounceKey] || 0) < debounceMs) return;
+    if (debounceKey) this[debounceKey] = now;
+    try {
+      const pool = this[poolKey] || (this[poolKey] = []);
+      let a = pool.find(x => x.paused || x.ended);
+      if (!a) {
+        a = createSoundInstance(type);
+        pool.push(a);
+      }
+      if (a) {
+        a.volume = Math.max(0, Math.min(1, this.clickVolume));
+        if (a.readyState >= 1) {
+          try { a.currentTime = 0; } catch(_) {}
+        }
+        const p = a.play();
+        if (p !== undefined) p.catch(() => {});
+      }
+    } catch(e) {}
+  },
+
+  playManaPowerUp() {
+    this._playSfxFromPool('manaPowerUps', 'manaPowerUp', 'lastManaPowerUp', 100);
+  },
+
+  playGold() {
+    this._playSfxFromPool('goldGains', 'goldGain', 'lastGoldGain', 100);
+  },
+
+  playSlash1() {
+    this._playSfxFromPool('slash1s', 'slash1', 'lastSlash', 60);
+  },
+
+  playSlash2() {
+    this._playSfxFromPool('slash2s', 'slash2', 'lastSlash', 60);
+  },
+
   playHover() {
     if (this.hoverMuted || this.hoverVolume <= 0) return;
     const now = performance.now();
@@ -22124,7 +23051,7 @@ const AudioManager = {
 
   updateBGMVolume() {
     if (!this.bgmAudio) return;
-    const effective = this.bgmMuted ? 0 : Math.max(0, Math.min(1, this.bgmVolume));
+    const effective = this.bgmMuted ? 0 : Math.max(0, Math.min(1, this.bgmVolume * 0.75));
     this.bgmAudio.volume = effective;
   },
 
