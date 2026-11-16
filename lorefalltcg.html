@@ -9543,13 +9543,13 @@ function handleCommonOnlineUIEvents(payload) {
     if (opp) {
       let targetUnit = (payload.tType === 'hero') ? opp.hero : (payload.tType === 'bz' ? opp.battleZone[payload.tSlot] : opp.bench[payload.tSlot]);
       if (targetUnit) {
-        promptDefenderDeclarationAsync(payload.aInfo, opp, payload.tType, payload.tSlot, targetUnit);
+        promptDefenderDeclarationAsync(resolveLiveAttackerInfo(payload.aInfo), opp, payload.tType, payload.tSlot, targetUnit);
       }
     }
     return true;
   }
   if (payload.type === 'UI_DEFENDER_RESPONSE') {
-    setupClashContext(payload.aInfo, payload.defenderPlayerIndex, payload.tType, payload.tSlot, payload.isCounter, payload.heroCounterAsset, payload.defActiveWeapons, payload.strikeNum);
+    setupClashContext(resolveLiveAttackerInfo(payload.aInfo), payload.defenderPlayerIndex, payload.tType, payload.tSlot, payload.isCounter, payload.heroCounterAsset, payload.defActiveWeapons, payload.strikeNum);
     showModalAsync("Defender Response", `<div style="text-align:center; font-size:1.2rem; padding: 10px;">${payload.msg}</div>`, [{ text: "Enter Clash Arena", value: true }]).then(() => {
       renderClashScreen();
     });
@@ -9809,6 +9809,9 @@ function handleChallengerNetworkEvent(payload) {
   } else if (payload.type === 'MATCH_LAUNCHED') {
     onlineSession.active = true;
     gameState = payload.gameState;
+    gameState.gameMode = 'ONLINE';
+    const sbToolbar = document.getElementById('sandbox-toolbar');
+    if (sbToolbar) sbToolbar.style.display = 'none';
     if (payload.lobbyPlayers) {
       const myIdx = payload.lobbyPlayers.findIndex((lp, idx) => idx > 0 && lp && !lp.isAI && lp.username === onlineSession.myUsername);
       if (myIdx > 0) onlineSession.myPlayerIndex = myIdx;
@@ -10040,6 +10043,9 @@ async function launchOnlineMatchAsHost() {
   gScreen.classList.add('active');
   gScreen.classList.toggle('teams-mode', isTeamsMode());
   gScreen.classList.toggle('ffa-mode', isFFAMode());
+  gameState.gameMode = 'ONLINE';
+  const sbToolbar = document.getElementById('sandbox-toolbar');
+  if (sbToolbar) sbToolbar.style.display = 'none';
   if (typeof AudioManager !== 'undefined') AudioManager.playBGM();
 
   const badge = document.getElementById('online-match-badge');
@@ -10801,23 +10807,24 @@ async function handleChallengerAction(payload) {
     const opp = gameState.players[oppIdx] || gameState.players[0];
     let targetUnit = (payload.tType === 'hero') ? opp.hero : (payload.tType === 'bz' ? opp.battleZone[payload.tSlot] : opp.bench[payload.tSlot]);
     if (targetUnit) {
+      const liveAInfo = resolveLiveAttackerInfo(payload.aInfo);
       if (!opp.isAI && oppIdx !== 0) {
         sendOnlineBroadcast({
           type: 'UI_PROMPT_DEFENDER',
-          aInfo: payload.aInfo,
+          aInfo: liveAInfo,
           targetPlayerIndex: oppIdx,
           tType: payload.tType,
           tSlot: payload.tSlot
         });
       } else {
-        await promptDefenderDeclarationAsync(payload.aInfo, opp, payload.tType, payload.tSlot, targetUnit);
+        await promptDefenderDeclarationAsync(liveAInfo, opp, payload.tType, payload.tSlot, targetUnit);
       }
       broadcastOnlineState();
     }
   } else if (action === 'defenderDecision') {
     const opp = gameState.players[payload.playerIndex];
     let targetUnit = (payload.finalTargetType === 'hero') ? opp.hero : (payload.finalTargetType === 'bz' ? opp.battleZone[payload.finalTargetSlot] : opp.bench[payload.finalTargetSlot]);
-    await executeStrikeResolution(payload.aInfo, opp, payload.finalTargetType, payload.finalTargetSlot, targetUnit, payload.isCounter, payload.heroCounterAsset, payload.defActiveWeapons);
+    await executeStrikeResolution(resolveLiveAttackerInfo(payload.aInfo), opp, payload.finalTargetType, payload.finalTargetSlot, targetUnit, payload.isCounter, payload.heroCounterAsset, payload.defActiveWeapons);
     broadcastOnlineState();
   } else if (action === 'resolveClashDamage') {
     await resolveClashDamage();
@@ -10953,6 +10960,32 @@ const KNOWN_GITHUB_ART_MAP = {
   "Torrential Surge": "Torrential Surge.png",
   "Tsunami": "Tsunami.png",
   "Tungsten-Forged Dagger": "Tungsten-Forged Dagger.png",
+  "Assailing Ghoul": "Assailing Ghoul.png",
+  "Blood-Pact Hexer": "Blood-Pact Hexer.png",
+  "Deadly Diversion": "Deadly Diversion.png",
+  "Deathmark Arrow": "Deathmark Arrow.png",
+  "Elf Companion": "Elf Companion.png",
+  "Elven Sharpshooter": "Elven Sharpshooter.png",
+  "Enshrouded Nuisance": "Enshrouded Nuisance.png",
+  "Fester-Spit Ghoul": "Fester-Spit Ghoul.png",
+  "Fortuitous Surge": "Fortuitous Surge.png",
+  "Hemophage Reaver": "Hemophage Reaver.png",
+  "Hollowed Assassin": "Hollowed Assassin.png",
+  "Irith Goldenthorn": "Irith Goldenthorn.png",
+  "Irith's Harbinger": "Irith's Harbinger.png",
+  "Lone Wolf's Shot": "Lone Wolf's Shot.png",
+  "Lucky Strike": "Lucky Strike.png",
+  "Nimble Retreat": "Nimble Retreat.png",
+  "Pox Drudge": "Pox Drudge.png",
+  "Sentinel's Focus": "Sentinel's Focus.png",
+  "Stonepulse Meditation": "Stone-Pulse Meditation.png",
+  "Stone-Pulse Meditation": "Stone-Pulse Meditation.png",
+  "Swift-Footed Sentinel": "Swift-Footed Sentinel.png",
+  "Sylvanglade Bowmaster": "Sylvanglade Bowmaster.png",
+  "Tithewarden": "Tithewarden.png",
+  "True-Strike Kin": "True-Strike Kin.png",
+  "Vanguard Momentum": "Vanguard Momentum.png",
+  "Volley of Arrows": "Volley of Arrows.png",
   "Water Whip": "Water Whip.png",
   "Windrider Sniper": "Windrider Sniper.png"
 };
@@ -11012,54 +11045,86 @@ async function refreshGitHubArtList() {
     scanRepoForAssets("https://api.github.com/repos/deviatorgames/Lorefall-Card-Art/contents"),
     scanRepoForAssets("https://api.github.com/repos/deviatorgames/lorefalltcg/contents")
   ]);
+  if (typeof gameState !== 'undefined' && gameState.players && gameState.players.length > 0 && typeof renderAll === 'function') {
+    renderAll();
+  }
 }
 
 function hasCardArt(card) {
   if (!card || !card.name) return false;
   if (missingCardArtSet.has(card.name)) return false;
   if (formatArenaImageUrl(card.image_url)) return true;
-  return Boolean(KNOWN_GITHUB_ART_MAP[card.name]);
+  if (KNOWN_GITHUB_ART_MAP[card.name]) return true;
+  return card.type !== "Token";
 }
 
 // 10:7 Aspect Ratio Board Card Art System (pixels 60 to 760 crop from 1000x1400 cards)
 const KNOWN_BOARD_ART_MAP = {
   "Apprentice's Linen Robe": { file: "Apprentice's Linen Robe - Board.png", isFullCard: true },
+  "Assailing Ghoul": { file: "Assailing Ghoul - Board.png", isFullCard: true },
   "Astute Cleric": { file: "Astute Cleric - Board.png", isFullCard: true },
   "Athran, Prince of Korvas": { file: "Athran, Prince of Korvas - Board.png", isFullCard: true },
   "Bash": { file: "Bash - Board.png", isFullCard: true },
   "Bastion Defender": { file: "Bastion Defender - Board.png", isFullCard: true },
   "Behemoth Leviathan": { file: "Behemoth Leviathan - Board.png", isFullCard: true },
+  "Blood-Pact Hexer": { file: "Blood-Pact Hexer - Board.png", isFullCard: true },
   "Brother-In-Arms": { file: "Brother-In-Arms - Board.png", isFullCard: true },
-  "Korvas Soldier": { file: "Brother-In-Arms - Board.png", isFullCard: true },
+  "Comrade's Call": { file: "Comrade's Call - Board.png", isFullCard: true },
+  "Korvas Soldier": { file: "Korvas Soldier - Board.png", isFullCard: true },
   "Dantalion's Might": { file: "Dantalion's Might - Board.png", isFullCard: true },
+  "Deadly Diversion": { file: "Deadly Diversion - Board.png", isFullCard: true },
+  "Deathmark Arrow": { file: "Deathmark Arrow - Board.png", isFullCard: true },
+  "Elf Companion": { file: "Elf Companion - Board.png", isFullCard: true },
+  "Elven Sharpshooter": { file: "Elven Sharpshooter - Board.png", isFullCard: true },
+  "Enshrouded Nuisance": { file: "Enshrouded Nuisance - Board.png", isFullCard: true },
+  "Essence Wellspring": { file: "Essence Wellspring - Board.png", isFullCard: true },
   "Favar Dahv, Scholar": { file: "Favar Dahv, Scholar - Board.png", isFullCard: true },
   "Favar's Scepter": { file: "Favar's Scepter - Board.png", isFullCard: true },
+  "Fester-Spit Ghoul": { file: "Fester-Spit Ghoul - Board.png", isFullCard: true },
   "Fleetfoot Skirmisher": { file: "Fleetfoot Skirmisher - Board.png", isFullCard: true },
+  "Fortuitous Surge": { file: "Fortuitous Surge - Board.png", isFullCard: true },
   "Frost": { file: "Frost - Board.png", isFullCard: true },
   "Gladeweaver": { file: "Gladeweaver - Board.png", isFullCard: true },
-  "Elf Companion": { file: "Gladeweaver - Board.png", isFullCard: true },
   "Gotterdammerung Serpent": { file: "Gotterdammerung Serpent - Board.png", isFullCard: true },
+  "Hemophage Reaver": { file: "Hemophage Reaver - Board.png", isFullCard: true },
+  "Hollowed Assassin": { file: "Hollowed Assassin - Board.png", isFullCard: true },
   "Iceshard Barrage": { file: "Iceshard Barrage - Board.png", isFullCard: true },
   "Indignant Water Sprite": { file: "Indignant Water Sprite - Board.png", isFullCard: true },
   "Inspiring Commander": { file: "Inspiring Commander - Board.png", isFullCard: true },
+  "Irith Goldenthorn": { file: "Irith Goldenthorn - Board.png", isFullCard: true },
+  "Irith's Harbinger": { file: "Irith's Harbinger - Board.png", isFullCard: true },
   "Keen Visionary": { file: "Keen Visionary - Board.png", isFullCard: true },
   "Leaping Strike": { file: "Leaping Strike - Board.png", isFullCard: true },
   "Leather Tunic": { file: "Leather Tunic - Board.png", isFullCard: true },
   "Legion Captain": { file: "Legion Captain - Board.png", isFullCard: true },
+  "Lone Wolf's Shot": { file: "Lone Wolf's Shot - Board.png", isFullCard: true },
+  "Lucky Strike": { file: "Lucky Strike - Board.png", isFullCard: true },
   "Neophyte Seeress": { file: "Neophyte Seeress - Board.png", isFullCard: true },
+  "Nimble Retreat": { file: "Nimble Retreat - Board.png", isFullCard: true },
+  "Piercing Shot": { file: "Piercing Shot - Board.png", isFullCard: true },
   "Pivot Swing": { file: "Pivot Swing - Board.png", isFullCard: true },
+  "Pox Drudge": { file: "Pox Drudge - Board.png", isFullCard: true },
   "Pummel": { file: "Pummel - Board.png", isFullCard: true },
   "Rune-Fortified Vest": { file: "Rune-Fortified Vest - Board.png", isFullCard: true },
+  "Scroll-Bound Peddler": { file: "Scroll-Bound Peddler - Board.png", isFullCard: true },
+  "Sentinel's Focus": { file: "Sentinel's Focus - Board.png", isFullCard: true },
   "Sharpened Broadsword": { file: "Sharpened Broadsword - Board.png", isFullCard: true },
   "Slash": { file: "Slash - Board.png", isFullCard: true },
   "Splashing Imp": { file: "Splashing Imp - Board.png", isFullCard: true },
   "Stonekeep Sentry": { file: "Stonekeep Sentry - Board.png", isFullCard: true },
   "Stonepulse Meditation": { file: "Stone-Pulse Meditation - Board.png", isFullCard: true },
   "Stone-Pulse Meditation": { file: "Stone-Pulse Meditation - Board.png", isFullCard: true },
-  "Sylvanglade Bowmaster": { file: "Sylvangalde Bowmaster - Board.png", isFullCard: true },
+  "Swift-Footed Sentinel": { file: "Swift-Footed Sentinel - Board.png", isFullCard: true },
+  "Sylvan Longbow": { file: "Sylvan Longbow - Board.png", isFullCard: true },
+  "Sylvanglade Bowmaster": { file: "Sylvanglade Bowmaster - Board.png", isFullCard: true },
   "Sylvangalde Bowmaster": { file: "Sylvangalde Bowmaster - Board.png", isFullCard: true },
+  "Tithewarden": { file: "Tithewarden - Board.png", isFullCard: true },
   "Torrential Surge": { file: "Torrential Surge - Board.png", isFullCard: true },
+  "True-Strike Kin": { file: "True-Strike Kin - Board.png", isFullCard: true },
   "Tsunami": { file: "Tsunami - Board.png", isFullCard: true },
+  "Vanguard Momentum": { file: "Vanguard Momentum - Board.png", isFullCard: true },
+  "Volley of Arrows": { file: "Volley of Arrows - Board.png", isFullCard: true },
+  "Water Whip": { file: "Water Whip - Board.png", isFullCard: true },
   "Windrider Sniper": { file: "Windrider Sniper - Board.png", isFullCard: true }
 };
 const missingBoardArtSet = new Set();
@@ -11076,7 +11141,8 @@ function hasBoardCardArt(card) {
   if (!card || !card.name) return false;
   if (missingBoardArtSet.has(card.name)) return false;
   if (card.board_image_url) return true;
-  return Boolean(KNOWN_BOARD_ART_MAP[card.name]);
+  if (KNOWN_BOARD_ART_MAP[card.name]) return true;
+  return card.type !== "Token";
 }
 
 function getBoardCardArtUrl(card) {
@@ -11164,13 +11230,10 @@ function getCardArtUrl(card) {
     preloadImageUrl(formattedUrl);
     return formattedUrl;
   }
-  const fileName = KNOWN_GITHUB_ART_MAP[card.name];
-  if (fileName) {
-    const url = GITHUB_CARD_ART_BASE + encodeURIComponent(fileName);
-    preloadImageUrl(url);
-    return url;
-  }
-  return null;
+  const fileName = KNOWN_GITHUB_ART_MAP[card.name] || `${card.name}.png`;
+  const url = GITHUB_CARD_ART_BASE + encodeURIComponent(fileName);
+  preloadImageUrl(url);
+  return url;
 }
 
 function handleCardArtError(cardName, imgEl) {
@@ -15893,7 +15956,21 @@ async function openFlashStackMenuAsync(player) {
   });
 }
 
+function resolveLiveAttackerInfo(aInfo) {
+  if (!aInfo || !gameState || !gameState.players) return aInfo;
+  const p = gameState.players[aInfo.playerIndex];
+  if (!p) return aInfo;
+  let liveCard = null;
+  if (aInfo.type === 'hero') liveCard = p.hero;
+  else if (aInfo.type === 'skill') liveCard = p.skills ? p.skills[aInfo.slot] : null;
+  else if (aInfo.type === 'ally' || aInfo.type === 'bz') liveCard = p.battleZone ? p.battleZone[aInfo.slot] : null;
+  else if (aInfo.type === 'bench') liveCard = p.bench ? p.bench[aInfo.slot] : null;
+  if (liveCard) aInfo.card = liveCard;
+  return aInfo;
+}
+
 async function executeStrikeResolution(aInfo, defenderPlayer, tType, tSlot, tUnit, isCounter, heroCounterAsset, defActiveWeapons = null) {
+  aInfo = resolveLiveAttackerInfo(aInfo);
   const attackerPlayer = gameState.players[aInfo.playerIndex];
   const attacker = aInfo.card;
   gameState.strikesUsed += 1; updateStrikePips();
@@ -17279,7 +17356,11 @@ async function closeClashAndApply() {
 
   const hasMultiStrike = attacker.strikeType === "Multi" || checkKeyword(attacker, attackerPlayer, "multiStrike") || checkKeyword(aUnit, attackerPlayer, "multiStrike");
   if (!hasMultiStrike) {
-    if (currentClash.aInfo.type === 'skill') attackerPlayer.hero.isExhausted = true; else attacker.isExhausted = true;
+    if (currentClash.aInfo.type === 'skill') attackerPlayer.hero.isExhausted = true;
+    else {
+      attacker.isExhausted = true;
+      if (aUnit && aUnit !== attacker) aUnit.isExhausted = true;
+    }
   }
 
   if (currentClash.isCounter) {
