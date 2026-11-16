@@ -12319,7 +12319,6 @@ function renderPlayer(pIdx, explicitPrx = null) {
     if (p.manaPool > prev.manaPool) {
       const diff = p.manaPool - prev.manaPool;
       triggerStatGainFlash(document.getElementById(prx + "-mana-val"), `+${diff} Mana`, 'stat-gain-mana');
-      if (heroSlot) triggerStatGainFlash(heroSlot.querySelector('.mini-mana'), null, 'stat-gain-mana');
       if (typeof AudioManager !== 'undefined' && AudioManager.playManaPowerUp) AudioManager.playManaPowerUp();
     }
     if (p.gold > prev.gold) {
@@ -12508,7 +12507,7 @@ function createCardHTML(card, pIdx, zone, slot) {
     }
     const artUrl = hasBoardCardArt(card) ? getBoardCardArtUrl(card) : getCardArtUrl(card);
     const safeName = (card.name || "").replace(/'/g, "\\'");
-    const manaVal = p ? p.manaPool : (card.mana !== undefined ? card.mana : "");
+    const manaVal = card.mana !== undefined ? getStat(card, 'mana', p) : "";
     const dexVal = card.dexterity !== undefined ? getStat(card, 'dexterity', p) : "";
     const hpVal = card.currentHealth !== undefined ? card.currentHealth : (card.health !== undefined ? card.health : "");
     const powVal = getStat(card, 'power', p);
