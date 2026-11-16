@@ -9588,7 +9588,9 @@ function handleCommonOnlineUIEvents(payload) {
   }
   if (payload.type === 'UI_BOARD_SLASH') {
     if (payload.targetInfo) {
-      playBoardSlashAnimation(payload.targetInfo);
+      const remaining = Math.max(0, (window._clashSlashEndAt || 0) - Date.now());
+      if (remaining > 0) setTimeout(() => playBoardSlashAnimation(payload.targetInfo), remaining + 40);
+      else playBoardSlashAnimation(payload.targetInfo);
     }
     return true;
   }
@@ -9606,6 +9608,7 @@ function handleCommonOnlineUIEvents(payload) {
       if (logBox) logBox.innerHTML += payload.logHTML;
       updateClashHPBars();
       if (!currentClash.evaded && currentClash.atkHit) {
+        window._clashSlashEndAt = Date.now() + 650;
         playClashSlashAnimation('clash-defender-col');
         const defAllyDied = Boolean(currentClash.tType !== 'hero' && currentClash.tUnit && currentClash.finalDamage >= currentClash.tUnit.currentHealth);
         if (defAllyDied) currentClash.tUnit._defeatSlashPlayed = true;
@@ -9615,6 +9618,7 @@ function handleCommonOnlineUIEvents(payload) {
         }
       }
       if (currentClash.defDamage > 0) {
+        window._clashSlashEndAt = Date.now() + 650;
         playClashSlashAnimation('clash-attacker-col');
         const aUnitClient = currentClash.aInfo?.type === 'skill' ? currentClash.attackerPlayer?.hero : currentClash.attacker;
         const atkAllyDied = Boolean(aUnitClient && aUnitClient.type !== 'Hero' && currentClash.defDamage >= aUnitClient.currentHealth);
@@ -9630,9 +9634,14 @@ function handleCommonOnlineUIEvents(payload) {
     return true;
   }
   if (payload.type === 'UI_CLASH_END') {
-    const modal = document.getElementById('clash-modal');
-    if (modal) modal.style.display = 'none';
-    currentClash = null;
+    const remaining = Math.max(0, (window._clashSlashEndAt || 0) - Date.now());
+    const closeModalNow = () => {
+      const modal = document.getElementById('clash-modal');
+      if (modal) modal.style.display = 'none';
+      currentClash = null;
+    };
+    if (remaining > 0) setTimeout(closeModalNow, remaining);
+    else closeModalNow();
     return true;
   }
   return false;
@@ -17205,6 +17214,7 @@ async function resolveClashDamage() {
       type: 'UI_CLASH_RESOLVED',
       logHTML: logHTML,
       currentClash: {
+        atkHit: currentClash.atkHit,
         finalDamage: currentClash.finalDamage,
         defDamage: currentClash.defDamage,
         evaded: currentClash.evaded,
