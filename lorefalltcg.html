@@ -9489,6 +9489,19 @@ function handleCommonOnlineUIEvents(payload) {
       targetSlotId: resolvedTargetSlotId,
       playerIndex: payload.playerIndex
     });
+    if (!isActor && typeof AudioManager !== 'undefined' && AudioManager.playCardPlay) {
+      AudioManager.playCardPlay();
+    }
+    return true;
+  }
+  if (payload.type === 'UI_SOUND') {
+    if (typeof AudioManager !== 'undefined') {
+      if (payload.sound === 'cardPlay' && AudioManager.playCardPlay) AudioManager.playCardPlay();
+      else if (payload.sound === 'slash1' && AudioManager.playSlash1) AudioManager.playSlash1();
+      else if (payload.sound === 'slash2' && AudioManager.playSlash2) AudioManager.playSlash2();
+      else if (payload.sound === 'mana' && AudioManager.playManaPowerUp) AudioManager.playManaPowerUp();
+      else if (payload.sound === 'gold' && AudioManager.playGold) AudioManager.playGold();
+    }
     return true;
   }
   if (payload.type === 'UI_ABILITY_NARRATION') {
@@ -9552,11 +9565,17 @@ function handleCommonOnlineUIEvents(payload) {
     setupClashContext(resolveLiveAttackerInfo(payload.aInfo), payload.defenderPlayerIndex, payload.tType, payload.tSlot, payload.isCounter, payload.heroCounterAsset, payload.defActiveWeapons, payload.strikeNum);
     currentClash._logChunks = [];
     currentClash._phaseState = 'pre_roll';
-    window._defenderResponseOpen = true;
-    showModalAsync("Defender Response", `<div style="text-align:center; font-size:1.2rem; padding: 10px;">${payload.msg}</div>`, [{ text: "Enter Clash Arena", value: true }]).then(() => {
+    const isLocalDefender = Number(payload.defenderPlayerIndex) === Number(getLocalPlayerIndex());
+    if (isLocalDefender) {
       window._defenderResponseOpen = false;
-      if (currentClash) renderClashScreen();
-    });
+      renderClashScreen();
+    } else {
+      window._defenderResponseOpen = true;
+      showModalAsync("Defender Response", `<div style="text-align:center; font-size:1.2rem; padding: 10px;">${payload.msg}</div>`, [{ text: "Enter Clash Arena", value: true }]).then(() => {
+        window._defenderResponseOpen = false;
+        if (currentClash) renderClashScreen();
+      });
+    }
     return true;
   }
   const ensureClientInClashArena = () => {
@@ -9654,7 +9673,7 @@ function handleCommonOnlineUIEvents(payload) {
         const dHpEl = document.getElementById('clash-d-hp');
         if (dFill) dFill.style.width = Math.max(0, (newDHP / dMax) * 100) + '%';
         if (dHpEl) dHpEl.innerText = `${newDHP} / ${dMax}`;
-        window._clashSlashEndAt = Date.now() + 650;
+        window._clashSlashEndAt = Date.now() + 1400;
         playClashSlashAnimation('clash-defender-col');
         const defAllyDied = Boolean(currentClash.tType !== 'hero' && (currentClash.finalDamage || 0) >= (dUnitClient.currentHealth || 0));
         if (defAllyDied) dUnitClient._defeatSlashPlayed = true;
@@ -9670,7 +9689,7 @@ function handleCommonOnlineUIEvents(payload) {
         const aHpEl = document.getElementById('clash-a-hp');
         if (aFill) aFill.style.width = Math.max(0, (newAHP / aMax) * 100) + '%';
         if (aHpEl) aHpEl.innerText = `${newAHP} / ${aMax}`;
-        window._clashSlashEndAt = Date.now() + 650;
+        window._clashSlashEndAt = Date.now() + 1400;
         playClashSlashAnimation('clash-attacker-col');
         const atkAllyDied = Boolean(aUnitClient.type !== 'Hero' && (currentClash.defDamage || 0) >= (aUnitClient.currentHealth || 0));
         if (atkAllyDied) aUnitClient._defeatSlashPlayed = true;
@@ -17576,6 +17595,9 @@ async function checkDefeated(player, unit) {
     delete unit._defeatSlashPlayed;
   } else if (typeof AudioManager !== 'undefined' && AudioManager.playSlash2) {
     AudioManager.playSlash2();
+    if (onlineSession.active && onlineSession.role === 'HOST') {
+      sendOnlineBroadcast({ type: 'UI_SOUND', sound: 'slash2' });
+    }
   }
   // Visual death animation on the board before removal
   const prx = getPlayerBoardZonePrefix(player.index);
