@@ -9550,37 +9550,68 @@ function handleCommonOnlineUIEvents(payload) {
   }
   if (payload.type === 'UI_DEFENDER_RESPONSE') {
     setupClashContext(resolveLiveAttackerInfo(payload.aInfo), payload.defenderPlayerIndex, payload.tType, payload.tSlot, payload.isCounter, payload.heroCounterAsset, payload.defActiveWeapons, payload.strikeNum);
+    currentClash._logChunks = [];
+    currentClash._phaseState = 'pre_roll';
+    window._defenderResponseOpen = true;
     showModalAsync("Defender Response", `<div style="text-align:center; font-size:1.2rem; padding: 10px;">${payload.msg}</div>`, [{ text: "Enter Clash Arena", value: true }]).then(() => {
-      renderClashScreen();
+      window._defenderResponseOpen = false;
+      if (currentClash) renderClashScreen();
     });
     return true;
   }
+  const ensureClientInClashArena = () => {
+    if (window._defenderResponseOpen) {
+      const gm = document.getElementById('game-modal');
+      if (gm && gm.classList.contains('active')) closeModal();
+      window._defenderResponseOpen = false;
+    }
+    const cm = document.getElementById('clash-modal');
+    if (currentClash && cm && cm.style.display !== 'flex') {
+      renderClashScreen();
+    }
+  };
   if (payload.type === 'UI_ATTACK_ROLL_DONE') {
     if (currentClash) {
       currentClash.atkDamage = payload.atkDamage;
       currentClash.atkHit = payload.atkHit;
       currentClash.isCrit = payload.isCrit;
+      currentClash._phaseState = 'post_attack';
       if (payload.strikesUsed !== undefined) {
         gameState.strikesUsed = payload.strikesUsed;
         updateStrikePips();
       }
-      const logBox = document.getElementById('clash-log');
-      if (logBox) logBox.innerHTML += `<div style="margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #334155;"><strong>Attacker Roll:</strong><br>${payload.logMsg}</div>`;
-      updateClashPostAttackActions();
+      const entryHTML = `<div style="margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #334155;"><strong>Attacker Roll:</strong><br>${payload.logMsg}</div>`;
+      if (!Array.isArray(currentClash._logChunks)) currentClash._logChunks = [];
+      currentClash._logChunks.push(entryHTML);
+      const wasOpen = document.getElementById('clash-modal')?.style.display === 'flex';
+      ensureClientInClashArena();
+      if (wasOpen) {
+        const logBox = document.getElementById('clash-log');
+        if (logBox) logBox.innerHTML += entryHTML;
+        updateClashPostAttackActions();
+      }
     }
     return true;
   }
   if (payload.type === 'UI_DEFENDER_ROLL_DONE') {
     if (currentClash) {
       currentClash.defDamage = payload.defDamage;
-      const logBox = document.getElementById('clash-log');
-      if (logBox) logBox.innerHTML += `<div style="margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #334155;"><strong>Defender Roll:</strong><br>${payload.logMsg}<br>Counter Damage Output: <strong style="color:#10b981; font-size:1.1rem;">${currentClash.defDamage}</strong></div>`;
-      const acts = document.getElementById('clash-actions');
-      if (acts) {
-        if (onlineSession.active && !isLocalPlayer(currentClash.attackerPlayer.index)) {
-          acts.innerHTML = `<div style="text-align:center; padding:12px; color:#94a3b8; font-size:1.05rem; font-weight:bold;">Waiting for ${currentClash.attackerPlayer.name} to resolve strike...</div>`;
-        } else {
-          acts.innerHTML = `<button class="btn btn-primary" onclick="resolveClashDamage()">Resolve Strike</button>`;
+      currentClash._phaseState = 'post_counter';
+      const entryHTML = `<div style="margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid #334155;"><strong>Defender Roll:</strong><br>${payload.logMsg}<br>Counter Damage Output: <strong style="color:#10b981; font-size:1.1rem;">${currentClash.defDamage}</strong></div>`;
+      if (!Array.isArray(currentClash._logChunks)) currentClash._logChunks = [];
+      currentClash._logChunks.push(entryHTML);
+      const wasOpen = document.getElementById('clash-modal')?.style.display === 'flex';
+      ensureClientInClashArena();
+      if (wasOpen) {
+        const logBox = document.getElementById('clash-log');
+        if (logBox) logBox.innerHTML += entryHTML;
+        const acts = document.getElementById('clash-actions');
+        if (acts) {
+          if (onlineSession.active && !isLocalPlayer(currentClash.attackerPlayer.index)) {
+            acts.innerHTML = `<div style="text-align:center; padding:12px; color:#94a3b8; font-size:1.05rem; font-weight:bold;">Waiting for ${currentClash.attackerPlayer.name} to resolve strike...</div>`;
+          } else {
+            acts.innerHTML = `<button class="btn btn-primary" onclick="resolveClashDamage()">Resolve Strike</button>`;
+          }
         }
       }
     }
@@ -9604,8 +9635,15 @@ function handleCommonOnlineUIEvents(payload) {
   if (payload.type === 'UI_CLASH_RESOLVED') {
     if (currentClash) {
       Object.assign(currentClash, payload.currentClash);
-      const logBox = document.getElementById('clash-log');
-      if (logBox) logBox.innerHTML += payload.logHTML;
+      currentClash._phaseState = 'resolved';
+      if (!Array.isArray(currentClash._logChunks)) currentClash._logChunks = [];
+      if (payload.logHTML) currentClash._logChunks.push(payload.logHTML);
+      const wasOpen = document.getElementById('clash-modal')?.style.display === 'flex';
+      ensureClientInClashArena();
+      if (wasOpen) {
+        const logBox = document.getElementById('clash-log');
+        if (logBox && payload.logHTML) logBox.innerHTML += payload.logHTML;
+      }
       const didHit = !currentClash.evaded && (currentClash.atkHit !== false);
       const dUnitClient = currentClash.tUnit;
       const aUnitClient = currentClash.aInfo?.type === 'skill' ? currentClash.attackerPlayer?.hero : currentClash.attacker;
@@ -12376,8 +12414,9 @@ function renderPlayer(pIdx, explicitPrx = null) {
   if (profBadgeEl) profBadgeEl.innerText = "Prof: " + prof;
 
   // Detect Health, Mana, Gold, and Charge gains & flash/light up changed stats
-  if (lastRenderedGameRef !== gameState) {
-    lastRenderedGameRef = gameState;
+  const matchKey = (gameState.players || []).map(pl => pl?.hero?.instanceId || pl?.name || '').join('|');
+  if (lastRenderedGameRef !== matchKey) {
+    lastRenderedGameRef = matchKey;
     lastRenderedPlayerStats = {};
   }
   const prev = lastRenderedPlayerStats[pIdx];
@@ -16157,7 +16196,13 @@ function renderClashScreen() {
   document.getElementById('clash-attacker-col').innerHTML = `<h3 style="color:var(--mana);">${aUnit.name}</h3><div class="clash-card-wrapper">${aCardHTML}</div><div class="clash-hp-bar"><div class="clash-hp-fill" id="clash-a-fill"></div><div class="clash-hp-text" id="clash-a-hp"></div></div>`;
   document.getElementById('clash-defender-col').innerHTML = `<h3 style="color:var(--health);">${dUnit.name}</h3><div class="clash-card-wrapper">${dCardHTML}</div><div class="clash-hp-bar"><div class="clash-hp-fill" id="clash-d-fill"></div><div class="clash-hp-text" id="clash-d-hp"></div></div>`;
 
-  updateClashHPBars(); document.getElementById('clash-log').innerHTML = "";
+  updateClashHPBars();
+  const clashLogEl = document.getElementById('clash-log');
+  if (clashLogEl) {
+    clashLogEl.innerHTML = (Array.isArray(currentClash._logChunks) && currentClash._logChunks.length > 0)
+      ? currentClash._logChunks.join('')
+      : "";
+  }
   let atkDie = currentClash.attacker.temp_overrideAttackDie || currentClash.attacker.attack || "D4";
   if (currentClash.attacker.mechanics && currentClash.attacker.mechanics.staticModifiers) {
       for (let mod of currentClash.attacker.mechanics.staticModifiers) {
@@ -16185,6 +16230,21 @@ function renderClashScreen() {
     `; 
   }
   modal.style.display = 'flex';
+  if (currentClash._phaseState === 'post_attack') {
+    updateClashPostAttackActions();
+  } else if (currentClash._phaseState === 'post_counter') {
+    const acts = document.getElementById('clash-actions');
+    if (acts) {
+      if (onlineSession.active && !isLocalPlayer(currentClash.attackerPlayer.index)) {
+        acts.innerHTML = `<div style="text-align:center; padding:12px; color:#94a3b8; font-size:1.05rem; font-weight:bold;">Waiting for ${currentClash.attackerPlayer.name} to resolve strike...</div>`;
+      } else {
+        acts.innerHTML = `<button class="btn btn-primary" onclick="resolveClashDamage()">Resolve Strike</button>`;
+      }
+    }
+  } else if (currentClash._phaseState === 'resolved') {
+    const acts = document.getElementById('clash-actions');
+    if (acts) acts.innerHTML = `<button class="btn btn-primary" onclick="closeClashAndApply()">Complete Strike</button>`;
+  }
   if (typeof onTutorialAction === 'function') onTutorialAction('CLASH_OPENED', { currentClash });
 }
 
