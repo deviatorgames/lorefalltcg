@@ -9606,22 +9606,35 @@ function handleCommonOnlineUIEvents(payload) {
       Object.assign(currentClash, payload.currentClash);
       const logBox = document.getElementById('clash-log');
       if (logBox) logBox.innerHTML += payload.logHTML;
-      updateClashHPBars();
-      if (!currentClash.evaded && currentClash.atkHit) {
+      const didHit = !currentClash.evaded && (currentClash.atkHit !== false);
+      const dUnitClient = currentClash.tUnit;
+      const aUnitClient = currentClash.aInfo?.type === 'skill' ? currentClash.attackerPlayer?.hero : currentClash.attacker;
+      if (didHit && dUnitClient) {
+        const newDHP = Math.max(0, (dUnitClient.currentHealth || 0) - (currentClash.finalDamage || 0));
+        const dMax = dUnitClient.maxHealth || dUnitClient.health || 1;
+        const dFill = document.getElementById('clash-d-fill');
+        const dHpEl = document.getElementById('clash-d-hp');
+        if (dFill) dFill.style.width = Math.max(0, (newDHP / dMax) * 100) + '%';
+        if (dHpEl) dHpEl.innerText = `${newDHP} / ${dMax}`;
         window._clashSlashEndAt = Date.now() + 650;
         playClashSlashAnimation('clash-defender-col');
-        const defAllyDied = Boolean(currentClash.tType !== 'hero' && currentClash.tUnit && currentClash.finalDamage >= currentClash.tUnit.currentHealth);
-        if (defAllyDied) currentClash.tUnit._defeatSlashPlayed = true;
+        const defAllyDied = Boolean(currentClash.tType !== 'hero' && (currentClash.finalDamage || 0) >= (dUnitClient.currentHealth || 0));
+        if (defAllyDied) dUnitClient._defeatSlashPlayed = true;
         if (typeof AudioManager !== 'undefined') {
           if (defAllyDied && AudioManager.playSlash2) AudioManager.playSlash2();
           else if (AudioManager.playSlash1) AudioManager.playSlash1();
         }
       }
-      if (currentClash.defDamage > 0) {
+      if ((currentClash.defDamage || 0) > 0 && aUnitClient) {
+        const newAHP = Math.max(0, (aUnitClient.currentHealth || 0) - (currentClash.defDamage || 0));
+        const aMax = aUnitClient.maxHealth || aUnitClient.health || 1;
+        const aFill = document.getElementById('clash-a-fill');
+        const aHpEl = document.getElementById('clash-a-hp');
+        if (aFill) aFill.style.width = Math.max(0, (newAHP / aMax) * 100) + '%';
+        if (aHpEl) aHpEl.innerText = `${newAHP} / ${aMax}`;
         window._clashSlashEndAt = Date.now() + 650;
         playClashSlashAnimation('clash-attacker-col');
-        const aUnitClient = currentClash.aInfo?.type === 'skill' ? currentClash.attackerPlayer?.hero : currentClash.attacker;
-        const atkAllyDied = Boolean(aUnitClient && aUnitClient.type !== 'Hero' && currentClash.defDamage >= aUnitClient.currentHealth);
+        const atkAllyDied = Boolean(aUnitClient.type !== 'Hero' && (currentClash.defDamage || 0) >= (aUnitClient.currentHealth || 0));
         if (atkAllyDied) aUnitClient._defeatSlashPlayed = true;
         if (typeof AudioManager !== 'undefined') {
           if (atkAllyDied && AudioManager.playSlash2) AudioManager.playSlash2();
@@ -14392,7 +14405,9 @@ async function runManaPhase() {
       if (drawn) {
         anyDrew = true;
         if (isLocalPlayer(p.index) && !p.isAI) anySelfDrew = true;
-        playCardDrawVisual(p, drawn);
+        if (!onlineSession.active || onlineSession.role === 'HOST') {
+          playCardDrawVisual(p, drawn);
+        }
         if (onlineSession.active && onlineSession.role === 'HOST') {
           sendOnlineBroadcast({
             type: 'UI_DRAW_ANIMATION',
