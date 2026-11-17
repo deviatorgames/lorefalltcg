@@ -16089,7 +16089,15 @@ async function executeStrikeResolution(aInfo, defenderPlayer, tType, tSlot, tUni
     }
   }
 
-  // Force modal acknowledgment in online matches (both players) or human vs AI
+  currentClash = {
+     aInfo, defenderPlayer, tType, tSlot, tUnit, isCounter, heroCounterAsset, strikeNum,
+     defActiveWeapons: resolvedDefWeapons || [],
+     attackerPlayer, attacker, effectiveDef: 0, isPierced: false,
+     atkDamage: 0, defDamage: 0, atkHit: true, isCrit: false,
+     evaded: false, finalDamage: 0, breakthrough: 0
+  };
+
+  // Force modal acknowledgment in online matches (skip redundant prompt for the Defender who just declared) or human vs AI
   if (onlineSession.active) {
       sendOnlineBroadcast({
         type: 'UI_DEFENDER_RESPONSE',
@@ -16103,7 +16111,9 @@ async function executeStrikeResolution(aInfo, defenderPlayer, tType, tSlot, tUni
         defActiveWeapons: resolvedDefWeapons,
         strikeNum: strikeNum
       });
-      await showModalAsync("Defender Response", `<div style="text-align:center; font-size:1.2rem; padding: 10px;">${msg}</div>`, [{ text: "Enter Clash Arena", value: true }]);
+      if (!isLocalPlayer(defenderPlayer.index)) {
+        await showModalAsync("Defender Response", `<div style="text-align:center; font-size:1.2rem; padding: 10px;">${msg}</div>`, [{ text: "Enter Clash Arena", value: true }]);
+      }
   } else if (defenderPlayer.isAI && !attackerPlayer.isAI) {
       if (gameState.gameMode === "TUTORIAL") {
           let tutDeclMsg = `
@@ -16129,14 +16139,6 @@ async function executeStrikeResolution(aInfo, defenderPlayer, tType, tSlot, tUni
   } else if (defenderPlayer.isAI && attackerPlayer.isAI) {
       showToast(msg);
   }
-
-  currentClash = {
-     aInfo, defenderPlayer, tType, tSlot, tUnit, isCounter, heroCounterAsset, strikeNum,
-     defActiveWeapons: resolvedDefWeapons || [],
-     attackerPlayer, attacker, effectiveDef: 0, isPierced: false,
-     atkDamage: 0, defDamage: 0, atkHit: true, isCrit: false,
-     evaded: false, finalDamage: 0, breakthrough: 0
-  };
 
   await dispatchGlobalHook('onStrikeDeclared', { triggerPlayer: attackerPlayer, strikeCount: strikeNum, aInfo: aInfo });
 
