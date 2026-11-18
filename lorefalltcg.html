@@ -5305,13 +5305,16 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
     }
 
     // Lucky Strike: "Roll for chance to deal D6 attack damage instead of D4." / "Proficiency 2: Roll for chance to deal D8 attack damage instead of D6."
-    if (/Roll\s+for\s+chance\s+to\s+deal\s+(D\d+)\s+attack\s+damage\s+instead\s+of\s+(D\d+)/i.test(clause)) {
+    if (/Roll\s+for\s+chance\s+to\s+deal\s+(D\d+)\s+(?:attack\s+)?damage\s+instead\s+of\s+(D\d+)/i.test(clause)) {
       const m = clause.match(/Proficiency\s+(\d+)\s*:\s*Roll\s+for\s+chance\s+to\s+deal\s+(D\d+)/i);
       if (m) {
         mech.luckyStrikeProf = { prof: parseInt(m[1]), die: m[2].toUpperCase() };
       } else {
-        const mBase = clause.match(/deal\s+(D\d+)\s+attack\s+damage/i);
+        const mBase = clause.match(/deal\s+(D\d+)\s+(?:attack\s+)?damage/i);
         mech.luckyStrikeBase = mBase ? mBase[1].toUpperCase() : "D6";
+      }
+      if (!mech.staticModifiers.some(sm => sm.effect?.action === "luckyStrike")) {
+        mech.staticModifiers.push({ effect: { action: "luckyStrike" } });
       }
       return;
     }
@@ -16301,7 +16304,7 @@ function checkKeyword(card, player, keyword) {
    const isProt = (kw === "protection" || kw === "protectionfromenemyabilities");
    if (card["temp_" + keyword] || card["temp_" + kw] || card["strikeTemp_" + keyword] || card["strikeTemp_" + kw]) return true;
    if (isProt && (card.protection || card.protectionFromEnemyAbilities || card.temp_protection || card.temp_protectionFromEnemyAbilities)) return true;
-   if (card === player.hero && player.isCursed && kw === "disadvantage") return true;
+   if (player && player.isCursed && kw === "disadvantage") return true;
 
    const matchesKw = (val) => {
        if (!val) return false;
@@ -16591,7 +16594,12 @@ async function rollClashAttacker() {
       }
 
       // Lucky Strike Chance Roll to upgrade D4 -> D6 (or D8 at Proficiency 2)
-      const hasLuckyStrike = currentClash.attacker.mechanics?.staticModifiers?.some(m => m.effect?.action === "luckyStrike");
+      const hasLuckyStrike = Boolean(
+        currentClash.attacker.mechanics?.luckyStrikeBase ||
+        currentClash.attacker.mechanics?.luckyStrikeProf ||
+        currentClash.attacker.mechanics?.staticModifiers?.some(m => m.effect?.action === "luckyStrike") ||
+        /Roll\s+for\s+chance\s+to\s+deal\s+D\d+\s+(?:attack\s+)?damage\s+instead\s+of\s+D\d+/i.test(currentClash.attacker.abilities || "")
+      );
       if (hasLuckyStrike) {
           let lsRollObj = rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
           let lsRoll = lsRollObj.finalRoll;
