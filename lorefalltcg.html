@@ -5340,9 +5340,16 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
     }
 
     // Slice and Dice: "Slice and Dice deals 4 damage instead of D4 if user has a dagger equipped."
-    if (/deals\s+(\d+)\s+damage\s+instead\s+of\s+D\d+\s+if\s+user\s+has\s+a\s+dagger\s+equipped/i.test(clause)) {
-      const m = clause.match(/deals\s+(\d+)\s+damage/i);
-      mech.sliceAndDiceFlatDmg = m ? parseInt(m[1]) : 4;
+    if (/(?:deals\s+\d+\s+(?:attack\s+)?damage|attack\s+is\s+\d+)\s+instead\s+of\s+D\d+.*if\s+(?:the\s+)?user\s+has\s+a\s+dagger\s+equipped/i.test(clause)) {
+      const m = clause.match(/(?:deals|attack\s+is)\s+(\d+)/i);
+      const flatVal = m ? parseInt(m[1]) : 4;
+      mech.sliceAndDiceFlatDmg = flatVal;
+      if (!mech.staticModifiers.some(sm => sm.effect?.action === "flatDamageOverride")) {
+        mech.staticModifiers.push({
+          condition: { type: "hasDaggerEquipped" },
+          effect: { action: "flatDamageOverride", value: flatVal, target: "self" }
+        });
+      }
       return;
     }
 
@@ -6995,13 +7002,18 @@ async function executeHook(card, eventType, context) {
 
 function hasDaggerEquipped(unit) {
   if (!unit || !unit.equipment) return false;
-  return unit.equipment.some(eq => eq && (eq.subtype === "Dagger" || /dagger|dirk|tooth/i.test(eq.name || "")));
+  return unit.equipment.some(eq => eq && (
+    /dagger/i.test(eq.subtype || "") ||
+    /dagger/i.test(eq.subType || "") ||
+    /dagger/i.test(eq.equipmentType || "")
+  ));
 }
 
 function evaluateCondition(condition, card, context) {
   if (!condition) return true;
   const p = context.triggerPlayer;
   if (!p) return false;
+  if (condition.type === "hasDaggerEquipped") return hasDaggerEquipped(p.hero);
 
   if (condition.type === "isEquippedToHero") return p.hero.equipment && p.hero.equipment.includes(card);
   if (condition.type === "isEquippedToAlly") return [...p.battleZone, ...p.bench].some(u => u && u.equipment && u.equipment.includes(card));
@@ -16715,14 +16727,18 @@ async function rollClashAttacker() {
 
       // Slice and Dice flat damage override or active flat attack override (e.g. Purity Strike)
       const sliceMod = currentClash.attacker.mechanics?.staticModifiers?.find(m => m.effect?.action === "flatDamageOverride" && evaluateCondition(m.condition, currentClash.attacker, { triggerPlayer: currentClash.attackerPlayer }));
+      const sliceFallbackVal = (!sliceMod && currentClash.attacker.mechanics?.sliceAndDiceFlatDmg && hasDaggerEquipped(currentClash.attackerPlayer?.hero))
+        ? currentClash.attacker.mechanics.sliceAndDiceFlatDmg
+        : null;
       let totalDieRoll = 0;
 
       const flatOverride = currentClash.attacker.temp_overrideAttackValue || aUnit.temp_overrideAttackValue;
       if (flatOverride) {
           totalDieRoll = flatOverride * (isCrit ? 2 : 1);
           logMsg += `Attack Override: <strong>${flatOverride}</strong> flat attack ${isCrit ? "<span class='log-crit'>(CRIT! -> " + totalDieRoll + ")</span>" : ""}<br>`;
-      } else if (sliceMod) {
-          totalDieRoll = sliceMod.effect.value * (isCrit ? 2 : 1);
+      } else if (sliceMod || sliceFallbackVal !== null) {
+          const baseFlat = sliceMod ? sliceMod.effect.value : sliceFallbackVal;
+          totalDieRoll = baseFlat * (isCrit ? 2 : 1);
           logMsg += `Slice and Dice (Dagger Equipped): <strong>${totalDieRoll}</strong> flat damage ${isCrit ? "<span class='log-crit'>(CRIT!)</span>" : ""}<br>`;
       } else {
           let rollObj = rollDieAdvDetailed(dieType, isAdv, isDisadv, isDoubleAdv, aptitudeVal);
