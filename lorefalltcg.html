@@ -5326,6 +5326,7 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
     // Backstab: "Both attacker and defender roll for chance. If you win, damage from Backstab is critical. If you lose, you take D4 non-combat damage."
     if (/Both\s+attacker\s+and\s+defender\s+roll\s+for\s+chance/i.test(clause)) {
       mech.backstabClash = true;
+      mech.staticModifiers.push({ effect: { action: "backstabOpposedChance" } });
       return;
     }
 
@@ -5805,7 +5806,7 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
     }
 
     // "If an enemy took non-combat damage this turn, Hemophage Reaver's attack is D8."
-    const nonCombatDieMod = clause.match(/If\s+an\s+enemy\s+took\s+non-combat\s+damage\s+this\s+turn.*attack\s+is\s+(D\d+)/i);
+    const nonCombatDieMod = clause.match(/If\s+an\s+enemy\s+took\s+non[-\s]?combat\s+damage\s+this\s+turn.*attack\s+is\s+(D\d+)/i);
     if (nonCombatDieMod) {
       mech.staticModifiers.push({
         condition: { type: "enemyTookNonCombatDamageThisTurn" },
@@ -7360,7 +7361,7 @@ async function applyEffectAction(effect, targets, sourceCard, context) {
        if(effect.type === "gold") context.triggerPlayer.gold += resAmt;
        addLogEntry(`${context.triggerPlayer.name} gained ${resAmt} ${effect.type}.`);
     }
-    else if (effect.action === "overrideAttackDieTemp") {
+    else if (effect.action === "overrideAttackDieTemp" || effect.action === "overrideAttackDie") {
        target.temp_overrideAttackDie = effect.value;
        addLogEntry(`${target.name}'s attack die becomes ${effect.value} this turn!`);
     }
@@ -11057,6 +11058,7 @@ const KNOWN_GITHUB_ART_MAP = {
   "Nimble Retreat": "Nimble Retreat.png",
   "Pox Drudge": "Pox Drudge.png",
   "Sentinel's Focus": "Sentinel's Focus.png",
+  "Stone Pulse Meditation": "Stone-Pulse Meditation.png",
   "Stonepulse Meditation": "Stone-Pulse Meditation.png",
   "Stone-Pulse Meditation": "Stone-Pulse Meditation.png",
   "Swift-Footed Sentinel": "Swift-Footed Sentinel.png",
@@ -11191,6 +11193,7 @@ const KNOWN_BOARD_ART_MAP = {
   "Slash": { file: "Slash - Board.png", isFullCard: true },
   "Splashing Imp": { file: "Splashing Imp - Board.png", isFullCard: true },
   "Stonekeep Sentry": { file: "Stonekeep Sentry - Board.png", isFullCard: true },
+  "Stone Pulse Meditation": { file: "Stone-Pulse Meditation - Board.png", isFullCard: true },
   "Stonepulse Meditation": { file: "Stone-Pulse Meditation - Board.png", isFullCard: true },
   "Stone-Pulse Meditation": { file: "Stone-Pulse Meditation - Board.png", isFullCard: true },
   "Swift-Footed Sentinel": { file: "Swift-Footed Sentinel - Board.png", isFullCard: true },
@@ -12615,6 +12618,21 @@ window.addEventListener('resize', () => {
   }
 });
 
+function getEffectiveAttackDie(card, player) {
+  if (!card) return "D4";
+  if (card.temp_overrideAttackDie) return card.temp_overrideAttackDie;
+  let atkDie = card.attack;
+  if (card.mechanics && Array.isArray(card.mechanics.staticModifiers)) {
+    const p = player || (typeof gameState !== 'undefined' && gameState.players ? gameState.players[gameState.activePlayerIndex] : null);
+    for (const mod of card.mechanics.staticModifiers) {
+      if (mod.effect && (mod.effect.action === "overrideAttackDie" || mod.effect.action === "overrideAttackDieTemp") && evaluateCondition(mod.condition, card, { triggerPlayer: p })) {
+        atkDie = mod.effect.value;
+      }
+    }
+  }
+  return atkDie;
+}
+
 function createCardHTML(card, pIdx, zone, slot) {
   let isEx = card.isExhausted; if (zone === 'skill' || zone === 'hero') { isEx = gameState.players[pIdx].hero.isExhausted; }
   const ex = isEx ? "exhausted" : ""; 
@@ -12643,7 +12661,7 @@ function createCardHTML(card, pIdx, zone, slot) {
   // 1. HERO SLOT: Heroes remain in classic large portrait format (5:7 aspect ratio)
   if (zone === 'hero') {
     if (!hasCardArt(card) && !hasBoardCardArt(card)) {
-      let atk = card.attack ? (card.temp_overrideAttackDie || card.attack) : '-';
+      let atk = card.attack ? (getEffectiveAttackDie(card, p) || card.attack) : '-';
       let pow = getStat(card, 'power', p);
       let stats = `<div class="card-stats-row"><span>❤️${card.currentHealth}</span><span>⚔️${atk}</span></div><div class="card-stats-row"><span>💥${pow}</span><span>⚡${getStat(card, 'dexterity', p)}</span></div>`;
       return `<div class="card-mini classic-mini hero-mini ${ex} ${sel} ${deployAnimClass} ${activatableClass}" data-instance-id="${card.instanceId || ''}"><div class="card-header"><div class="card-name">${card.name}</div></div><div class="card-stats" style="margin-bottom:3px;">${stats}</div>${hpBar}</div>`;
@@ -12654,7 +12672,7 @@ function createCardHTML(card, pIdx, zone, slot) {
     const dexVal = card.dexterity !== undefined ? getStat(card, 'dexterity', p) : "";
     const hpVal = card.currentHealth !== undefined ? card.currentHealth : (card.health !== undefined ? card.health : "");
     const powVal = getStat(card, 'power', p);
-    const atkVal = card.attack ? (card.temp_overrideAttackDie || card.attack) : "";
+    const atkVal = card.attack ? (getEffectiveAttackDie(card, p) || card.attack) : "";
     const atkClass = (card.attackType === "Ranged") ? "mini-atk-ranged" : "mini-atk-melee";
     const atkBadgeHTML = atkVal !== "" ? `<div class="mini-atk-icon mini-atk-badge mini-hero-atk ${atkClass}"><span>${atkVal}</span></div>` : '';
 
@@ -12697,7 +12715,7 @@ function createCardHTML(card, pIdx, zone, slot) {
     const atkVal = (card.attack || card.rangedAttack !== undefined)
       ? (card.attackType === "Ranged"
           ? (isEquipment ? `+${card.rangedAttack}` : getStat(card, 'rangedAttack', p))
-          : (card.temp_overrideAttackDie || card.attack))
+          : (getEffectiveAttackDie(card, p) || card.attack))
       : (card.type === "Equipment" && card.powerModifier ? `+${card.powerModifier}` : "");
 
     let chClass = "mini-charge-icon charge-meter";
@@ -12760,11 +12778,11 @@ function createCardHTML(card, pIdx, zone, slot) {
   // Procedural / styled layout adapted for the new 10:7 aspect ratio
   let stats = "";
   if (card.type === "Hero" || card.type === "Ally") {
-    let atk = card.attack ? (card.temp_overrideAttackDie || card.attack) : (card.rangedAttack !== undefined ? getStat(card, 'rangedAttack', p) : '-');
+    let atk = card.attack ? (getEffectiveAttackDie(card, p) || card.attack) : (card.rangedAttack !== undefined ? getStat(card, 'rangedAttack', p) : '-');
     let pow = getStat(card, 'power', p);
     stats = `<div class="card-stats-row"><span>❤️${card.currentHealth}</span><span>⚔️${atk}</span></div><div class="card-stats-row"><span>💥${pow}</span><span>⚡${getStat(card, 'dexterity', p)}</span></div>`;
   } else if (card.type === "Skill") {
-    let atk = card.attack ? (card.temp_overrideAttackDie || card.attack) : (card.rangedAttack !== undefined ? getStat(card, 'rangedAttack', p) : '-');
+    let atk = card.attack ? (getEffectiveAttackDie(card, p) || card.attack) : (card.rangedAttack !== undefined ? getStat(card, 'rangedAttack', p) : '-');
     stats = `<div class="card-stats-row"><span>⚔️${atk}</span><span>💥${getStat(card, 'power', p)}</span></div>`;
   } else if (card.type === "Equipment") {
     let statBonus = [];
@@ -13248,7 +13266,7 @@ function generateClassicFullCardView(card, p, zone, slot, isMyTurn, phase, omitA
       ? `+${card.powerModifier}`
       : (card.attackType === "Ranged"
           ? (card.type === "Equipment" ? `+${card.rangedAttack}` : getStat(card, 'rangedAttack', p))
-          : (card.temp_overrideAttackDie || card.attack));
+          : (getEffectiveAttackDie(card, p) || card.attack));
     const atkLabel = hasPowerModBand ? "POWER MOD" : (hasAtkStat ? (card.type === "Equipment" && card.attackType === "Ranged" ? "RANGED PERK" : "ATTACK") : "CHARGE");
     const atkMeta = hasPowerModBand
       ? `${(card.attackType || 'MELEE').toUpperCase()} • ${(card.subtype || 'WEAPON').toUpperCase()}`
@@ -13423,7 +13441,7 @@ function generateFullCardView(card, p, zone, slot, isMyTurn, phase, omitActions 
             ? `+${card.powerModifier}`
             : (card.attackType === "Ranged"
                 ? (card.type === "Equipment" ? `+${card.rangedAttack}` : getStat(card,'rangedAttack',p))
-                : (card.temp_overrideAttackDie || card.attack));
+                : (getEffectiveAttackDie(card, p) || card.attack));
         const canBenchStrike = (zone === 'bench' && checkKeyword(card, p, "canStrikeFromBench"));
         if (isMyTurn && phase === "COMBAT" && (zone === 'bz' || zone === 'skill' || canBenchStrike) && !isExhausted && !omitActions) {
             const req = card.chargeReq || 1;
@@ -16522,7 +16540,11 @@ async function rollClashAttacker() {
       }
   } else {
       // Backstab Opposed Chance Roll
-      const hasBackstab = currentClash.attacker.mechanics?.staticModifiers?.some(m => m.effect?.action === "backstabOpposedChance");
+      const hasBackstab = Boolean(
+        currentClash.attacker.mechanics?.backstabClash ||
+        currentClash.attacker.mechanics?.staticModifiers?.some(m => m.effect?.action === "backstabOpposedChance") ||
+        /Both\s+attacker\s+and\s+defender\s+roll\s+for\s+chance/i.test(currentClash.attacker.abilities || "")
+      );
       if (hasBackstab) {
           let atkRoll = rollD20Adv(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
           let atkTotal = atkRoll + dex;
@@ -16889,7 +16911,7 @@ async function rollClashDefender() {
 
       let totalDieRoll = 0;
       if (counterActor.attack) {
-          const cDie = counterActor.temp_overrideAttackDie || counterActor.attack || "D4"; 
+          const cDie = getEffectiveAttackDie(counterActor, currentClash.defenderPlayer) || counterActor.attack || "D4"; 
           let rollObj = rollDieAdvDetailed(cDie, isAdv, isDisadv, isDoubleAdv, aptitudeVal);
           let dieRoll1 = rollObj.finalRoll;
           await performAnimatedRoll("Counterstrike Roll", `<strong>${charName}</strong> rolls Counterstrike! (${cDie})${advText}`, dieRoll1, 0, null, false, rollObj, currentClash.defenderPlayer.index);
