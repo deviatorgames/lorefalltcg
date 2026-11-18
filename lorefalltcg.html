@@ -1844,6 +1844,26 @@
     backface-visibility: hidden;
   }
   .mini-stat-overlay { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: visible; }
+  .board-kw-strip {
+    position: absolute; top: 3px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 2px; align-items: center; justify-content: center;
+    max-width: calc(100% - 54px); flex-wrap: wrap;
+    pointer-events: auto; z-index: 7;
+  }
+  .board-kw-badge {
+    width: 19px; height: 19px; border-radius: 50%;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(56, 189, 248, 0.75);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.85);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; line-height: 1; cursor: help;
+    transition: transform 0.12s ease, border-color 0.12s ease;
+    text-decoration: none !important;
+  }
+  .board-kw-badge:hover {
+    transform: scale(1.22);
+    border-color: #facc15;
+  }
 
   /* Board State Live Stats: compact card-accurate icons with large legible numbers */
   .mini-mana {
@@ -6331,7 +6351,39 @@ function getTutorialRiggedRoll(isD20, sides) {
     }
 }
 
+function resolveAdvantageState(isAdv, isDisadv, isDoubleAdv, aptitudeVal = 0) {
+    let adv = Boolean(isAdv);
+    let disadv = Boolean(isDisadv);
+    let dbl = Boolean(isDoubleAdv);
+    let apt = Number(aptitudeVal) || 0;
+    if (disadv) {
+        if (apt > 0) {
+            apt = Math.max(0, apt - 1);
+            disadv = false;
+        } else if (dbl) {
+            dbl = false;
+            adv = true;
+            disadv = false;
+        } else if (adv) {
+            adv = false;
+            disadv = false;
+        }
+    }
+    return { isAdv: adv, isDisadv: disadv, isDoubleAdv: dbl, aptitudeVal: apt };
+}
+
+function formatAdvText(isAdv, isDisadv, isDoubleAdv, aptitudeVal = 0) {
+    const s = resolveAdvantageState(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+    if (s.aptitudeVal > 0) return ` <em style='color:#38bdf8;'>(Aptitude ${s.aptitudeVal}x Advantage: ${s.aptitudeVal + 1} Rolls)</em>`;
+    if (s.isDoubleAdv) return " <em style='color:#38bdf8;'>(Double Advantage)</em>";
+    if (s.isAdv) return " <em style='color:#38bdf8;'>(Advantage)</em>";
+    if (s.isDisadv) return " <em style='color:#f43f5e;'>(Disadvantage)</em>";
+    return "";
+}
+
 function rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal = 0) {
+    const s = resolveAdvantageState(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+    isAdv = s.isAdv; isDisadv = s.isDisadv; isDoubleAdv = s.isDoubleAdv; aptitudeVal = s.aptitudeVal;
     const rigged = getTutorialRiggedRoll(true, 20);
     if (rigged !== null) {
         return { finalRoll: rigged, allRolls: [rigged], rollsCount: 1, isAdv, isDisadv, isDoubleAdv, aptitudeVal };
@@ -6349,6 +6401,8 @@ function rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal = 0) {
 }
 
 function rollDieAdvDetailed(t, isAdv, isDisadv, isDoubleAdv, aptitudeVal = 0) {
+    const s = resolveAdvantageState(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
+    isAdv = s.isAdv; isDisadv = s.isDisadv; isDoubleAdv = s.isDoubleAdv; aptitudeVal = s.aptitudeVal;
     let sides = parseInt(t.replace("D", "")) || 4;
     const rigged = getTutorialRiggedRoll(false, sides);
     if (rigged !== null) {
@@ -7653,11 +7707,7 @@ async function applyEffectAction(effect, targets, sourceCard, context) {
        if (context.triggerPlayer.hero.temp_autoChanceWin) { forceWin = true; delete context.triggerPlayer.hero.temp_autoChanceWin; }
        if (gameState.gameMode === "INDEPTH_TUTORIAL" && sourceCard?.name === "Windrider Sniper") { forceWin = true; }
 
-       let advText = "";
-       if (aptitudeVal > 0) advText = ` <em style='color:#38bdf8;'>(Aptitude ${aptitudeVal}x Advantage: ${aptitudeVal + 1} Rolls)</em>`;
-       else if (isDoubleAdv) advText = " <em style='color:#38bdf8;'>(Double Advantage)</em>";
-       else if (isAdv) advText = " <em style='color:#38bdf8;'>(Advantage)</em>";
-       else if (isDisadv) advText = " <em style='color:#f43f5e;'>(Disadvantage)</em>";
+       let advText = formatAdvText(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
 
        let dexVal = getStat(sourceCard.type === "Hero" || sourceCard.type === "Ally" ? sourceCard : context.triggerPlayer.hero, 'dexterity', context.triggerPlayer);
        let roll = 0;
@@ -12636,6 +12686,55 @@ function getEffectiveAttackDie(card, player) {
   return atkDie;
 }
 
+const BOARD_KEYWORD_CHECKS = [
+  { check: "freeze", defKey: "Freeze" },
+  { check: "blind", defKey: "Blind" },
+  { check: "doubleAdvantage", defKey: "Double Advantage" },
+  { check: "advantage", defKey: "Advantage" },
+  { check: "disadvantage", defKey: "Disadvantage" },
+  { check: "pierceProof", defKey: "Pierce Proof" },
+  { check: "piercing", defKey: "Piercing" },
+  { check: "knockback", defKey: "Knockback" },
+  { check: "overreach", defKey: "Overreach" },
+  { check: "leach", defKey: "Leach" },
+  { check: "poison", defKey: "Poison" },
+  { check: "aptitude", defKey: "Aptitude" },
+  { check: "allegiance", defKey: "Allegiance" },
+  { check: "overcharge", defKey: "Overcharge" },
+  { check: "protection", defKey: "Protection" },
+  { check: "revive", defKey: "Revive" },
+  { check: "chanceForCritical", defKey: "Chance for Critical" },
+  { check: "chanceForEvasion", defKey: "Chance for Evasion" }
+];
+
+function getBoardKeywordBadgesHTML(card, player, zone) {
+  if (!card) return "";
+  const seen = new Set();
+  const badges = [];
+  const addKw = (defKey) => {
+    const def = KEYWORD_DEFINITIONS[defKey] || findKeywordDef(defKey);
+    if (!def || seen.has(def.name)) return;
+    seen.add(def.name);
+    const cleanDesc = escapeHtmlAttr(def.shortDesc || def.fullText);
+    const cleanName = escapeHtmlAttr(def.name);
+    const icon = def.icon || "✨";
+    badges.push(`<span class="keyword-highlight board-kw-badge" data-keyword="${cleanName}" data-desc="${cleanDesc}" data-icon="${icon}" tabindex="0">${icon}</span>`);
+  };
+
+  BOARD_KEYWORD_CHECKS.forEach(item => {
+    if (checkKeyword(card, player, item.check)) {
+      if (item.defKey === "Advantage" && seen.has("Double Advantage")) return;
+      addKw(item.defKey);
+    }
+  });
+  if (card.isPoisoned) addKw("Poison");
+  if (card.isBlinded) addKw("Blind");
+  if (zone === 'hero' && player && player.isCursed) addKw("Curse");
+
+  if (badges.length === 0) return "";
+  return `<div class="board-kw-strip">${badges.join('')}</div>`;
+}
+
 function createCardHTML(card, pIdx, zone, slot) {
   let isEx = card.isExhausted; if (zone === 'skill' || zone === 'hero') { isEx = gameState.players[pIdx].hero.isExhausted; }
   const ex = isEx ? "exhausted" : ""; 
@@ -12660,6 +12759,7 @@ function createCardHTML(card, pIdx, zone, slot) {
   const currentPhase = gameState.currentPhase || (typeof PHASES !== 'undefined' && PHASES[gameState.currentPhaseIndex]) || "COMMAND";
   const hasReadyAbility = Boolean(p && isPlayerActiveTurn(pIdx) && !p.isAI && (zone === 'bz' || zone === 'bench' || zone === 'skill' || zone === 'hero') && acts.some(ab => canActivateAbility(card, ab, p, zone, currentPhase, false)));
   const activatableClass = hasReadyAbility ? "has-activatable-ability" : "";
+  const kwBadgesHTML = getBoardKeywordBadgesHTML(card, p, zone);
 
   // 1. HERO SLOT: Heroes remain in classic large portrait format (5:7 aspect ratio)
   if (zone === 'hero') {
@@ -12683,6 +12783,7 @@ function createCardHTML(card, pIdx, zone, slot) {
       <div class="card-mini hero-mini ${ex} ${sel} ${deployAnimClass} ${activatableClass}" data-instance-id="${card.instanceId || ''}">
         <img class="card-mini-img" src="${artUrl}" alt="${card.name}" onerror="${hasBoardCardArt(card) ? `handleBoardCardArtError('${safeName}', this)` : `handleCardArtError('${safeName}', this)`}">
         <div class="mini-stat-overlay">
+          ${kwBadgesHTML}
           ${manaVal !== "" ? `<div class="mini-mana"><span>${manaVal}</span></div>` : ''}
           ${dexVal !== "" ? `<div class="mini-dex"><span>${dexVal}</span></div>` : ''}
           ${atkBadgeHTML}
@@ -12764,6 +12865,7 @@ function createCardHTML(card, pIdx, zone, slot) {
         <img class="card-mini-img ${isFullCard ? 'board-crop-img' : ''}" src="${artUrl}" alt="${card.name}" onload="if(this.naturalHeight > this.naturalWidth * 1.2) this.classList.add('board-crop-img');" onerror="handleBoardCardArtError('${safeName}', this)">
         ${ownerBadgeHTML}
         <div class="mini-stat-overlay">
+          ${kwBadgesHTML}
           ${manaVal !== "" ? `<div class="${costClass}"><span>${manaVal}</span></div>` : ''}
           ${dexVal !== "" ? `<div class="mini-dex"><span>${dexVal}</span></div>` : ''}
           ${chBadge}
@@ -16428,11 +16530,7 @@ async function rollClashAttacker() {
   let hasAutoCrit = checkKeyword(aUnit, currentClash.attackerPlayer, "autoCritical") || checkKeyword(currentClash.attacker, currentClash.attackerPlayer, "autoCritical");
   let aptitudeVal = getAptitudeVal(currentClash.attacker, currentClash.attackerPlayer, aUnit);
 
-  let advText = "";
-  if (aptitudeVal > 0) advText = ` <em style='color:#38bdf8;'>(Aptitude ${aptitudeVal}x Advantage: ${aptitudeVal + 1} Rolls)</em>`;
-  else if (isDoubleAdv) advText = " <em style='color:#38bdf8;'>(Double Advantage)</em>";
-  else if (isAdv) advText = " <em style='color:#38bdf8;'>(Advantage)</em>";
-  else if (isDisadv) advText = " <em style='color:#f43f5e;'>(Disadvantage)</em>";
+  let advText = formatAdvText(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
   
   let baseDex = aUnit.dexterity || 0;
   let dex = getStat(aUnit, 'dexterity', currentClash.attackerPlayer);
@@ -16815,11 +16913,7 @@ async function rollClashDefender() {
   let hasAutoCrit = checkKeyword(charWithStats, currentClash.defenderPlayer, "autoCritical") || checkKeyword(counterActor, currentClash.defenderPlayer, "autoCritical");
   let aptitudeVal = getAptitudeVal(counterActor, currentClash.defenderPlayer, charWithStats);
 
-  let advText = "";
-  if (aptitudeVal > 0) advText = ` <em style='color:#38bdf8;'>(Aptitude ${aptitudeVal}x Advantage: ${aptitudeVal + 1} Rolls)</em>`;
-  else if (isDoubleAdv) advText = " <em style='color:#38bdf8;'>(Double Advantage)</em>";
-  else if (isAdv) advText = " <em style='color:#38bdf8;'>(Advantage)</em>";
-  else if (isDisadv) advText = " <em style='color:#f43f5e;'>(Disadvantage)</em>";
+  let advText = formatAdvText(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
 
   let logMsg = "";
   let baseDex = charWithStats.dexterity || 0;
@@ -17184,11 +17278,7 @@ async function resolveClashDamage() {
       if (dUnit.temp_autoChanceWin) delete dUnit.temp_autoChanceWin;
       if (dPlayer.hero.temp_autoChanceWin) delete dPlayer.hero.temp_autoChanceWin;
       
-      let advText = "";
-      if (aptitudeVal > 0) advText = ` <em style='color:#38bdf8;'>(Aptitude ${aptitudeVal}x Advantage: ${aptitudeVal + 1} Rolls)</em>`;
-      else if (isDoubleAdv) advText = " <em style='color:#38bdf8;'>(Double Advantage)</em>";
-      else if (isAdv) advText = " <em style='color:#38bdf8;'>(Advantage)</em>";
-      else if (isDisadv) advText = " <em style='color:#f43f5e;'>(Disadvantage)</em>";
+      let advText = formatAdvText(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
       
       let blindTag = attackerIsBlind ? " <em style='color:#a855f7;'>(Attacker is Blinded!)</em>" : "";
       await performAnimatedRoll("Evasion Roll", `<strong>${dUnit.name}</strong> is rolling to Evade!${advText}${blindTag}`, evadeRoll, dex, 11, forceWin, evadeRollObj, dPlayer.index);
@@ -17438,11 +17528,7 @@ async function closeClashAndApply() {
           if (aUnit.temp_autoChanceWin) delete aUnit.temp_autoChanceWin;
           if (attacker.temp_autoChanceWin) delete attacker.temp_autoChanceWin;
                   
-          let advText = "";
-          if (aptitudeVal > 0) advText = ` <em style='color:#38bdf8;'>(Aptitude ${aptitudeVal}x Advantage: ${aptitudeVal + 1} Rolls)</em>`;
-          else if (isDoubleAdv) advText = " <em style='color:#38bdf8;'>(Double Advantage)</em>";
-          else if (isAdv) advText = " <em style='color:#38bdf8;'>(Advantage)</em>";
-          else if (isDisadv) advText = " <em style='color:#f43f5e;'>(Disadvantage)</em>";
+          let advText = formatAdvText(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
           
           await performAnimatedRoll("Freeze Chance", `<strong>${aUnit.name}</strong> is rolling to Freeze!${advText}`, freezeRoll, dex, 11, forceWin, freezeRollObj, attackerPlayer.index);
           if (forceWin) total = 99;
@@ -17936,9 +18022,15 @@ function calculateAccuracyProbability(card, player) {
       }
     });
   }
-  const isAdv = checkKeyword(charUnit, player, "advantage") || checkKeyword(card, player, "advantage");
-  const isDoubleAdv = checkKeyword(charUnit, player, "doubleAdvantage") || checkKeyword(card, player, "doubleAdvantage");
-  const isDisadv = checkKeyword(charUnit, player, "disadvantage") || checkKeyword(card, player, "disadvantage");
+  const advState = resolveAdvantageState(
+    checkKeyword(charUnit, player, "advantage") || checkKeyword(card, player, "advantage"),
+    checkKeyword(charUnit, player, "disadvantage") || checkKeyword(card, player, "disadvantage"),
+    checkKeyword(charUnit, player, "doubleAdvantage") || checkKeyword(card, player, "doubleAdvantage"),
+    0
+  );
+  const isAdv = advState.isAdv;
+  const isDoubleAdv = advState.isDoubleAdv;
+  const isDisadv = advState.isDisadv;
   const effectiveDex = dex + accBonus;
   // Rulebook Accuracy: D20 + Dexterity >= 11
   const neededD20 = Math.max(1, Math.min(20, 11 - effectiveDex));
