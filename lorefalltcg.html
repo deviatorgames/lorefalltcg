@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lorefall: Realms of Viridian - Tactical Engine</title>
+<link rel="preconnect" href="https://wsrv.nl" crossorigin>
+<link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
+<link rel="dns-prefetch" href="https://wsrv.nl">
+<link rel="dns-prefetch" href="https://raw.githubusercontent.com">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   @font-face {
@@ -367,7 +371,7 @@
   
   .deck-piles { display: flex; gap: 5px; margin-top: 0; }
   .pile-box { flex: 1; height: 42px; background: #182230; border: 1px solid #2b3b50; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; cursor: pointer; position: relative; overflow: hidden; text-shadow: 0 1px 3px #000; }
-  .pile-box.loot-pile { background-image: linear-gradient(rgba(12,15,20,0.55), rgba(12,15,20,0.75)), url('https://raw.githubusercontent.com/deviatorgames/Lorefall-Card-Art/main/Lorefall%20Cardback.png'); background-size: cover; background-position: center; border-color: var(--gold); cursor: default; }
+  .pile-box.loot-pile { background-image: linear-gradient(rgba(12,15,20,0.55), rgba(12,15,20,0.75)), url('https://wsrv.nl/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdeviatorgames%2FLorefall-Card-Art%2Fmain%2FLorefall%2520Cardback.png&w=240&output=webp&q=80&we'), url('https://raw.githubusercontent.com/deviatorgames/Lorefall-Card-Art/main/Lorefall%20Cardback.png'); background-size: cover; background-position: center; border-color: var(--gold); cursor: default; }
   body.test-mode .pile-box.loot-pile { cursor: pointer; }
 
   /* Player Bottom Bar & Relocated Piles (Lower-Left Corner) - Enlarged */
@@ -421,7 +425,7 @@
     box-shadow: 0 6px 14px rgba(56, 189, 248, 0.4);
   }
   .player-bottom-piles .pile-box.loot-pile {
-    background-image: linear-gradient(rgba(12,15,20,0.45), rgba(12,15,20,0.7)), url('https://raw.githubusercontent.com/deviatorgames/Lorefall-Card-Art/main/Lorefall%20Cardback.png');
+    background-image: linear-gradient(rgba(12,15,20,0.45), rgba(12,15,20,0.7)), url('https://wsrv.nl/?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdeviatorgames%2FLorefall-Card-Art%2Fmain%2FLorefall%2520Cardback.png&w=240&output=webp&q=80&we'), url('https://raw.githubusercontent.com/deviatorgames/Lorefall-Card-Art/main/Lorefall%20Cardback.png');
     background-size: cover;
     background-position: center;
     border-color: var(--gold);
@@ -533,6 +537,9 @@
     font-size: 0.72rem;
   }
   .hand-card img, .hand-card-img { width: 100%; height: 100%; object-fit: fill; display: block; pointer-events: none; }
+  .card-img-fade { opacity: 0; transition: opacity 0.18s ease-out; }
+  .card-img-fade.img-loaded { opacity: 1; }
+  .hand-card:not(.classic-hand-card), .card-mini:not(.classic-mini), .fc-card-art-frame { background-color: #0b1220; }
   
   /* Relocated Action Controls */
   #p1-action-controls { display: flex; flex-direction: column; gap: 4px; margin-top: auto; }
@@ -5068,7 +5075,7 @@ function parseEnglishEffectClauseCore(clauseText, cardType, cardName) {
 
   // Chance for evasion / critical / advantage / overreach grants
   if (/chance\s+for\s+evasion/i.test(t)) {
-    const tgt = /target\s+character/i.test(t) ? "targetCharacter" : (/you\s+get/i.test(t) ? "selfHero" : "self");
+    const tgt = /target/i.test(t) ? guessTargetFromText(t) : (/you\s+get/i.test(t) ? "selfHero" : "self");
     return { action: "grantKeyword", value: "chanceForEvasion", target: tgt, duration: "thisTurn" };
   }
   if (/roll\s+for\s+critical\s+with\s+advantage/i.test(t)) {
@@ -5889,6 +5896,27 @@ function formatArenaImageUrl(url) {
     finalUrl = finalUrl.split('?')[0];
   }
   return finalUrl;
+}
+
+const IS_LOCAL_ARENA_HOST = (typeof window !== 'undefined' && (window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
+
+function getOptimizedArenaImageUrl(rawUrl, width = 440) {
+  if (!rawUrl || typeof rawUrl !== 'string') return rawUrl;
+  if (/^https?:\/\//i.test(rawUrl) && !/(^https?:\/\/)?(localhost|127\.0\.0\.1|wsrv\.nl|images\.weserv\.nl)/i.test(rawUrl)) {
+    return `https://wsrv.nl/?url=${encodeURIComponent(rawUrl).replace(/'/g, '%27')}&w=${width}&output=webp&q=82&we`;
+  }
+  return rawUrl;
+}
+
+function extractRawUrlFromProxy(url) {
+  if (!url || typeof url !== 'string') return null;
+  if (/https?:\/\/(?:wsrv\.nl|images\.weserv\.nl)\//i.test(url)) {
+    try {
+      const parsed = new URL(url);
+      return parsed.searchParams.get('url');
+    } catch (e) {}
+  }
+  return null;
 }
 
 function cleanFieldVal(val) {
@@ -6896,6 +6924,21 @@ function selectAITarget(aiPlayer, sourceCard, effect, targetType) {
   }
 
   if (act === "statBonus" || act === "grantKeyword") {
+    // Reactive defensive buffs on the Combat Stack must protect the targeted defending unit (e.g. Nimble Retreat)
+    if (gameState.combatDefendingTarget) {
+      const defVal = primaryEffect?.value;
+      const isDefensiveBuff = Boolean(
+        defVal === "chanceForEvasion" || defVal === "evasion" || defVal === "protection" || defVal === "pierceProof" ||
+        (primaryEffect?.stat === "defense" && (primaryEffect?.value || 0) > 0) ||
+        (primaryEffect?.stats?.defense && primaryEffect.stats.defense > 0)
+      );
+      const isFriendlyDef = (
+        gameState.combatDefendingTarget === aiPlayer.hero ||
+        aiPlayer.battleZone.includes(gameState.combatDefendingTarget) ||
+        aiPlayer.bench.includes(gameState.combatDefendingTarget)
+      );
+      if (isDefensiveBuff && isFriendlyDef) return gameState.combatDefendingTarget;
+    }
     // Check if effect buffs Ranged or Melee/Power and pick a ready attacker of that type
     const wantsRanged = (primaryEffect?.stat === "rangedAttack" || primaryEffect?.stats?.rangedAttack);
     const readyBZ = aiPlayer.battleZone.filter(u => u && !u.isExhausted && (u.charge || 0) >= (u.chargeReq || 1));
@@ -8136,31 +8179,32 @@ async function runTurnOrderRollOff() {
               if (diff === "EASY") {
                 aiWantsFirst = (Math.random() < 0.5);
               } else {
-                // Strategic evaluation based on hero class, early tempo, and hand composition
-                const aiHeroClass = winner.hero?.heroClass || winner.hero?.class || "";
-                const isAggroClass = /berserker|warrior|rogue|assassin|hunter/i.test(aiHeroClass);
-                const hasEarlyDrop = (winner.hand || []).some(c => c && (c.type === "Ally" || c.type === "Skill") && (c.manaCost || 0) <= 2);
-                const hasMultiEarlyDrops = (winner.hand || []).filter(c => c && (c.type === "Ally" || c.type === "Skill") && (c.manaCost || 0) <= 2).length >= 2;
+                // Early-game Rulebook tempo:
+                // Going 1st skips Draw & Combat on Turn 1, so only Setup/Ramp hands want 1st
+                // (e.g. Level 1 Skill + Synergy, or Level 1 Skill + early Ally for Turn-1 Skill Bonus & board establish).
+                // Aggro / No-Lvl-1-Skill / Heavy hands prefer Going 2nd for the extra draw & immediate Turn-1 Combat.
+                const aiHand = winner.hand || [];
+                const heroMana = winner.hero?.mana || 4;
+                const hasLvl1Skill = aiHand.some(c => c && c.type === "Skill" && (c.skillLevel || 1) === 1 && (c.manaCost || 0) <= heroMana);
+                const hasCheapSynergy = aiHand.some(c => c && c.type === "Synergy" && (c.manaCost || 0) <= heroMana);
+                const earlyAllies = aiHand.filter(c => c && c.type === "Ally" && (c.manaCost || 0) <= 2);
+                const hasSturdyVanguard = aiHand.some(c => c && c.type === "Ally" && (c.manaCost || 0) <= heroMana && (c.health || 0) >= 5);
 
                 if (diff === "HARD") {
-                  // Hard AI: strongly values early tempo when holding early drops or playing aggressive heroes
-                  if (isAggroClass && hasEarlyDrop) {
-                    aiWantsFirst = true; // Seize the initiative!
-                  } else if (hasMultiEarlyDrops) {
-                    aiWantsFirst = (Math.random() < 0.75); // Establish early board dominance
-                  } else if (hasEarlyDrop) {
-                    aiWantsFirst = (Math.random() < 0.45); // Balanced choice
+                  if (hasLvl1Skill && (hasCheapSynergy || hasSturdyVanguard)) {
+                    aiWantsFirst = true; // Prime setup hand: lock Turn-1 Skill/Synergy & free End-Phase Skill Charge
+                  } else if (!hasLvl1Skill && earlyAllies.length === 0) {
+                    aiWantsFirst = false; // Bricked/heavy hand: desperately needs Turn-1 draw going 2nd
+                  } else if (hasLvl1Skill && earlyAllies.length >= 1) {
+                    aiWantsFirst = (Math.random() < 0.70);
                   } else {
-                    aiWantsFirst = false; // Heavy hand: prefer going 2nd for extra draw and immediate combat capability
+                    aiWantsFirst = false; // Aggro or lacking Lvl-1 Skill: take Turn-1 draw + immediate Combat
                   }
                 } else {
-                  // Medium AI: dynamic tempo-weighted choice
-                  if (hasEarlyDrop && isAggroClass) {
-                    aiWantsFirst = (Math.random() < 0.70);
-                  } else if (hasEarlyDrop) {
-                    aiWantsFirst = (Math.random() < 0.50);
+                  if (hasLvl1Skill && (hasCheapSynergy || earlyAllies.length >= 1)) {
+                    aiWantsFirst = (Math.random() < 0.65);
                   } else {
-                    aiWantsFirst = (Math.random() < 0.30);
+                    aiWantsFirst = (Math.random() < 0.35);
                   }
                 }
               }
@@ -8198,35 +8242,51 @@ async function runTurnOrderRollOff() {
 async function runScoutPhase(player) {
   if (player.isAI) {
     const diff = gameState.aiDifficulty || "MEDIUM";
-    if (diff === "EASY") {
+    const profile = getAIDifficultyProfile(diff);
+    if (profile.scoutMaxPasses <= 0) {
       addLogEntry(`${player.name} kept their starting hand of ${player.hand.length} cards.`);
       return;
     }
-    // Medium/Hard Scout heuristic: keep Level 1 Skills, low-cost Allies (<= 3 Mana), and cheap Synergies; if lacking early plays, scout
-    const hasLvl1Skill = player.hand.some(c => c.type === "Skill" && c.skillLevel === 1);
-    const earlyAllies = player.hand.filter(c => c.type === "Ally" && (c.manaCost || 0) <= 3);
-    const shouldScout = (diff === "HARD")
-      ? (!hasLvl1Skill && earlyAllies.length < 2)
-      : (!hasLvl1Skill && earlyAllies.length === 0);
-    if (shouldScout && player.hand.length === 8) {
+    const startGold = player.gold || 3;
+    const isReactiveFlashKeep = (c) => {
+      if (!c || c.type !== "Flash" || typeof classifyFlashCard !== "function") return false;
+      const cls = classifyFlashCard(c);
+      return (cls.isHeal || cls.isEvasion) && (c.goldCost !== undefined ? c.goldCost <= startGold : (c.manaCost || 0) <= 2);
+    };
+    let scoutPass = 0;
+    let scoutTargetMax = 7;
+    while (scoutPass < profile.scoutMaxPasses && player.hand.length >= scoutTargetMax + 1) {
+      const hasLvl1Skill = player.hand.some(c => c.type === "Skill" && c.skillLevel === 1);
+      const earlyAllies = player.hand.filter(c => c.type === "Ally" && (c.manaCost || 0) <= 3);
+      const needMore = (scoutPass === 0)
+        ? (diff === "HARD" ? (!hasLvl1Skill && earlyAllies.length < 2) || (!hasLvl1Skill && earlyAllies.length === 0) : (!hasLvl1Skill && earlyAllies.length === 0))
+        : (!hasLvl1Skill && earlyAllies.length === 0);
+      if (!needMore) break;
+
       const kept = player.hand.filter(c =>
         (c.type === "Skill" && c.skillLevel === 1) ||
+        (hasLvl1Skill && c.type === "Skill" && c.skillLevel === 2) ||
         (c.type === "Ally" && (c.manaCost || 0) <= 3) ||
-        (c.type === "Synergy" && (c.manaCost || 0) <= 2)
+        (c.type === "Synergy" && (c.manaCost || 0) <= 2) ||
+        isReactiveFlashKeep(c)
       );
       const unwanted = player.hand.filter(c => !kept.includes(c));
-      if (unwanted.length > 0) {
-        player.hand = [...kept];
-        player.deck.push(...unwanted);
-        shuffleDeck(player.deck);
-        const toDraw = Math.max(0, 7 - player.hand.length);
-        drawCardsRaw(player, toDraw);
-        addLogEntry(`${player.name} performed a Scout (kept ${kept.length}, drew to ${player.hand.length} cards).`);
-        renderAll();
-        return;
-      }
+      if (unwanted.length === 0) break;
+
+      player.hand = [...kept];
+      player.deck.push(...unwanted);
+      shuffleDeck(player.deck);
+      const toDraw = Math.max(0, scoutTargetMax - player.hand.length);
+      drawCardsRaw(player, toDraw);
+      scoutPass++;
+      scoutTargetMax--;
+      addLogEntry(`${player.name} performed Scout #${scoutPass} (kept ${kept.length}, drew to ${player.hand.length} cards).`);
     }
-    addLogEntry(`${player.name} kept their starting hand of ${player.hand.length} cards.`);
+    if (scoutPass === 0) {
+      addLogEntry(`${player.name} kept their starting hand of ${player.hand.length} cards.`);
+    } else {
+      renderAll();
+    }
     return;
   }
 
@@ -8251,11 +8311,11 @@ async function runScoutPhase(player) {
           const isKept = keptSet.has(idx);
           const hasArt = hasCardArt(card);
           if (hasArt) {
-            const artUrl = getCardArtUrl(card);
+            const artUrl = getCardArtUrl(card, 440);
             const safeName = (card.name || "").replace(/'/g, "\\'");
             return `
               <div class="scout-card ${isKept ? 'kept' : 'unwanted'}" onclick="window.toggleScoutCard(${idx})" onmouseenter="showArenaPreview(event, ${player.index}, 'scout', ${idx})" onmouseleave="hideArenaPreview()" style="padding:4px; align-items:center;">
-                <img src="${artUrl}" alt="${card.name}" style="width:100%; aspect-ratio:5/7; object-fit:contain; border-radius:6px; display:block;" onerror="handleCardArtError('${safeName}', this)">
+                <img class="${getCardImgFadeClass(artUrl)}" src="${artUrl}" alt="${card.name}" decoding="async" fetchpriority="high" onload="markCardImgLoaded(this)" style="width:100%; aspect-ratio:5/7; object-fit:contain; border-radius:6px; display:block;" onerror="handleCardArtError('${safeName}', this)">
                 <div class="scout-badge" style="width:100%; margin-top:4px;">${isKept ? '✓ Keep Card' : '↻ Shuffle Back'}</div>
               </div>
             `;
@@ -10598,11 +10658,11 @@ function startOnlineScoutPhase() {
       const isKept = onlineScoutState.keptSet.has(idx);
       const hasArt = hasCardArt(card);
       if (hasArt) {
-        const artUrl = getCardArtUrl(card);
+        const artUrl = getCardArtUrl(card, 440);
         const safeName = (card.name || "").replace(/'/g, "\\'");
         return `
           <div class="scout-card ${isKept ? 'kept' : 'unwanted'}" onclick="window.toggleOnlineScoutCard(${idx})" onmouseenter="showArenaPreview(event, ${myPlayer.index}, 'scout', ${idx})" onmouseleave="hideArenaPreview()" style="padding:4px; align-items:center;">
-            <img src="${artUrl}" alt="${card.name}" style="width:100%; aspect-ratio:5/7; object-fit:contain; border-radius:6px; display:block;" onerror="handleCardArtError('${safeName}', this)">
+            <img class="${getCardImgFadeClass(artUrl)}" src="${artUrl}" alt="${card.name}" decoding="async" fetchpriority="high" onload="markCardImgLoaded(this)" style="width:100%; aspect-ratio:5/7; object-fit:contain; border-radius:6px; display:block;" onerror="handleCardArtError('${safeName}', this)">
             <div class="scout-badge" style="width:100%; margin-top:4px;">${isKept ? '✓ Keep Card' : '↻ Shuffle Back'}</div>
           </div>
         `;
@@ -11292,28 +11352,57 @@ function hasBoardCardArt(card) {
   return card.type !== "Token";
 }
 
-function getBoardCardArtUrl(card) {
+function getBoardCardArtUrl(card, width = 420) {
   if (!card || !card.name) return null;
   if (card.board_image_url) {
     const formatted = formatArenaImageUrl(card.board_image_url);
-    if (formatted) {
-      preloadImageUrl(formatted);
-      return formatted;
-    }
+    if (formatted) return getOptimizedArenaImageUrl(formatted, width);
   }
   const info = getBoardCardInfo(card);
   const fileName = info ? info.file : `${card.name} - Board.png`;
-  const localUrl = `Board Cards/${encodeURIComponent(fileName)}`;
-  preloadImageUrl(localUrl);
-  return localUrl;
+  const encodedName = encodeURIComponent(fileName).replace(/'/g, '%27');
+  const localUrl = `Board Cards/${encodedName}`;
+  if (IS_LOCAL_ARENA_HOST) return localUrl;
+  try {
+    const absUrl = new URL(localUrl, window.location.href).href;
+    return getOptimizedArenaImageUrl(absUrl, width);
+  } catch (e) {
+    return localUrl;
+  }
 }
 
 function handleBoardCardArtError(cardName, imgEl) {
+  if (!imgEl) return;
   const info = getBoardCardInfo({ name: cardName });
   const fileName = info ? info.file : `${cardName} - Board.png`;
-  if (imgEl && cardName && !imgEl.dataset.triedRepoFallback) {
-    imgEl.dataset.triedRepoFallback = "1";
-    imgEl.src = `${GITHUB_CARD_ART_BASE}${encodeURIComponent(fileName)}`;
+  const encodedName = encodeURIComponent(fileName).replace(/'/g, '%27');
+  const localUrl = `Board Cards/${encodedName}`;
+  const rawGithubUrl = `${GITHUB_CARD_ART_BASE}${encodedName}`;
+  const curSrc = imgEl.getAttribute('src') || imgEl.src || '';
+
+  // Stage 1: If a custom/proxy URL failed on wsrv.nl, try its raw URL first
+  const unwrapped = extractRawUrlFromProxy(curSrc);
+  if (unwrapped && !imgEl.dataset.triedProxyUnwrap && curSrc !== rawGithubUrl) {
+    imgEl.dataset.triedProxyUnwrap = "1";
+    imgEl.src = unwrapped;
+    return;
+  }
+  // Stage 2: Try proxied GitHub repo Board Art
+  if (cardName && !imgEl.dataset.triedRepoProxy) {
+    imgEl.dataset.triedRepoProxy = "1";
+    imgEl.src = getOptimizedArenaImageUrl(rawGithubUrl, 420);
+    return;
+  }
+  // Stage 3: Fallback to raw local file path on hosted origins
+  if (!IS_LOCAL_ARENA_HOST && !imgEl.dataset.triedLocalRaw) {
+    imgEl.dataset.triedLocalRaw = "1";
+    imgEl.src = localUrl;
+    return;
+  }
+  // Stage 4: Fallback to raw unproxied GitHub repo URL
+  if (cardName && !imgEl.dataset.triedRepoRaw) {
+    imgEl.dataset.triedRepoRaw = "1";
+    imgEl.src = rawGithubUrl;
     return;
   }
   if (cardName) missingBoardArtSet.add(cardName);
@@ -11322,41 +11411,59 @@ function handleBoardCardArtError(cardName, imgEl) {
   }
 }
 
-const preloadedImageCache = new Map();
+const loadedImageUrls = new Set();
 
-function preloadImageUrl(url) {
+function markCardImgLoaded(imgEl) {
+  if (!imgEl) return;
+  const s = imgEl.getAttribute('src') || imgEl.currentSrc || imgEl.src;
+  if (s) loadedImageUrls.add(s);
+  imgEl.classList.add('img-loaded');
+}
+
+function getCardImgFadeClass(url) {
+  return (url && loadedImageUrls.has(url)) ? 'img-loaded' : 'card-img-fade';
+}
+
+const preloadedImageCache = new Map();
+const preloadHighQueue = [];
+const preloadLowQueue = [];
+let preloadActiveCount = 0;
+const MAX_CONCURRENT_PRELOADS = 4;
+
+function pumpPreloadQueue() {
+  while (preloadActiveCount < MAX_CONCURRENT_PRELOADS && (preloadHighQueue.length > 0 || preloadLowQueue.length > 0)) {
+    const url = preloadHighQueue.length > 0 ? preloadHighQueue.shift() : preloadLowQueue.shift();
+    if (!url || preloadedImageCache.has(url)) continue;
+    preloadActiveCount++;
+    const img = new Image();
+    img.decoding = 'async';
+    preloadedImageCache.set(url, img);
+    const finish = () => {
+      preloadActiveCount = Math.max(0, preloadActiveCount - 1);
+      pumpPreloadQueue();
+    };
+    img.onload = () => {
+      loadedImageUrls.add(url);
+      finish();
+    };
+    img.onerror = finish;
+    img.src = url;
+  }
+}
+
+function preloadImageUrl(url, highPriority = false) {
   if (!url || preloadedImageCache.has(url)) return;
-  const img = new Image();
-  img.decoding = 'async';
-  img.src = url;
-  preloadedImageCache.set(url, img);
+  if (highPriority) {
+    if (!preloadHighQueue.includes(url)) preloadHighQueue.push(url);
+  } else {
+    if (!preloadHighQueue.includes(url) && !preloadLowQueue.includes(url)) preloadLowQueue.push(url);
+  }
+  pumpPreloadQueue();
 }
 
 function preloadAllDeckImages() {
   try {
-    if (gameState.players) {
-      gameState.players.forEach(p => {
-        if (p.hero && hasCardArt(p.hero)) preloadImageUrl(getCardArtUrl(p.hero));
-        (p.deck || []).forEach(c => {
-          if (hasCardArt(c)) preloadImageUrl(getCardArtUrl(c));
-        });
-        (p.hand || []).forEach(c => {
-          if (hasCardArt(c)) preloadImageUrl(getCardArtUrl(c));
-        });
-      });
-    }
-    if (typeof KNOWN_GITHUB_ART_MAP === 'object') {
-      Object.values(KNOWN_GITHUB_ART_MAP).forEach(fileName => {
-        preloadImageUrl(GITHUB_CARD_ART_BASE + encodeURIComponent(fileName));
-      });
-    }
-    if (typeof KNOWN_BOARD_ART_MAP === 'object') {
-      Object.values(KNOWN_BOARD_ART_MAP).forEach(item => {
-        const fileName = typeof item === 'string' ? item : item.file;
-        preloadImageUrl(`Board Cards/${encodeURIComponent(fileName)}`);
-        preloadImageUrl(GITHUB_CARD_ART_BASE + encodeURIComponent(fileName));
-      });
-    }
+    // 1. High priority: small UI icons & Cardback WebP
     [
       'Icon_Charge.png',
       'Icon_Dexterity.png',
@@ -11365,30 +11472,68 @@ function preloadAllDeckImages() {
       'Icon_Mana.png',
       'Icon_Melee.png',
       'Icon_Power.png',
-      'Icon_Ranged.png'
-    ].forEach(icon => preloadImageUrl(icon));
-  } catch(e) {}
+      'Icon_Ranged.png',
+      getOptimizedArenaImageUrl(GITHUB_CARD_ART_BASE + 'Lorefall%20Cardback.png', 240)
+    ].forEach(icon => preloadImageUrl(icon, true));
+
+    if (!gameState.players || gameState.players.length === 0) return;
+
+    // 2. High priority: Visible Heroes & starting hands in the active match
+    const seenDeckCards = new Set();
+    const deferredDeckUrls = [];
+
+    gameState.players.forEach(p => {
+      if (!p) return;
+      if (p.hero) {
+        if (hasBoardCardArt(p.hero)) preloadImageUrl(getBoardCardArtUrl(p.hero, 420), true);
+        if (hasCardArt(p.hero)) preloadImageUrl(getCardArtUrl(p.hero, 440), true);
+      }
+      (p.hand || []).forEach(c => {
+        if (c && hasCardArt(c)) preloadImageUrl(getCardArtUrl(c, 440), true);
+      });
+      (p.deck || []).forEach(c => {
+        if (!c || !c.name || seenDeckCards.has(c.name)) return;
+        seenDeckCards.add(c.name);
+        if (hasCardArt(c)) deferredDeckUrls.push(getCardArtUrl(c, 440));
+        if ((c.type === "Ally" || c.type === "Skill" || c.type === "Synergy" || c.type === "Equipment") && hasBoardCardArt(c)) {
+          deferredDeckUrls.push(getBoardCardArtUrl(c, 420));
+        }
+      });
+    });
+
+    // 3. Low priority (delayed & throttled): remaining unique cards in the current match's decks
+    if (window.__preloadDeckTimer) clearTimeout(window.__preloadDeckTimer);
+    if (deferredDeckUrls.length > 0) {
+      window.__preloadDeckTimer = setTimeout(() => {
+        deferredDeckUrls.forEach(u => preloadImageUrl(u, false));
+      }, 450);
+    }
+  } catch (e) {}
 }
 
-function getCardArtUrl(card) {
+function getCardArtUrl(card, width = 440) {
   if (!card || !card.name) return null;
   const formattedUrl = formatArenaImageUrl(card.image_url);
-  if (formattedUrl) {
-    preloadImageUrl(formattedUrl);
-    return formattedUrl;
-  }
+  if (formattedUrl) return getOptimizedArenaImageUrl(formattedUrl, width);
   const fileName = KNOWN_GITHUB_ART_MAP[card.name] || `${card.name}.png`;
-  const url = GITHUB_CARD_ART_BASE + encodeURIComponent(fileName);
-  preloadImageUrl(url);
-  return url;
+  const rawUrl = GITHUB_CARD_ART_BASE + encodeURIComponent(fileName).replace(/'/g, '%27');
+  return getOptimizedArenaImageUrl(rawUrl, width);
 }
 
 function handleCardArtError(cardName, imgEl) {
-  // If a custom image_url failed, try the known GitHub repository PNG before falling back to classic layout
-  if (imgEl && cardName && KNOWN_GITHUB_ART_MAP[cardName] && !imgEl.dataset.triedRepoFallback) {
-    imgEl.dataset.triedRepoFallback = "1";
-    imgEl.src = GITHUB_CARD_ART_BASE + encodeURIComponent(KNOWN_GITHUB_ART_MAP[cardName]);
-    return;
+  if (imgEl) {
+    const curSrc = imgEl.getAttribute('src') || imgEl.src || '';
+    const unwrapped = extractRawUrlFromProxy(curSrc);
+    if (unwrapped && !imgEl.dataset.triedRawFallback) {
+      imgEl.dataset.triedRawFallback = "1";
+      imgEl.src = unwrapped;
+      return;
+    }
+    if (cardName && KNOWN_GITHUB_ART_MAP[cardName] && !imgEl.dataset.triedRepoFallback) {
+      imgEl.dataset.triedRepoFallback = "1";
+      imgEl.src = GITHUB_CARD_ART_BASE + encodeURIComponent(KNOWN_GITHUB_ART_MAP[cardName]).replace(/'/g, '%27');
+      return;
+    }
   }
   if (cardName) missingCardArtSet.add(cardName);
   if (gameState.players && gameState.players.length > 0) {
@@ -11521,9 +11666,9 @@ function showActionShowcase({ card, actionTag, title, description, targetSlotId,
     if (slotEl && card) {
       try {
         if (hasCardArt(card)) {
-          const artUrl = getCardArtUrl(card);
+          const artUrl = getCardArtUrl(card, 760);
           const safeName = (card.name || "").replace(/'/g, "\\'");
-          slotEl.innerHTML = `<img src="${artUrl}" alt="${card.name}" onerror="handleCardArtError('${safeName}', this)">`;
+          slotEl.innerHTML = `<img class="${getCardImgFadeClass(artUrl)}" src="${artUrl}" alt="${card.name}" decoding="async" fetchpriority="high" onload="markCardImgLoaded(this)" onerror="handleCardArtError('${safeName}', this)">`;
         } else {
           const activeP = (gameState && gameState.players) ? (gameState.players[gameState.activePlayerIndex] || gameState.players[0] || { hero: {}, index: 0 }) : { hero: {}, index: 0 };
           slotEl.innerHTML = generateClassicFullCardView(card, activeP, 'hand', 0, false, "COMMAND", true);
@@ -12244,9 +12389,9 @@ function playCardDrawVisual(player, card) {
     if (overlay && cardBox) {
       if (badge) badge.textContent = `CARD DRAWN • ${card.name}`;
       if (hasCardArt(card)) {
-        const artUrl = getCardArtUrl(card);
+        const artUrl = getCardArtUrl(card, 760);
         const safeName = (card.name || '').replace(/'/g, "\\'");
-        cardBox.innerHTML = `<img src="${artUrl}" alt="${card.name}" onerror="handleCardArtError('${safeName}', this)">`;
+        cardBox.innerHTML = `<img class="${getCardImgFadeClass(artUrl)}" src="${artUrl}" alt="${card.name}" decoding="async" fetchpriority="high" onload="markCardImgLoaded(this)" onerror="handleCardArtError('${safeName}', this)">`;
       } else {
         cardBox.innerHTML = generateClassicFullCardView(card, player, 'hand', 0, false, "MANA", true);
       }
@@ -12602,9 +12747,9 @@ function renderHand(overridePlayerIdx = null) {
     el.dataset.cardName = card.name || "";
     if (hasCardArt(card)) {
       el.className = 'hand-card';
-      const artUrl = getCardArtUrl(card);
+      const artUrl = getCardArtUrl(card, 440);
       const safeName = (card.name || "").replace(/'/g, "\\'");
-      el.innerHTML = `<img class="hand-card-img" src="${artUrl}" alt="${card.name}" decoding="async" onerror="handleCardArtError('${safeName}', this)">`;
+      el.innerHTML = `<img class="hand-card-img ${getCardImgFadeClass(artUrl)}" src="${artUrl}" alt="${card.name}" decoding="async" fetchpriority="high" onload="markCardImgLoaded(this)" onerror="handleCardArtError('${safeName}', this)">`;
     } else {
       // Classic pre-image hand card layout for cards without images
       el.className = 'hand-card classic-hand-card';
@@ -12781,7 +12926,7 @@ function createCardHTML(card, pIdx, zone, slot) {
       let stats = `<div class="card-stats-row"><span>❤️${card.currentHealth}</span><span>⚔️${atk}</span></div><div class="card-stats-row"><span>💥${pow}</span><span>⚡${getStat(card, 'dexterity', p)}</span></div>`;
       return `<div class="card-mini classic-mini hero-mini ${ex} ${sel} ${deployAnimClass} ${activatableClass}" data-instance-id="${card.instanceId || ''}"><div class="card-header"><div class="card-name">${card.name}</div></div><div class="card-stats" style="margin-bottom:3px;">${stats}</div>${hpBar}</div>`;
     }
-    const artUrl = hasBoardCardArt(card) ? getBoardCardArtUrl(card) : getCardArtUrl(card);
+    const artUrl = hasBoardCardArt(card) ? getBoardCardArtUrl(card, 420) : getCardArtUrl(card, 440);
     const safeName = (card.name || "").replace(/'/g, "\\'");
     const manaVal = card.mana !== undefined ? getStat(card, 'mana', p) : "";
     const dexVal = card.dexterity !== undefined ? getStat(card, 'dexterity', p) : "";
@@ -12793,7 +12938,7 @@ function createCardHTML(card, pIdx, zone, slot) {
 
     return `
       <div class="card-mini hero-mini ${ex} ${sel} ${deployAnimClass} ${activatableClass}" data-instance-id="${card.instanceId || ''}">
-        <img class="card-mini-img" src="${artUrl}" alt="${card.name}" onerror="${hasBoardCardArt(card) ? `handleBoardCardArtError('${safeName}', this)` : `handleCardArtError('${safeName}', this)`}">
+        <img class="card-mini-img ${getCardImgFadeClass(artUrl)}" src="${artUrl}" alt="${card.name}" decoding="async" fetchpriority="high" onload="markCardImgLoaded(this)" onerror="${hasBoardCardArt(card) ? `handleBoardCardArtError('${safeName}', this)` : `handleCardArtError('${safeName}', this)`}">
         <div class="mini-stat-overlay">
           ${kwBadgesHTML}
           ${manaVal !== "" ? `<div class="mini-mana"><span>${manaVal}</span></div>` : ''}
@@ -12809,7 +12954,7 @@ function createCardHTML(card, pIdx, zone, slot) {
 
   // 2. NON-HERO BOARD SLOTS (Battle Zone, Bench, Skill, Synergy) - 10:7 aspect ratio (pixels 60 to 760 crop)
   if (hasBoardCardArt(card)) {
-    const artUrl = getBoardCardArtUrl(card);
+    const artUrl = getBoardCardArtUrl(card, 420);
     const safeName = (card.name || "").replace(/'/g, "\\'");
     const boardInfo = getBoardCardInfo(card);
     const isFullCard = boardInfo ? Boolean(boardInfo.isFullCard) : false;
@@ -12874,7 +13019,7 @@ function createCardHTML(card, pIdx, zone, slot) {
 
     return `
       <div class="card-mini ${zoneClass} ${ex} ${sel} ${deployAnimClass} ${activatableClass} ${chargedCardClass}" data-instance-id="${card.instanceId || ''}">
-        <img class="card-mini-img ${isFullCard ? 'board-crop-img' : ''}" src="${artUrl}" alt="${card.name}" onload="if(this.naturalHeight > this.naturalWidth * 1.2) this.classList.add('board-crop-img');" onerror="handleBoardCardArtError('${safeName}', this)">
+        <img class="card-mini-img ${isFullCard ? 'board-crop-img' : ''} ${getCardImgFadeClass(artUrl)}" src="${artUrl}" alt="${card.name}" decoding="async" onload="markCardImgLoaded(this); if(this.naturalHeight > this.naturalWidth * 1.2) this.classList.add('board-crop-img');" onerror="handleBoardCardArtError('${safeName}', this)">
         ${ownerBadgeHTML}
         <div class="mini-stat-overlay">
           ${kwBadgesHTML}
@@ -13512,15 +13657,15 @@ function generateFullCardView(card, p, zone, slot, isMyTurn, phase, omitActions 
     const isInPlay = (zone === 'hero' || zone === 'bz' || zone === 'ally' || zone === 'bench' || zone === 'skill' || zone === 'synergy' || zone === 'equip');
     const boardInfo = getBoardCardInfo(card);
     const artUrl = (isInPlay && boardInfo && boardInfo.isFullCard && !missingBoardArtSet.has(card.name))
-      ? getBoardCardArtUrl(card)
-      : getCardArtUrl(card);
+      ? getBoardCardArtUrl(card, 760)
+      : getCardArtUrl(card, 760);
     const safeName = (card.name || "").replace(/'/g, "\\'");
 
     // Hand / Scout / non-play previews show ONLY the card image itself
     if (!isInPlay) {
         return `
           <div class="fc-card-art-frame">
-            <img src="${artUrl}" class="fc-card-full-img" alt="${card.name}" onerror="handleCardArtError('${safeName}', this)">
+            <img src="${artUrl}" class="fc-card-full-img ${getCardImgFadeClass(artUrl)}" alt="${card.name}" decoding="async" fetchpriority="high" onload="markCardImgLoaded(this)" onerror="handleCardArtError('${safeName}', this)">
           </div>
         `;
     }
@@ -13589,7 +13734,7 @@ function generateFullCardView(card, p, zone, slot, isMyTurn, phase, omitActions 
 
     return `
       <div class="fc-card-art-frame">
-        <img src="${artUrl}" class="fc-card-full-img" alt="${card.name}" onerror="${(isInPlay && boardInfo) ? `handleBoardCardArtError('${safeName}', this)` : `handleCardArtError('${safeName}', this)`}">
+        <img src="${artUrl}" class="fc-card-full-img ${getCardImgFadeClass(artUrl)}" alt="${card.name}" decoding="async" fetchpriority="high" onload="markCardImgLoaded(this)" onerror="${(isInPlay && boardInfo) ? `handleBoardCardArtError('${safeName}', this)` : `handleCardArtError('${safeName}', this)`}">
         ${manaCost !== "" ? `<div class="fc-live-stat fc-overlay-mana ${costIconClass}" title="Mana / Cost"><span>${manaCost}</span></div>` : ''}
         ${topRightStatHTML}
         ${attackBadgeHTML}
@@ -14856,8 +15001,8 @@ async function promptPlayFlash(player, cardIndex) {
 async function playFlashCard(player, cardIndex, networkData = null) {
   const card = player.hand[cardIndex];
   if (!card) return;
-  const isItem = card.subtype === "Item" || (card.subtype !== "Event" && card.goldCost !== undefined);
-  const isEvent = card.subtype === "Event" || (card.subtype !== "Item" && card.manaCost !== undefined && card.goldCost === undefined);
+  const isEvent = card.subtype === "Event" || card.subtype === "Action" || (card.subtype !== "Item" && card.manaCost !== undefined && card.goldCost === undefined);
+  const isItem = !isEvent && (card.subtype === "Item" || card.goldCost !== undefined);
   const reqGold = Number(card.goldCost) || 0;
   const reqMana = Number(card.manaCost) || 0;
   if (isItem && player.gold < reqGold) { showToast("Not enough Gold for Item!"); return; }
@@ -15553,13 +15698,18 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
       const attackerPlayer = gameState.players[aInfo.playerIndex];
       const attackerUnit = (aInfo.type === 'skill') ? attackerPlayer.hero : aInfo.card;
       const expectedAtkDmg = estimateCardExpectedDamage(aInfo.card, attackerPlayer);
+      const isIncomingPiercing = checkKeyword(aInfo.card, attackerPlayer, "piercing") || (aInfo.type === 'skill' && checkKeyword(attackerPlayer.hero, attackerPlayer, "piercing"));
+      const defStageInfo = getAIGameStage(defenderPlayer, attackerPlayer, diff);
+      const defProfile = defStageInfo.profile;
 
       // 0. Hero Intervene Evaluation (The Intervention Decision)
       // Lorefall Beta Rules: When Vanguard is targeted by Melee, defender can choose to let the Hero intervene.
       // Vanguard takes 0 damage and remains fresh; Hero absorbs the damage directly.
-      const heroDef = getStat(defenderPlayer.hero, 'defense', defenderPlayer) || 0;
+      const heroRawDef = getStat(defenderPlayer.hero, 'defense', defenderPlayer) || 0;
+      const heroDef = (isIncomingPiercing && !checkKeyword(defenderPlayer.hero, defenderPlayer, "pierceProof")) ? 0 : heroRawDef;
       const heroIncoming = Math.max(0, expectedAtkDmg - heroDef);
-      const vanguardDef = getStat(tUnit, 'defense', defenderPlayer) || 0;
+      const vanguardRawDef = getStat(tUnit, 'defense', defenderPlayer) || 0;
+      const vanguardDef = (isIncomingPiercing && !checkKeyword(tUnit, defenderPlayer, "pierceProof")) ? 0 : vanguardRawDef;
       const vanguardIncoming = Math.max(0, expectedAtkDmg - vanguardDef);
       const vanguardWillDie = (tUnit.currentHealth <= vanguardIncoming);
       const vanguardInDanger = vanguardWillDie || (tUnit.currentHealth <= vanguardIncoming + 2) || (tUnit.currentHealth <= 4);
@@ -15578,25 +15728,24 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
               const heroHasCounter = !defenderPlayer.hero.isExhausted && (
                   defenderPlayer.skills.some(s => s && (s.charge || 0) >= (s.chargeReq || 1) && isCounterRangeValid(s.attackType))
               );
+              const heroLethalCounter = heroHasCounter && defenderPlayer.skills.some(s => s && (s.charge || 0) >= (s.chargeReq || 1) && isCounterRangeValid(s.attackType) && getEffectiveNetDamage(s, defenderPlayer, attackerUnit, attackerPlayer) >= attackerUnit.currentHealth);
 
               // TACTICAL INTERVENE SCENARIO 1: High-Defense Hero Tank (Zero / Negligible Damage)
-              // If Hero Defense mitigates incoming damage down to 0 or 1, Hero Intervene is a free shield for the Vanguard!
-              // (e.g. Athran with soldier defense & armor absorbs for 0, saving the Vanguard and conserving potions)
               const isHeroTanking = (heroIncoming <= 1 && heroHealthy && vanguardInDanger);
-
               // TACTICAL INTERVENE SCENARIO 2: Saving Vanguard from Lethal Blow
-              // If the Vanguard will die, and the Hero can absorb the blow safely
               const isHeroSavingVanguard = (vanguardWillDie && heroCanSafelyAbsorb && heroIncoming <= 5);
-
               // TACTICAL INTERVENE SCENARIO 3: Hero Counterstrike Ambush
-              // If Vanguard cannot counter, but Hero has a charged counterstrike that can strike back
-              const isHeroCounterTrap = (vanguardInDanger && heroHasCounter && !vanguardCanCounter && heroCanSafelyAbsorb);
-
+              const isHeroCounterTrap = (vanguardInDanger && heroHasCounter && !vanguardCanCounter && (heroCanSafelyAbsorb || heroLethalCounter));
               // TACTICAL INTERVENE SCENARIO 4: General Vanguard Protection
               const isVanguardValuable = Boolean(tUnit.mechanics?.activatedAbilities?.length || (tUnit.charge || 0) >= (tUnit.chargeReq || 1) || (tUnit.manaCost || 0) >= 3);
               const isGeneralProtection = (heroHealthy && vanguardInDanger && isVanguardValuable && !vanguardCanCounter && heroIncoming <= 3);
 
-              if (isHeroTanking || isHeroSavingVanguard || isHeroCounterTrap || isGeneralProtection) {
+              if (defStageInfo.isSurvivalMode) {
+                  // In Survival Mode, avoid taking direct Hero damage unless free tank or lethal counter
+                  if ((heroIncoming <= 0 && vanguardWillDie) || (heroLethalCounter && defenderPlayer.hero.currentHealth > heroIncoming)) {
+                      shouldIntervene = true;
+                  }
+              } else if (isHeroTanking || isHeroSavingVanguard || isHeroCounterTrap || isGeneralProtection) {
                   shouldIntervene = true;
               }
           }
@@ -15609,51 +15758,87 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
           }
       }
 
-      let defVal = getStat(finalTargetUnit, 'defense', defenderPlayer) || 0;
+      const calcEffectiveDef = (u) => {
+          const raw = getStat(u, 'defense', defenderPlayer) || 0;
+          return (isIncomingPiercing && !checkKeyword(u, defenderPlayer, "pierceProof")) ? 0 : raw;
+      };
+      let defVal = calcEffectiveDef(finalTargetUnit);
       let estimatedIncoming = Math.max(0, expectedAtkDmg - defVal);
       let willDie = (finalTargetUnit.currentHealth <= estimatedIncoming);
 
-      // 1. Reactive Defensive Flash Items & "Flash" Over-Heal Stack (Medium / Hard AI)
-      // Only burn healing potions if the target is actually going to die or take critical damage after intervention decision!
+      // 1. Reactive Defensive Flash Actions/Items & Combat Stack Evasion/Over-Heal
+      let usedReactiveEvasion = false;
       if (diff !== "EASY" && gameState.gameMode !== "TUTORIAL") {
-          const flashHealIdx = defenderPlayer.hand.findIndex(c =>
-              c.type === "Flash" &&
-              (c.id === "small_healing_potion" || c.id === "favars_elixir" || c.mechanics?.passiveAbilities?.some(a => a.effect?.action === "heal")) &&
-              defenderPlayer.gold >= (c.goldCost || 0)
-          );
-          if (flashHealIdx !== -1) {
-              const healCard = defenderPlayer.hand[flashHealIdx];
-              if (diff === "HARD") {
-                  // Hard Mode: The "Flash" Over-Heal Stack
-                  // Holds healing Flashes until the opponent commits to a lethal strike against the Vanguard.
-                  // Allies have no maximum health cap and can be over-healed! Over-healing dynamically denies the kill
-                  // and completely prevents the expected Breakthrough damage to the Hero!
-                  if (finalTargetType === 'bz' && willDie) {
+          // 1A. Reactive Evasion Flash Actions (e.g. Nimble Retreat) or defensive evasion abilities on lethal / heavy threats
+          if ((willDie || estimatedIncoming >= 4 || (finalTargetType === 'hero' && estimatedIncoming >= 3)) && Math.random() < defProfile.useReactiveEvasion) {
+              const evasionCandidates = defenderPlayer.hand
+                  .map((c, idx) => ({ c, idx, cls: classifyFlashCard(c) }))
+                  .filter(item => item.cls.isEvasion && canAIAffordFlash(defenderPlayer, item.c));
+              if (evasionCandidates.length > 0 && !finalTargetUnit.temp_chanceForEvasion && !finalTargetUnit.temp_Evasion) {
+                  const pick = evasionCandidates[0];
+                  gameState.combatDefendingTarget = finalTargetUnit;
+                  addLogEntry(`<strong style="color:var(--mana);">[AI FLASH EVASION STACK]</strong> ${defenderPlayer.name} responds with <strong>${pick.c.name}</strong> to protect ${finalTargetUnit.name}!`);
+                  await playFlashCard(defenderPlayer, pick.idx);
+                  delete gameState.combatDefendingTarget;
+                  usedReactiveEvasion = true;
+              } else if (defProfile.useGenericAbilities >= 0.75) {
+                  // Try Combat-phase evasion Activated Ability (e.g. Elven Sharpshooter) if available & unafflicted
+                  const abUnits = [defenderPlayer.hero, ...defenderPlayer.battleZone, ...defenderPlayer.bench, ...defenderPlayer.skills].filter(Boolean);
+                  for (const abCard of abUnits) {
+                      const abList = abCard.mechanics?.activatedAbilities || [];
+                      const evAb = abList.find(ab => {
+                          const reqP = (ab.cost?.phase || "").toLowerCase();
+                          const phaseOk = !reqP || reqP === "any" || reqP === "anytime" || reqP === "combat" || reqP === "clash";
+                          const isEv = ab.effect?.action === "grantKeyword" && (ab.effect.value === "chanceForEvasion" || ab.effect.value === "evasion");
+                          return phaseOk && isEv && defenderPlayer.manaPool >= (ab.cost?.mana || 0) && defenderPlayer.gold >= (ab.cost?.gold || 0) &&
+                              !(ab.cost?.exhaust && (abCard.isExhausted || (abCard.charge || 0) < (abCard.chargeReq || 1))) &&
+                              !(ab.cost?.oncePerTurn && abCard.usedThisTurn);
+                      });
+                      if (evAb && !finalTargetUnit.temp_chanceForEvasion && !finalTargetUnit.temp_Evasion) {
+                          defenderPlayer.manaPool -= (evAb.cost?.mana || 0);
+                          defenderPlayer.gold -= (evAb.cost?.gold || 0);
+                          if (evAb.cost?.exhaust) abCard.isExhausted = true;
+                          if (evAb.cost?.oncePerTurn) abCard.usedThisTurn = true;
+                          gameState.combatDefendingTarget = finalTargetUnit;
+                          addLogEntry(`<strong style="color:var(--mana);">[AI COMBAT RESPONSE]</strong> ${defenderPlayer.name} activates <strong>${abCard.name}</strong> to grant Evasion to ${finalTargetUnit.name}!`);
+                          await executeEffect(evAb.effect, abCard, { triggerPlayer: defenderPlayer, isActivatedAbility: true, abilityText: abCard.abilities || abCard.name });
+                          delete gameState.combatDefendingTarget;
+                          usedReactiveEvasion = true;
+                          break;
+                      }
+                  }
+              }
+          }
+
+          // 1B. Reactive Defensive Healing Flashes (Generic across all heal Flashes + Over-Heal Stack on Hard)
+          const healCandidates = defenderPlayer.hand
+              .map((c, idx) => ({ c, idx, cls: classifyFlashCard(c) }))
+              .filter(item => item.cls.isHeal && canAIAffordFlash(defenderPlayer, item.c))
+              .sort((a, b) => (a.cls.amount || 2) - (b.cls.amount || 2));
+
+          if (healCandidates.length > 0 && (!usedReactiveEvasion || willDie)) {
+              const healItem = healCandidates.find(h => (finalTargetUnit.currentHealth + h.cls.amount) > estimatedIncoming) || healCandidates[healCandidates.length - 1];
+              if (defProfile.useOverHealStack) {
+                  // Hard Mode: Flash Over-Heal Stack on lethal Vanguard/Hero hits, or Survival proactive Hero heal
+                  const shouldSurvivalHeroHeal = defStageInfo.isSurvivalMode && finalTargetType === 'hero' && estimatedIncoming >= 3 && (defenderPlayer.hero.currentHealth - estimatedIncoming) <= 8;
+                  if ((finalTargetType === 'bz' && willDie) || (finalTargetType === 'hero' && (willDie || shouldSurvivalHeroHeal))) {
                       gameState.combatDefendingTarget = finalTargetUnit;
-                      addLogEntry(`<strong style="color:var(--gold);">[AI FLASH OVER-HEAL STACK]</strong> ${defenderPlayer.name} responds on the Combat Stack with <strong>${healCard.name}</strong> to over-heal ${finalTargetUnit.name}!`);
-                      await playFlashCard(defenderPlayer, flashHealIdx);
+                      addLogEntry(`<strong style="color:var(--gold);">[AI FLASH OVER-HEAL STACK]</strong> ${defenderPlayer.name} responds on the Combat Stack with <strong>${healItem.c.name}</strong> to protect ${finalTargetUnit.name}!`);
+                      await playFlashCard(defenderPlayer, healItem.idx);
                       delete gameState.combatDefendingTarget;
-                      // Recalculate after over-heal:
-                      defVal = getStat(finalTargetUnit, 'defense', defenderPlayer) || 0;
-                      estimatedIncoming = Math.max(0, expectedAtkDmg - defVal);
-                      willDie = (finalTargetUnit.currentHealth <= estimatedIncoming);
-                  } else if (finalTargetType === 'hero' && willDie) {
-                      gameState.combatDefendingTarget = defenderPlayer.hero;
-                      addLogEntry(`<strong style="color:var(--gold);">[AI FLASH STACK]</strong> ${defenderPlayer.name} responds with <strong>${healCard.name}</strong> to save ${defenderPlayer.hero.name}!`);
-                      await playFlashCard(defenderPlayer, flashHealIdx);
-                      delete gameState.combatDefendingTarget;
-                      defVal = getStat(finalTargetUnit, 'defense', defenderPlayer) || 0;
+                      defVal = calcEffectiveDef(finalTargetUnit);
                       estimatedIncoming = Math.max(0, expectedAtkDmg - defVal);
                       willDie = (finalTargetUnit.currentHealth <= estimatedIncoming);
                   }
               } else {
-                  // Medium
-                  const heroLow = defenderPlayer.hero.currentHealth <= 12;
-                  const targetLow = finalTargetUnit.currentHealth <= 5 && finalTargetUnit.currentHealth < (finalTargetUnit.maxHealth || finalTargetUnit.health);
+                  const heroLow = finalTargetType === 'hero' && defenderPlayer.hero.currentHealth <= 12 && estimatedIncoming >= 3;
+                  const targetLow = finalTargetUnit.currentHealth <= 5 && willDie;
                   if (heroLow || targetLow) {
-                      addLogEntry(`<strong style="color:var(--gold);">${defenderPlayer.name} responds with a Flash Item!</strong>`);
-                      await playFlashCard(defenderPlayer, flashHealIdx);
-                      defVal = getStat(finalTargetUnit, 'defense', defenderPlayer) || 0;
+                      gameState.combatDefendingTarget = finalTargetUnit;
+                      addLogEntry(`<strong style="color:var(--gold);">${defenderPlayer.name} responds with <strong>${healItem.c.name}</strong>!</strong>`);
+                      await playFlashCard(defenderPlayer, healItem.idx);
+                      delete gameState.combatDefendingTarget;
+                      defVal = calcEffectiveDef(finalTargetUnit);
                       estimatedIncoming = Math.max(0, expectedAtkDmg - defVal);
                       willDie = (finalTargetUnit.currentHealth <= estimatedIncoming);
                   }
@@ -15661,12 +15846,12 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
           }
       }
 
-      // 2. Tactical Counterstrike Decision (Charge & Mana Economy)
+      // 2. Tactical Counterstrike Decision (Charge, Counter Compatibility & Charge Inheritance Economy)
       let rangeValid = isCounterRangeValid(finalTargetUnit.attackType);
       let isCounter = false;
       let heroCounterAsset = null;
 
-      defVal = getStat(finalTargetUnit, 'defense', defenderPlayer) || 0;
+      defVal = calcEffectiveDef(finalTargetUnit);
       estimatedIncoming = Math.max(0, expectedAtkDmg - defVal);
       willDie = (finalTargetUnit.currentHealth <= estimatedIncoming);
       const isFreeCounter = defenderPlayer.hero.mechanics?.staticModifiers?.some(m => m.effect?.action === "freeCounterstrike");
@@ -15676,34 +15861,29 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
           isCounter = (aInfo.card.attackType !== "Ranged" && rangeValid && (finalTargetUnit.charge || 0) >= 1);
       } else if (finalTargetType === 'hero') {
           let validCounters = [];
-          if (!defenderPlayer.hero.isExhausted) {
+          if (!defenderPlayer.hero.isExhausted || isFreeCounter) {
               defenderPlayer.skills.forEach(s => {
-                  if (s && s.charge >= s.chargeReq && isCounterRangeValid(s.attackType)) validCounters.push(s);
+                  if (s && (isFreeCounter || s.charge >= s.chargeReq) && isCounterRangeValid(s.attackType)) validCounters.push(s);
               });
           }
 
           if (validCounters.length > 0) {
-              // Analyze each candidate counter asset
               const analyzedCounters = validCounters.map(asset => {
                   const rawDmg = estimateCardExpectedDamage(asset, defenderPlayer);
-                  const netDmg = Math.max(0, rawDmg - attackerDef);
+                  const netDmg = getEffectiveNetDamage(asset, defenderPlayer, attackerUnit, attackerPlayer);
                   const isLethal = netDmg >= attackerUnit.currentHealth;
                   const chargeCost = asset.chargeReq || 1;
                   const isHighTierSkill = (asset.type === "Skill" && (asset.skillLevel || 1) >= 2 && chargeCost >= 2);
                   return { asset, rawDmg, netDmg, isLethal, chargeCost, isHighTierSkill };
-              });
+              }).sort((a, b) => ((b.isLethal ? 1000 : 0) + b.netDmg * 10 - b.chargeCost * 8) - ((a.isLethal ? 1000 : 0) + a.netDmg * 10 - a.chargeCost * 8));
 
               if (diff === "EASY") {
-                  // Easy: avoids wasting high-tier multi-charge skills or counterstriking for 0 damage.
-                  // Only counters if net damage > 0 and using a cheap asset or if lethal!
                   const validEasyCounters = analyzedCounters.filter(c => c.netDmg > 0 && (!c.isHighTierSkill || c.isLethal));
                   if (validEasyCounters.length > 0 && Math.random() < 0.35) {
                       isCounter = true;
                       heroCounterAsset = validEasyCounters[0].asset;
                   }
               } else if (diff === "MEDIUM") {
-                  // Medium: Counterstrikes if free, or lethal, or cheap weapon with good damage.
-                  // Avoids blowing 2+ charge skills unless lethal!
                   const lethalChoice = analyzedCounters.find(c => c.isLethal);
                   const cheapWeaponChoice = analyzedCounters.find(c => !c.isHighTierSkill && c.netDmg >= 2);
 
@@ -15717,16 +15897,13 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
                       isCounter = true;
                       heroCounterAsset = cheapWeaponChoice.asset;
                   } else {
-                      isCounter = false; // Hold the line to save charge and mana
+                      isCounter = false;
                   }
               } else {
-                  // HARD: Counterstrike Restraint & Tactical Economy!
-                  // Frequently selects "Hold the Line" (Defend Only) when targeted by low-damage attacks.
-                  // Prefers to retain stored Charge for its own Combat Phase or threaten a lethal Counterstrike against a more significant incoming threat,
-                  // rather than wasting Charge to deal minor retaliatory damage.
+                  // HARD: Counterstrike Restraint, Threat Removal in Survival, & Charge Preservation
                   const isLowDamageIncoming = estimatedIncoming <= 3;
                   const lethalChoice = analyzedCounters.find(c => c.isLethal);
-                  const efficientWeaponChoice = analyzedCounters.find(c => c.chargeCost === 1 && c.netDmg >= 4 && !isLowDamageIncoming);
+                  const efficientChoice = analyzedCounters.find(c => c.chargeCost <= 2 && c.netDmg >= 4 && !isLowDamageIncoming);
 
                   if (isFreeCounter) {
                       isCounter = true;
@@ -15734,63 +15911,52 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
                   } else if (lethalChoice) {
                       isCounter = true;
                       heroCounterAsset = lethalChoice.asset;
-                  } else if (defenderPlayer.hero.currentHealth <= 6 && analyzedCounters.some(c => c.netDmg >= 2)) {
+                  } else if ((defStageInfo.isSurvivalMode || defenderPlayer.hero.currentHealth <= 8) && analyzedCounters.some(c => c.netDmg >= 3)) {
                       isCounter = true;
-                      heroCounterAsset = analyzedCounters.sort((a, b) => b.netDmg - a.netDmg)[0].asset;
-                  } else if (efficientWeaponChoice && Math.random() < 0.25) {
+                      heroCounterAsset = analyzedCounters[0].asset;
+                  } else if (efficientChoice && Math.random() < 0.25) {
                       isCounter = true;
-                      heroCounterAsset = efficientWeaponChoice.asset;
+                      heroCounterAsset = efficientChoice.asset;
                   } else {
-                      isCounter = false; // Tactically Hold the Line (Defend Only)!
+                      isCounter = false; // Tactically Hold the Line!
                   }
               }
           }
       } else {
           // Ally was attacked:
-          if (rangeValid && (finalTargetUnit.charge || 0) >= (finalTargetUnit.chargeReq || 1) && !finalTargetUnit.isExhausted) {
-              const rawDmg = estimateCardExpectedDamage(finalTargetUnit, defenderPlayer);
-              const netCounterDmg = Math.max(0, rawDmg - attackerDef);
+          if (rangeValid && (isFreeCounter || ((finalTargetUnit.charge || 0) >= (finalTargetUnit.chargeReq || 1) && !finalTargetUnit.isExhausted))) {
+              const netCounterDmg = getEffectiveNetDamage(finalTargetUnit, defenderPlayer, attackerUnit, attackerPlayer);
               const isLethalOnAttacker = (netCounterDmg >= attackerUnit.currentHealth);
+              const hasChargeHeir = (finalTargetType === 'bz') && defenderPlayer.bench.some(u => u && (u.charge || 0) < (u.chargeReq || 1));
+              const protectInheritance = defProfile.protectChargeInheritance && !isLethalOnAttacker && netCounterDmg < 4 && (finalTargetUnit.charge || 0) >= 2 && hasChargeHeir;
 
               if (isFreeCounter) {
                   isCounter = true;
               } else if (netCounterDmg <= 0) {
-                  // Dealing 0 damage while burning charge is always bad across all difficulties!
                   isCounter = false;
               } else if (diff === "EASY") {
-                  // Easy: if dying, retaliate before death! If will survive, hold the line 75% of the time to avoid mana starvation
-                  if (willDie && netCounterDmg > 0) {
-                      isCounter = true;
-                  } else if (isLethalOnAttacker && Math.random() < 0.60) {
-                      isCounter = true;
-                  } else {
-                      isCounter = (Math.random() < 0.25); // 75% hold line
-                  }
+                  if (willDie && netCounterDmg > 0) isCounter = true;
+                  else if (isLethalOnAttacker && Math.random() < 0.60) isCounter = true;
+                  else isCounter = (Math.random() < 0.25);
               } else if (diff === "MEDIUM") {
-                  // Medium:
-                  // If dying -> retaliate before death!
-                  // If lethal -> kill attacker!
-                  // If will survive -> HOLD THE LINE 85% of the time to save charge for attack!
-                  if (willDie && netCounterDmg > 0) {
-                      isCounter = true;
-                  } else if (isLethalOnAttacker) {
-                      isCounter = true;
-                  } else if (netCounterDmg <= 1) {
-                      isCounter = false;
-                  } else {
-                      isCounter = (Math.random() < 0.15); // 85% hold line
-                  }
+                  if (willDie && netCounterDmg > 0) isCounter = true;
+                  else if (isLethalOnAttacker) isCounter = true;
+                  else if (netCounterDmg <= 1) isCounter = false;
+                  else isCounter = (Math.random() < 0.15);
               } else {
                   // HARD:
-                  // 1) Dying unit: Always counter if netDmg > 0 (last-gasp value)
-                  // 2) Lethal counter: Always counter (kills attacking threat)
-                  // 3) Surviving unit: HOLD THE LINE! Preserves charge so the ally strikes for FREE on its upcoming turn without spending mana!
-                  if (willDie && netCounterDmg > 0) {
+                  // 1) Dying unit: Hold the Line if Charge Inheritance transfers >=2 Charge to an under-threshold Bench Ally!
+                  //    Otherwise counter for last-gasp value.
+                  // 2) Lethal counter: Always counter (removes attacker threat).
+                  // 3) Survival threat: If defending Hero is in survival danger and counter deals >=4, weaken major attacker; otherwise Hold the Line!
+                  if (willDie && netCounterDmg > 0 && !protectInheritance) {
                       isCounter = true;
                   } else if (isLethalOnAttacker) {
                       isCounter = true;
+                  } else if (defStageInfo.isSurvivalMode && netCounterDmg >= 4 && !protectInheritance && (attackerUnit.charge || 0) >= 2) {
+                      isCounter = true;
                   } else {
-                      isCounter = false; // Ally will survive: hold the line!
+                      isCounter = false;
                   }
               }
           }
@@ -17265,8 +17431,9 @@ async function resolveClashDamage() {
   let dUnit = currentClash.tUnit;
   let dPlayer = currentClash.defenderPlayer;
   
-  let hasEvasion = dUnit.temp_Evasion || dPlayer.hero.temp_Evasion || false;
-  let chanceForEvasion = dUnit.temp_chanceForEvasion || dPlayer.hero.temp_chanceForEvasion || false;
+  let hasEvasion = Boolean(dUnit.temp_Evasion || dUnit.persistent_Evasion || checkKeyword(dUnit, dPlayer, "evasion"));
+  let chanceForEvasion = Boolean(dUnit.temp_chanceForEvasion || dUnit.persistent_chanceForEvasion || checkKeyword(dUnit, dPlayer, "chanceForEvasion"));
+  const hadUnitEvasionBuff = Boolean(dUnit.temp_Evasion || dUnit.persistent_Evasion || dUnit.temp_chanceForEvasion || dUnit.persistent_chanceForEvasion);
   
   let aUnit = currentClash.aInfo.type === 'skill' ? currentClash.attackerPlayer.hero : currentClash.attacker;
   let attackerIsBlind = checkKeyword(aUnit, currentClash.attackerPlayer, "blind") || 
@@ -17283,16 +17450,16 @@ async function resolveClashDamage() {
 
   if (!evaded && chanceForEvasion && currentClash.atkHit) {
       let dex = getStat(dUnit, 'dexterity', dPlayer);
-      let isAdv = dPlayer.hero.temp_advantage || dUnit.temp_advantage || false;
-      let isDisadv = dPlayer.hero.temp_disadvantage || dUnit.temp_disadvantage || false;
-      let isDoubleAdv = dPlayer.hero.temp_doubleAdvantage || dUnit.temp_doubleAdvantage || false;
+      let isAdv = checkKeyword(dUnit, dPlayer, "advantage");
+      let isDisadv = checkKeyword(dUnit, dPlayer, "disadvantage");
+      let isDoubleAdv = checkKeyword(dUnit, dPlayer, "doubleAdvantage");
 
       let evadeRollObj = rollD20AdvDetailed(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
       let evadeRoll = evadeRollObj.finalRoll;
       let total = evadeRoll + dex;
-      let forceWin = dUnit.temp_autoChanceWin || dPlayer.hero.temp_autoChanceWin;
+      let forceWin = dUnit.temp_autoChanceWin || (dUnit === dPlayer.hero && dPlayer.hero.temp_autoChanceWin);
       if (dUnit.temp_autoChanceWin) delete dUnit.temp_autoChanceWin;
-      if (dPlayer.hero.temp_autoChanceWin) delete dPlayer.hero.temp_autoChanceWin;
+      if (dUnit === dPlayer.hero && dPlayer.hero.temp_autoChanceWin) delete dPlayer.hero.temp_autoChanceWin;
       
       let advText = formatAdvText(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
       
@@ -17307,8 +17474,18 @@ async function resolveClashDamage() {
       } else {
           logHTML += `<div style="color:#94a3b8; font-size:0.8rem;">Evasion Roll Failed (${evadeRoll}+${dex}=${total}).</div>`;
       }
+      if (hadUnitEvasionBuff) {
+          delete dUnit.temp_chanceForEvasion;
+          delete dUnit.persistent_chanceForEvasion;
+          delete dUnit.temp_Evasion;
+          delete dUnit.persistent_Evasion;
+      }
   } else if (evaded && currentClash.atkHit) {
        logHTML += `<div style="color:#38bdf8; font-weight:bold;">Attack Evaded!</div>`;
+       if (hadUnitEvasionBuff) {
+           delete dUnit.temp_Evasion;
+           delete dUnit.persistent_Evasion;
+       }
   }
 
   let finalDamage = 0;
@@ -17787,10 +17964,15 @@ async function checkDefeated(player, unit) {
       let chosenHeir = null;
       if (player.isAI) {
         eligibleBenchAllies.sort((a, b) => {
-          const aNeed = (a.chargeReq || 1) - (a.charge || 0);
-          const bNeed = (b.chargeReq || 1) - (b.charge || 0);
-          if (aNeed !== bNeed) return aNeed - bNeed;
-          return estimateCardExpectedDamage(b, player) - estimateCardExpectedDamage(a, player);
+          const aNeed = Math.max(1, (a.chargeReq || 1) - (a.charge || 0));
+          const bNeed = Math.max(1, (b.chargeReq || 1) - (b.charge || 0));
+          const aCompletes = leftoverCharge >= aNeed ? 1 : 0;
+          const bCompletes = leftoverCharge >= bNeed ? 1 : 0;
+          if (aCompletes !== bCompletes) return bCompletes - aCompletes;
+          const aVal = estimateCardExpectedDamage(a, player) + (a.manaCost || 1) * 2;
+          const bVal = estimateCardExpectedDamage(b, player) + (b.manaCost || 1) * 2;
+          if (aVal !== bVal) return bVal - aVal;
+          return aNeed - bNeed;
         });
         chosenHeir = eligibleBenchAllies[0];
       } else {
@@ -17816,10 +17998,33 @@ async function checkDefeated(player, unit) {
     }
   }
   if (unit.equipment && unit.equipment.length > 0) {
+    const aiProfile = player.isAI ? getAIDifficultyProfile(gameState.aiDifficulty) : null;
     unit.equipment.forEach(eq => {
       const eqOwner = gameState.players[eq.ownerIndex ?? player.index] || player;
-      eqOwner.discard.push(eq);
-      addLogEntry(`Equipment <strong>${eq.name}</strong> was discarded.`);
+      const eqCost = Number(eq.goldCost) || 0;
+      let reEquipped = false;
+      if (player.isAI && eqOwner === player && aiProfile && aiProfile.useReEquip && (player.gold || 0) >= eqCost) {
+        const isHighValueEq = Boolean((eq.defenseModifier || 0) >= 2 || eq.attack || (eq.rangedAttack || 0) >= 2 || (eq.powerModifier || 0) >= 2);
+        const hasHealFlash = player.hand.some(h => h && h.type === "Flash" && classifyFlashCard(h).isHeal);
+        const keepBuffer = (hasHealFlash && !isHighValueEq) ? 1 : 0;
+        if ((player.gold || 0) - eqCost >= keepBuffer) {
+          const reTargets = [player.hero, ...player.battleZone.filter(u => u && u !== unit && u.currentHealth > 0), ...player.bench.filter(u => u && u.currentHealth > 0)].filter(u => canUnitEquipCard(u, eq));
+          if (reTargets.length > 0) {
+            const newHost = reTargets[0];
+            player.gold -= eqCost;
+            eq.charge = 0;
+            eq.chargeAddedThisTurn = 0;
+            if (!newHost.equipment) newHost.equipment = [];
+            newHost.equipment.push(eq);
+            reEquipped = true;
+            addLogEntry(`<strong style="color:var(--gold);">Re-Equip:</strong> ${player.name} paid ${eqCost} Gold to re-attach <strong>${eq.name}</strong> to <strong>${newHost.name}</strong>!`);
+          }
+        }
+      }
+      if (!reEquipped) {
+        eqOwner.discard.push(eq);
+        addLogEntry(`Equipment <strong>${eq.name}</strong> was discarded.`);
+      }
     });
     unit.equipment = [];
   }
@@ -17979,50 +18184,331 @@ function checkGameOver() {
   }
 }
 
+const AI_DIFFICULTY_PROFILE = {
+  HARD: {
+    scoutMaxPasses: 2,
+    useBenchGarrison: true,
+    useBenchRetreat: true,
+    skipPassiveChargeWaste: true,
+    skillTierStrictness: 1.0,
+    multiBeforeSingleSkill: 1.0,
+    avoidSuicidalStrikes: 1.0,
+    avoidZeroDmgStrikes: 1.0,
+    schemeChance: 1.0,
+    use3StrikeLethal: true,
+    useReactiveEvasion: 1.0,
+    useOverHealStack: true,
+    protectChargeInheritance: true,
+    overchargeMultiTank: true,
+    preCombatNonCombatOrder: true,
+    useReEquip: true,
+    smartTradingProtection: true,
+    survivalHPThreshold: 10,
+    dynamicManaBank: true,
+    useGenericFlashOffense: 1.0,
+    useGenericAbilities: 1.0
+  },
+  MEDIUM: {
+    scoutMaxPasses: 1,
+    useBenchGarrison: true,
+    useBenchRetreat: false,
+    skipPassiveChargeWaste: true,
+    skillTierStrictness: 0.85,
+    multiBeforeSingleSkill: 0.8,
+    avoidSuicidalStrikes: 0.7,
+    avoidZeroDmgStrikes: 0.85,
+    schemeChance: 0.75,
+    use3StrikeLethal: true,
+    useReactiveEvasion: 0.5,
+    useOverHealStack: false,
+    protectChargeInheritance: false,
+    overchargeMultiTank: false,
+    preCombatNonCombatOrder: true,
+    useReEquip: true,
+    smartTradingProtection: true,
+    survivalHPThreshold: 7,
+    dynamicManaBank: false,
+    useGenericFlashOffense: 0.6,
+    useGenericAbilities: 0.75
+  },
+  EASY: {
+    scoutMaxPasses: 0,
+    useBenchGarrison: false,
+    useBenchRetreat: false,
+    skipPassiveChargeWaste: false,
+    skillTierStrictness: 0.4,
+    multiBeforeSingleSkill: 0.35,
+    avoidSuicidalStrikes: 0.0,
+    avoidZeroDmgStrikes: 0.3,
+    schemeChance: 0.35,
+    use3StrikeLethal: false,
+    useReactiveEvasion: 0.0,
+    useOverHealStack: false,
+    protectChargeInheritance: false,
+    overchargeMultiTank: false,
+    preCombatNonCombatOrder: false,
+    useReEquip: false,
+    smartTradingProtection: false,
+    survivalHPThreshold: 0,
+    dynamicManaBank: false,
+    useGenericFlashOffense: 0.25,
+    useGenericAbilities: 0.25
+  }
+};
+
+function getAIDifficultyProfile(diff) {
+  const key = (diff || gameState?.aiDifficulty || "MEDIUM").toUpperCase();
+  return AI_DIFFICULTY_PROFILE[key] || AI_DIFFICULTY_PROFILE.MEDIUM;
+}
+
 function estimateCardExpectedDamage(card, player) {
   if (!card) return 0;
   const isSkill = card.type === "Skill";
-  const charUnit = isSkill ? player.hero : card;
+  const charUnit = (isSkill && player) ? player.hero : card;
+  const hasAutoCrit = checkKeyword(card, player, "autoCritical") || (charUnit && checkKeyword(charUnit, player, "autoCritical"));
+  const hasCritChance = checkKeyword(card, player, "chanceForCritical") || (charUnit && checkKeyword(charUnit, player, "chanceForCritical"));
+
   if (card.attackType === "Ranged") {
-    let baseRng = getStat(card, 'rangedAttack', player);
-    let bonusRng = (charUnit !== card) ? (getStat(charUnit, 'rangedAttack', player) || 0) : 0;
-    if (charUnit.equipment) {
+    let baseRng = getStat(card, 'rangedAttack', player) || 0;
+    let bonusRng = (charUnit && charUnit !== card) ? (getStat(charUnit, 'rangedAttack', player) || 0) : 0;
+    if (charUnit && charUnit.equipment) {
       charUnit.equipment.forEach(eq => {
         const eqAtkType = eq.attackType || (eq.rangedAttack !== undefined ? "Ranged" : "Melee");
         const reqWCharge = (eq.chargeReq !== undefined && Number(eq.chargeReq) > 0) ? Number(eq.chargeReq) : 1;
         if (eqAtkType === "Ranged" && eq.rangedAttack && (eq.charge || 0) >= reqWCharge) {
-          bonusRng += eq.rangedAttack;
+          bonusRng += Number(eq.rangedAttack) || 0;
         }
       });
     }
-    return baseRng + bonusRng;
+    let total = baseRng + bonusRng;
+    if (hasAutoCrit) total *= 2;
+    else if (hasCritChance) total *= 1.35;
+    return total;
   } else {
-    const dieMax = parseInt((card.attack || "D4").replace(/\D/g, "")) || 4;
-    let avgDie = (dieMax + 1) / 2;
-    let pow = getStat(charUnit, 'power', player);
-    if (isSkill && card.mechanics && card.mechanics.staticModifiers) {
+    const flatOverride = card.temp_overrideAttackValue || (charUnit && charUnit.temp_overrideAttackValue);
+    const sliceMod = card.mechanics?.staticModifiers?.find(m => m.effect?.action === "flatDamageOverride" && (!player || evaluateCondition(m.condition, card, { triggerPlayer: player })));
+    const sliceFallback = (!sliceMod && card.mechanics?.sliceAndDiceFlatDmg && player?.hero && hasDaggerEquipped(player.hero))
+      ? card.mechanics.sliceAndDiceFlatDmg
+      : null;
+
+    let avgDie = 0;
+    if (flatOverride) {
+      avgDie = Number(flatOverride) || 4;
+    } else if (sliceMod || sliceFallback !== null) {
+      avgDie = sliceMod ? (Number(sliceMod.effect.value) || 4) : (Number(sliceFallback) || 4);
+    } else {
+      const dieStr = getEffectiveAttackDie(card, player) || card.attack || "D4";
+      const dieMax = parseInt(String(dieStr).replace(/\D/g, "")) || 4;
+      const advState = resolveAdvantageState(
+        checkKeyword(card, player, "advantage") || (charUnit && checkKeyword(charUnit, player, "advantage")),
+        checkKeyword(card, player, "disadvantage") || (charUnit && checkKeyword(charUnit, player, "disadvantage")),
+        checkKeyword(card, player, "doubleAdvantage") || (charUnit && checkKeyword(charUnit, player, "doubleAdvantage")),
+        getAptitudeVal(card, player, charUnit)
+      );
+      if (advState.aptitudeVal >= 2 || advState.isDoubleAdv) avgDie = dieMax * 0.75 + 0.25;
+      else if (advState.isAdv || advState.aptitudeVal === 1) avgDie = (2 * dieMax + 1) / 3;
+      else if (advState.isDisadv) avgDie = (dieMax + 2) / 3;
+      else avgDie = (dieMax + 1) / 2;
+    }
+
+    let pow = charUnit ? (getStat(charUnit, 'power', player) || 0) : (card.power || 0);
+    if (isSkill && card.mechanics && card.mechanics.staticModifiers && player) {
       card.mechanics.staticModifiers.forEach(mod => {
         if (mod.effect && mod.effect.action === "statBonus" && mod.effect.stat === "power" && evaluateCondition(mod.condition, card, { triggerPlayer: player })) {
           pow += (mod.effect.value || 0);
         }
       });
     }
-    if (charUnit.equipment) {
+    if (charUnit && charUnit.equipment) {
       charUnit.equipment.forEach(eq => {
         const eqAtkType = eq.attackType || (eq.rangedAttack !== undefined ? "Ranged" : "Melee");
         const reqWCharge = (eq.chargeReq !== undefined && Number(eq.chargeReq) > 0) ? Number(eq.chargeReq) : 1;
         if (eqAtkType === "Melee" && (eq.charge || 0) >= reqWCharge) {
           if (eq.attack) {
-            const eqMax = parseInt((eq.attack || "D4").replace(/\D/g, "")) || 4;
+            const eqMax = parseInt(String(eq.attack).replace(/\D/g, "")) || 4;
             avgDie += (eqMax + 1) / 2;
           } else if (eq.powerModifier || eq.power) {
-            pow += (eq.powerModifier || eq.power);
+            pow += Number(eq.powerModifier || eq.power) || 0;
           }
         }
       });
     }
+    if (hasAutoCrit) avgDie *= 2;
+    else if (hasCritChance) avgDie *= 1.35;
     return avgDie + pow;
   }
+}
+
+function getEffectiveNetDamage(card, atkPlayer, defUnit, defPlayer) {
+  if (!card || !defUnit) return 0;
+  let raw = estimateCardExpectedDamage(card, atkPlayer);
+  if (card.attackType === "Ranged") {
+    raw *= calculateAccuracyProbability(card, atkPlayer);
+  }
+  const isPiercing = checkKeyword(card, atkPlayer, "piercing") || (card.type === "Skill" && atkPlayer?.hero && checkKeyword(atkPlayer.hero, atkPlayer, "piercing"));
+  const hasPierceProof = checkKeyword(defUnit, defPlayer, "pierceProof");
+  const defVal = (isPiercing && !hasPierceProof) ? 0 : (getStat(defUnit, 'defense', defPlayer) || 0);
+  return Math.max(0, raw - defVal);
+}
+
+function getAIUnitCounterThreat(defUnit, defPlayer, atkCard, atkPlayer) {
+  if (!defUnit || !defPlayer || !atkCard) return 0;
+  const atkUnit = (atkCard.type === "Skill" && atkPlayer) ? atkPlayer.hero : atkCard;
+  const atkDef = atkUnit ? (getStat(atkUnit, 'defense', atkPlayer) || 0) : 0;
+  const isFreeCounter = Boolean(defPlayer.hero?.mechanics?.staticModifiers?.some(m => m.effect?.action === "freeCounterstrike"));
+  const canRangeMatch = (cAtkType) => !(atkCard.attackType === "Ranged" && (cAtkType || "Melee") !== "Ranged");
+
+  if (defUnit.type === "Hero") {
+    if (defPlayer.hero.isExhausted && !isFreeCounter) return 0;
+    const validSkills = (defPlayer.skills || []).filter(s => s && (isFreeCounter || (s.charge || 0) >= (s.chargeReq || 1)) && canRangeMatch(s.attackType));
+    if (validSkills.length === 0) return 0;
+    let bestThreat = 0;
+    for (const s of validSkills) {
+      let dmg = estimateCardExpectedDamage(s, defPlayer);
+      if (s.attackType === "Ranged") dmg *= calculateAccuracyProbability(s, defPlayer);
+      const isPiercing = checkKeyword(s, defPlayer, "piercing") || checkKeyword(defPlayer.hero, defPlayer, "piercing");
+      const hasPierceProof = atkUnit && checkKeyword(atkUnit, atkPlayer, "pierceProof");
+      const net = Math.max(0, dmg - ((isPiercing && !hasPierceProof) ? 0 : atkDef));
+      if (net > bestThreat) bestThreat = net;
+    }
+    return bestThreat;
+  }
+
+  if (defUnit.isExhausted || (!isFreeCounter && (defUnit.charge || 0) < (defUnit.chargeReq || 1))) return 0;
+  if (!canRangeMatch(defUnit.attackType)) return 0;
+  let dmg = estimateCardExpectedDamage(defUnit, defPlayer);
+  if (defUnit.attackType === "Ranged") dmg *= calculateAccuracyProbability(defUnit, defPlayer);
+  const isPiercing = checkKeyword(defUnit, defPlayer, "piercing");
+  const hasPierceProof = atkUnit && checkKeyword(atkUnit, atkPlayer, "pierceProof");
+  return Math.max(0, dmg - ((isPiercing && !hasPierceProof) ? 0 : atkDef));
+}
+
+function canAIAffordFlash(player, card) {
+  if (!player || !card || card.type !== "Flash") return false;
+  const isEvent = card.subtype === "Event" || card.subtype === "Action" || (card.subtype !== "Item" && card.manaCost !== undefined && card.goldCost === undefined);
+  if (isEvent) return (player.manaPool || 0) >= (Number(card.manaCost) || 0);
+  return (player.gold || 0) >= (Number(card.goldCost) || 0);
+}
+
+function classifyFlashCard(card) {
+  const res = { isHeal: false, isEvasion: false, isMana: false, isCharge: false, isDamage: false, isNonCombatDamage: false, isBuff: false, isDraw: false, amount: 0, maxDmg: 0 };
+  if (!card) return res;
+  const checkEff = (eff) => {
+    if (!eff) return;
+    if (eff.action === "heal" || eff.action === "buffHealth") {
+      res.isHeal = true;
+      res.amount = Math.max(res.amount, Number(eff.amount) || 2);
+    } else if (eff.action === "grantKeyword") {
+      if (eff.value === "chanceForEvasion" || eff.value === "evasion") res.isEvasion = true;
+      else res.isBuff = true;
+    } else if (eff.action === "statBonus") {
+      if (eff.stat === "defense" || eff.stats?.defense) res.isBuff = true;
+      if ((eff.value || 0) > 0 || eff.stats?.power || eff.stats?.rangedAttack || eff.stats?.attack) res.isBuff = true;
+      if ((eff.value || 0) < 0) res.isDamage = true;
+    } else if (eff.action === "resourceGain") {
+      if (eff.type === "mana") res.isMana = true;
+    } else if (eff.action === "addCharge") {
+      res.isCharge = true;
+    } else if (eff.action === "dealDamage") {
+      res.isDamage = true;
+      res.isNonCombatDamage = true;
+      res.maxDmg = Math.max(res.maxDmg, Number(eff.amount) || 1);
+    } else if (eff.action === "draw") {
+      res.isDraw = true;
+    } else if (eff.action === "multipleEffects" && Array.isArray(eff.effects)) {
+      eff.effects.forEach(checkEff);
+    } else if (eff.action === "chanceRoll" && eff.successEffect) {
+      checkEff(eff.successEffect);
+    } else if (eff.action === "chooseOne" && Array.isArray(eff.choices)) {
+      eff.choices.forEach(checkEff);
+    }
+  };
+  (card.mechanics?.passiveAbilities || []).forEach(pa => checkEff(pa.effect));
+  const txt = (card.abilities || card.text || "").toLowerCase();
+  if (/chance\s+for\s+evasion|\bevasion\b|evade/i.test(txt)) res.isEvasion = true;
+  if (/gain\s+\d+\s+health|heal/i.test(txt)) res.isHeal = true;
+  if (/gain\s+\d+\s+mana/i.test(txt)) res.isMana = true;
+  if (/gain\s+\d+\s+charge/i.test(txt)) res.isCharge = true;
+  if (/deal\s+\d+\s+(?:non-?combat\s+)?damage/i.test(txt)) {
+    res.isDamage = true;
+    res.isNonCombatDamage = true;
+    const m = txt.match(/deal\s+(\d+)/i);
+    if (m) res.maxDmg = Math.max(res.maxDmg, parseInt(m[1]));
+  }
+  return res;
+}
+
+function scoreAISkillValue(skill, player, opp) {
+  if (!skill) return -1;
+  let baseDmg = estimateCardExpectedDamage(skill, player);
+  if (skill.attackType === "Ranged") baseDmg *= calculateAccuracyProbability(skill, player);
+  const isMulti = skill.strikeType === "Multi" || checkKeyword(skill, player, "multiStrike");
+  const isTsunami = (skill.name === "Tsunami" || skill.id === "Skill_Tsunami" || skill.id === "skill_tsunami");
+  const isPiercing = checkKeyword(skill, player, "piercing") || checkKeyword(player?.hero, player, "piercing");
+  const hasOverreach = checkKeyword(skill, player, "overreach") || checkKeyword(player?.hero, player, "overreach");
+  const lvl = skill.skillLevel || 1;
+  let score = baseDmg * (isMulti ? 2.15 : 1.0) + lvl * 22;
+  if (isTsunami) score += 45;
+  if (isMulti) score += 28;
+  if (isPiercing) score += 12;
+  if (hasOverreach) score += 15;
+  if (opp && opp.hero) {
+    const netHero = getEffectiveNetDamage(skill, player, opp.hero, opp);
+    if (netHero >= opp.hero.currentHealth) score += 150;
+  }
+  return score;
+}
+
+function getAIGameStage(aiP, opp, diff) {
+  const profile = getAIDifficultyProfile(diff);
+  const turn = gameState?.turnNumber || 1;
+  const stage = turn <= 3 ? "EARLY" : (turn <= 6 ? "MID" : "LATE");
+  const heroHP = aiP?.hero?.currentHealth ?? 30;
+  const isSurvivalMode = heroHP <= (profile.survivalHPThreshold || 0);
+
+  let isLethalMode = false;
+  if (profile.use3StrikeLethal && aiP && opp && opp.hero) {
+    const strikesRem = Math.max(0, (gameState?.maxStrikes || 3) - (gameState?.strikesUsed || 0));
+    if (strikesRem > 0) {
+      const oppBzHP = (opp.battleZone || []).filter(Boolean).reduce((s, u) => s + (u.currentHealth || 0) + (getStat(u, 'defense', opp) || 0), 0);
+      const heroDef = getStat(opp.hero, 'defense', opp) || 0;
+      const readyAllies = (aiP.battleZone || []).filter(u => u && !u.isExhausted && (u.charge || 0) >= (u.chargeReq || 1));
+      const readySkills = !aiP.hero?.isExhausted ? (aiP.skills || []).filter(s => s && (s.charge || 0) >= (s.chargeReq || 1)) : [];
+      const strikeValues = [];
+
+      readyAllies.forEach(u => {
+        const d = getEffectiveNetDamage(u, aiP, opp.hero, opp);
+        const isMulti = u.strikeType === "Multi" || checkKeyword(u, aiP, "multiStrike");
+        const count = isMulti ? strikesRem : 1;
+        for (let k = 0; k < count; k++) strikeValues.push({ d, overreach: checkKeyword(u, aiP, "overreach") || u.attackType === "Ranged", raw: estimateCardExpectedDamage(u, aiP) });
+      });
+
+      let bestSingleSkillVal = 0;
+      let multiSkillList = [];
+      readySkills.forEach(s => {
+        const d = getEffectiveNetDamage(s, aiP, opp.hero, opp);
+        const isMulti = s.strikeType === "Multi" || checkKeyword(s, aiP, "multiStrike");
+        const maxRepeats = (s.name === "Tsunami" || s.id === "Skill_Tsunami" || s.id === "skill_tsunami")
+          ? Math.min(strikesRem, Math.max(1, (s.charge || 0) - (s.chargeReq || 4) + 1))
+          : (isMulti ? strikesRem : 1);
+        const entry = { d, overreach: checkKeyword(s, aiP, "overreach") || s.attackType === "Ranged", raw: estimateCardExpectedDamage(s, aiP) };
+        if (isMulti) {
+          for (let k = 0; k < maxRepeats; k++) multiSkillList.push(entry);
+        } else if (d > bestSingleSkillVal) {
+          bestSingleSkillVal = d;
+        }
+      });
+      if (multiSkillList.length > 0) multiSkillList.forEach(x => strikeValues.push(x));
+      if (bestSingleSkillVal > 0) strikeValues.push({ d: bestSingleSkillVal, overreach: false, raw: bestSingleSkillVal + heroDef });
+
+      strikeValues.sort((a, b) => b.d - a.d);
+      const topDirectHero = strikeValues.filter(v => v.overreach || oppBzHP === 0).slice(0, strikesRem).reduce((s, v) => s + v.d, 0);
+      const topTotalAll = strikeValues.slice(0, strikesRem).reduce((s, v) => s + v.raw, 0) - oppBzHP;
+      const estimatedFace = Math.max(topDirectHero, topTotalAll);
+      if (estimatedFace >= opp.hero.currentHealth) isLethalMode = true;
+    }
+  }
+  return { stage, turn, isSurvivalMode, isLethalMode, profile };
 }
 
 function calculateAccuracyProbability(card, player) {
@@ -18057,9 +18543,10 @@ function calculateAccuracyProbability(card, player) {
   return baseP;
 }
 
-function getUnitOptimalChargeTarget(card, player) {
+function getUnitOptimalChargeTarget(card, player, diff = null) {
   if (!card || card.chargeReq === undefined) return 0;
   const baseReq = card.chargeReq || 1;
+  const profile = getAIDifficultyProfile(diff);
   const isMulti = card.strikeType === "Multi" || checkKeyword(card, player, "multiStrike");
   const isTsunami = (card.name === "Tsunami" || card.id === "Skill_Tsunami" || card.id === "skill_tsunami");
   const depletesChargeOnStrike = isTsunami ||
@@ -18067,46 +18554,81 @@ function getUnitOptimalChargeTarget(card, player) {
     Boolean(card.mechanics?.passiveAbilities?.some(p => p.effect?.action === "removeCharge" && p.trigger === "onStrikeDeclared"));
 
   if (isMulti && depletesChargeOnStrike) {
-    // Multi-strike cards that consume charge per attack (like Tsunami) can strike multiple times per turn
-    // (up to maxStrikes, typically 3) if charged above the threshold!
-    // 1 strike: baseReq (e.g. 4 for Tsunami)
-    // 2 strikes: baseReq + 1 (5)
-    // 3 strikes: baseReq + 2 (6)
     const extraStrikes = Math.max(0, (gameState.maxStrikes || 3) - 1);
     return baseReq + extraStrikes;
+  }
+  if (isMulti && profile.overchargeMultiTank && player && player.battleZone && player.battleZone[0] === card && (card.health || 0) >= 5 && baseReq <= 2) {
+    const opp = getPrimaryOpponentForPlayer(player.index);
+    const enemyThreatCount = opp ? opp.battleZone.filter(u => u && (u.charge || 0) >= (u.chargeReq || 1)).length : 0;
+    if (enemyThreatCount >= 2) {
+      return baseReq * 2;
+    }
   }
   return baseReq;
 }
 
-async function aiTryActivateAbilities(activeP, phaseName, diff) {
-  if (diff === "EASY") return;
+async function aiTryActivateAbilities(activeP, phaseName, diff, options = {}) {
+  const profile = getAIDifficultyProfile(diff);
+  if ((profile.useGenericAbilities || 0) <= 0) return;
   const opp = getPrimaryOpponentForPlayer(activeP.index);
   if (!opp) return;
+  const onlyNonCombatDamage = Boolean(options && options.onlyNonCombatDamage);
+  const stageInfo = getAIGameStage(activeP, opp, diff);
+
   const boardCards = [
     ...activeP.synergies.filter(c => c !== null),
-    ...activeP.battleZone.filter(c => c !== null),
     ...activeP.bench.filter(c => c !== null),
+    ...activeP.battleZone.filter(c => c !== null),
     activeP.hero,
     ...(activeP.hero.equipment || [])
   ];
 
+  // Calculate reactive Gold to avoid draining accidentally on Hard unless essential
+  const reactiveFlashes = (activeP.hand || []).filter(c => {
+    if (c.type !== "Flash") return false;
+    const cls = classifyFlashCard(c);
+    return cls.isHeal || cls.isEvasion;
+  });
+  const minReactiveGold = (reactiveFlashes.length > 0 && diff === "HARD" && !stageInfo.isLethalMode)
+    ? Math.min(...reactiveFlashes.map(f => Number(f.goldCost) || 0))
+    : 0;
+
   for (const card of boardCards) {
     if (!card || !card.mechanics || !card.mechanics.activatedAbilities) continue;
     for (const ability of card.mechanics.activatedAbilities) {
-      const reqPhase = (ability.cost && ability.cost.phase) ? ability.cost.phase.toUpperCase() : "COMMAND";
-      if (reqPhase !== phaseName) continue;
-      if (ability.cost.oncePerTurn && card.usedThisTurn) continue;
+      if (!ability || !ability.cost || !ability.effect) continue;
+      const rawPhase = ability.cost.phase ? String(ability.cost.phase).toUpperCase() : "COMMAND";
+      // Save Clash-only abilities for defender prompt
+      if (rawPhase === "CLASH") continue;
+      const phaseMatches = (rawPhase === phaseName) || (rawPhase === "ANY") || (rawPhase === "ANYTIME");
+      if (!phaseMatches) continue;
 
-      // Essence Wellspring (variable mana spend to heal Hero)
+      if (ability.cost.oncePerTurn && card.usedThisTurn) continue;
+      if (ability.cost.maxUsesPerTurn && (card.usesThisTurn || 0) >= ability.cost.maxUsesPerTurn) continue;
+      if (ability.cost.requiresStrikesUsed && (gameState.strikesUsed || 0) < ability.cost.requiresStrikesUsed) continue;
+      if (ability.cost.sacrificeStrike && (gameState.strikesUsed || 0) >= (gameState.maxStrikes || 3)) continue;
+
+      const eff = ability.effect;
+      const effAction = eff.action || "";
+      const isNonCombatDmgEffect = (effAction === "dealDamage" || effAction === "damageAllEnemies" || effAction === "damageAllEnemyUnits" || effAction === "damageTarget" || effAction === "damageUnit" || effAction === "nonCombatDamage");
+      if (onlyNonCombatDamage && !isNonCombatDmgEffect) continue;
+
+      // Never burn defensive Combat-phase evasion abilities proactively on AI's own turn
+      if (effAction === "grantKeyword" && /evasion/i.test(eff.keyword || "")) continue;
+
+      // Variable mana spend abilities (e.g. Essence Wellspring)
       if (ability.cost.maxSpend) {
+        if (onlyNonCombatDamage) continue;
         const costPerPt = ability.cost.mana || 1;
         const maxHeroH = activeP.hero.maxHealth || activeP.hero.health;
         const missingH = maxHeroH - activeP.hero.currentHealth;
         const maxCanAfford = Math.floor(activeP.manaPool / costPerPt);
         const spend = Math.min(ability.cost.maxSpend, maxCanAfford, missingH);
         if (spend >= 1) {
+          if (Math.random() > profile.useGenericAbilities) continue;
           activeP.manaPool -= spend * costPerPt;
           card.usedThisTurn = true;
+          if (ability.cost.maxUsesPerTurn) card.usesThisTurn = (card.usesThisTurn || 0) + 1;
           let clonedEffect = JSON.parse(JSON.stringify(ability.effect));
           if (typeof clonedEffect.amount === "number") clonedEffect.amount *= spend;
           addLogEntry(`<strong>${activeP.name}</strong> spent ${spend * costPerPt} Mana on <strong>${card.name}</strong>!`);
@@ -18122,26 +18644,46 @@ async function aiTryActivateAbilities(activeP, phaseName, diff) {
 
       const costMana = ability.cost.mana || 0;
       const costGold = ability.cost.gold || 0;
-      const reqExhaust = ability.cost.exhaust || false;
+      const reqExhaust = Boolean(ability.cost.exhaust);
+      const reqExhaustHero = Boolean(ability.cost.exhaustHero);
       const discardReq = ability.cost.discard || null;
 
       if (activeP.manaPool < costMana || activeP.gold < costGold) continue;
-      if (reqExhaust) {
-        if (card.isExhausted) continue;
-        if (card.type !== "Hero" && card.chargeReq !== undefined && (card.charge || 0) < card.chargeReq) continue;
-      }
-
-      // Check if exhausting a Battle Zone ally is worth more than attacking with it
-      if (reqExhaust && activeP.battleZone.includes(card) && card.id !== "scroll_bound_peddler" && card.id !== "astute_cleric" && card.id !== "neophyte_seeress" && card.id !== "indignant_water_sprite") {
+      if (costGold > 0 && minReactiveGold > 0 && (activeP.gold - costGold) < minReactiveGold && effAction !== "heal" && !isNonCombatDmgEffect) {
         continue;
       }
+      if ((reqExhaust || reqExhaustHero) && card.type !== "Hero" && card.chargeReq !== undefined && (card.charge || 0) < card.chargeReq) continue;
+      if (reqExhaust && card.isExhausted) continue;
+      if (reqExhaustHero && activeP.hero && activeP.hero.isExhausted) continue;
 
-      // Specific smart checks for activated abilities
+      // Avoid wasting Hero action on an optional Hero-exhaust ability while Hero still has an unexhausted strong Skill
+      if (reqExhaustHero && phaseName === "COMMAND") {
+        const hasReadySkill = activeP.skills.some(s => s && !s.isExhausted && (s.charge || 0) >= (s.chargeReq || 1));
+        if (hasReadySkill && !isNonCombatDmgEffect) continue;
+      }
+
+      // If sacrificing a strike (e.g. Stone Pulse Meditation), skip if AI still has a strong or lethal 3rd strike available
+      if (ability.cost.sacrificeStrike) {
+        const readyBzAtk = activeP.battleZone.filter(u => u && !u.isExhausted && (u.charge || 0) >= (u.chargeReq || 1));
+        const readyBenchAtk = activeP.bench.filter(u => u && !u.isExhausted && checkKeyword(u, activeP, "canStrikeFromBench") && (u.charge || 0) >= (u.chargeReq || 1));
+        const readySkills = !activeP.hero.isExhausted ? activeP.skills.filter(s => s && !s.isExhausted && (s.charge || 0) >= (s.chargeReq || 1)) : [];
+        const oppVan = opp.battleZone[0] || opp.hero;
+        const max3rdDmg = Math.max(0, ...[...readyBzAtk, ...readyBenchAtk, ...readySkills].map(a => getEffectiveNetDamage(a, activeP, oppVan, opp)));
+        if (oppVan.currentHealth <= max3rdDmg || max3rdDmg >= 4) continue;
+        const needsCharge = [...activeP.skills, ...activeP.battleZone, ...activeP.bench].some(u => u && (u.charge || 0) < getUnitOptimalChargeTarget(u, activeP, diff));
+        if (!needsCharge) continue;
+      }
+
+      // Generic & smart value evaluation (especially before exhausting a BZ attacker)
+      const isInBZ = activeP.battleZone.includes(card);
+      const isFromBenchWithoutBenchStrike = activeP.bench.includes(card) && !checkKeyword(card, activeP, "canStrikeFromBench");
+      const bzOppTarget = opp.battleZone[0] || opp.hero;
+      const expectedAtkDmg = isInBZ ? getEffectiveNetDamage(card, activeP, bzOppTarget, opp) : 0;
+
       if (card.id === "comrades_call") {
         const hasSpace = activeP.battleZone.includes(null) || activeP.bench.includes(null);
         if (!hasSpace) continue;
       } else if (card.id === "scroll_bound_peddler" && discardReq) {
-        // Only discard a Skill if we have a duplicate or already-learned Skill in hand
         const redundantSkillIdx = activeP.hand.findIndex(c =>
           c.type === "Skill" &&
           (activeP.skills[(c.skillLevel || 1) - 1] !== null || activeP.hand.filter(h => h.type === "Skill" && h.skillLevel === c.skillLevel).length > 1)
@@ -18159,7 +18701,45 @@ async function aiTryActivateAbilities(activeP, phaseName, diff) {
       } else if (card.id === "indignant_water_sprite") {
         const hasChargedEnemy = [...opp.battleZone, ...opp.bench].some(u => u && (u.charge || 0) > 0);
         if (!hasChargedEnemy) continue;
+      } else {
+        // Generic evaluation by effect.action
+        if (isNonCombatDmgEffect) {
+          const allEnemies = [...opp.battleZone, ...opp.bench].filter(u => u !== null);
+          const pingAmt = Number(eff.amount) || 1;
+          const hasReaverOrGhoul = [...activeP.battleZone, ...activeP.bench].some(u =>
+            u && !u.isExhausted && (u.id === "hemophage_reaver" || u.id === "fester_spit_ghoul" || /non-combat damage/i.test(u.abilities || u.text || ""))
+          );
+          const enablesNonCombatBuff = hasReaverOrGhoul && !gameState.enemyTookNonCombatDamageThisTurn;
+          const canKillUnit = allEnemies.some(u => u.currentHealth <= pingAmt);
+          const canKillHero = eff.target !== "enemyAlly" && opp.hero.currentHealth <= pingAmt;
+          if (allEnemies.length === 0 && eff.target === "enemyAlly") continue;
+          if (reqExhaust && isInBZ && !isFromBenchWithoutBenchStrike) {
+            if (!canKillHero && !canKillUnit && !enablesNonCombatBuff && pingAmt < expectedAtkDmg) continue;
+          }
+        } else if (effAction === "heal" || effAction === "healTarget") {
+          const maxH = activeP.hero.maxHealth || activeP.hero.health;
+          const missingH = maxH - activeP.hero.currentHealth;
+          const anyUnitHurt = [...activeP.battleZone, ...activeP.bench].some(u => u && u.currentHealth < (u.maxHealth || u.health));
+          if (missingH <= 1 && !anyUnitHurt) continue;
+          if (reqExhaust && isInBZ && missingH < 3 && expectedAtkDmg >= 2) continue;
+        } else if (effAction === "draw") {
+          if (reqExhaust && isInBZ && expectedAtkDmg > 2.5 && activeP.hand.length >= 4) continue;
+        } else if (effAction === "addCharge") {
+          const anyNeedCharge = [...activeP.skills, ...activeP.battleZone, ...activeP.bench].some(u => u && (u.charge || 0) < getUnitOptimalChargeTarget(u, activeP, diff));
+          if (!anyNeedCharge) continue;
+          if (reqExhaust && isInBZ && expectedAtkDmg >= 3.5) continue;
+        } else if (effAction === "removeCharge") {
+          const hasCharged = [...opp.battleZone, ...opp.bench, ...opp.skills].some(u => u && (u.charge || 0) > 0);
+          if (!hasCharged) continue;
+        } else if (effAction === "spawnToken" || effAction === "summonToken") {
+          if (!activeP.battleZone.includes(null) && !activeP.bench.includes(null)) continue;
+        } else if (reqExhaust && isInBZ && expectedAtkDmg >= 2.5) {
+          // Don't exhaust a solid Battle Zone attacker for an unrecognized utility effect
+          continue;
+        }
       }
+
+      if (Math.random() > profile.useGenericAbilities && !onlyNonCombatDamage) continue;
 
       let contextData = {
         triggerPlayer: activeP,
@@ -18167,12 +18747,12 @@ async function aiTryActivateAbilities(activeP, phaseName, diff) {
         abilityText: ability.text || (typeof card.abilities === 'string' ? card.abilities : `${card.name}'s ability`)
       };
       if (discardReq) {
-        const validSkills = activeP.hand.filter(c => c.type === discardReq.type);
-        if (validSkills.length < discardReq.count) continue;
+        const validDiscards = activeP.hand.filter(c => !discardReq.type || c.type === discardReq.type);
+        if (validDiscards.length < discardReq.count) continue;
         let discardedLevel = 0;
         for (let i = 0; i < discardReq.count; i++) {
-          let idx = activeP.hand.findIndex(c => c.type === discardReq.type && activeP.skills[(c.skillLevel || 1) - 1] !== null);
-          if (idx === -1) idx = activeP.hand.findIndex(c => c.type === discardReq.type);
+          let idx = activeP.hand.findIndex(c => (!discardReq.type || c.type === discardReq.type) && (c.type !== "Skill" || activeP.skills[(c.skillLevel || 1) - 1] !== null));
+          if (idx === -1) idx = activeP.hand.findIndex(c => !discardReq.type || c.type === discardReq.type);
           if (idx !== -1) {
             if (activeP.hand[idx].skillLevel) discardedLevel = activeP.hand[idx].skillLevel;
             activeP.discard.push(activeP.hand[idx]);
@@ -18185,7 +18765,13 @@ async function aiTryActivateAbilities(activeP, phaseName, diff) {
       activeP.manaPool -= costMana;
       activeP.gold -= costGold;
       if (reqExhaust) card.isExhausted = true;
+      if (reqExhaustHero && activeP.hero) activeP.hero.isExhausted = true;
       if (ability.cost.oncePerTurn) card.usedThisTurn = true;
+      if (ability.cost.maxUsesPerTurn) card.usesThisTurn = (card.usesThisTurn || 0) + 1;
+      if (ability.cost.sacrificeStrike) {
+        gameState.strikesUsed = (gameState.strikesUsed || 0) + 1;
+        updateStrikePips();
+      }
 
       addLogEntry(`<strong>${activeP.name}</strong> activated <strong>${card.name}'s</strong> ability!`);
       await executeEffect(ability.effect, card, contextData);
@@ -18194,16 +18780,31 @@ async function aiTryActivateAbilities(activeP, phaseName, diff) {
   }
 }
 
-function getUnitVanguardScore(unit, player) {
+function getUnitVanguardScore(unit, player, opp = null) {
   if (!unit) return -999;
+  const enemy = opp || (player ? getPrimaryOpponentForPlayer(player.index) : null);
   let score = (unit.currentHealth || 1) * 2;
   const def = getStat(unit, 'defense', player) || 0;
   score += def * 3;
-  // Inspiring Commander has a powerful Vanguard aura (+1 Power to all other allies)
-  if (unit.id === 'inspiring_commander') score += 15;
+  // Inspiring Commander has a powerful Vanguard aura when healthy enough to survive
+  if (unit.id === 'inspiring_commander' && (unit.currentHealth || 1) >= 3) score += 15;
   // Specific defensive / vanguard keywords
   if (unit.text && /vanguard|taunt|shield|armor|block|guard/i.test(unit.text)) score += 6;
   if ((unit.health || 0) >= 6) score += 3;
+  // Multi-Strike healthy tanks hold Vanguard and soak / punish multiple trades
+  if ((unit.strikeType === "Multi" || checkKeyword(unit, player, "multiStrike")) && (unit.currentHealth || 1) >= 4) score += 5;
+  // Pierce Proof is a premier Vanguard anchor, especially against Piercing foes
+  if (checkKeyword(unit, player, "pierceProof")) {
+    const oppHasPierce = enemy && (
+      enemy.battleZone.some(u => u && checkKeyword(u, enemy, "piercing")) ||
+      enemy.skills.some(s => s && checkKeyword(s, enemy, "piercing"))
+    );
+    score += oppHasPierce ? 10 : 6;
+  }
+  // Bench strikers should stay off the Vanguard front line
+  if (checkKeyword(unit, player, "canStrikeFromBench")) score -= 15;
+  // Uncharged units prefer Flank/Rear/Bench rather than taking Vanguard punishment first
+  if ((unit.charge || 0) < (unit.chargeReq || 1)) score -= 4;
   // Heavy penalty for low current health (fragile units in Vanguard become Breakthrough damage ramps)
   if (unit.currentHealth <= 2) score -= 12;
   else if (unit.currentHealth <= 3) score -= 5;
@@ -18217,17 +18818,21 @@ async function manageAIFormation(pIdx, diff, stage = 'initial') {
     const p = gameState.players[pIdx];
     const opp = getPrimaryOpponentForPlayer(pIdx);
     if (!p || !p.isAI || !opp) return;
+    const profile = getAIDifficultyProfile(diff);
+    const stageInfo = getAIGameStage(p, opp, diff);
 
   const oppHeroClass = opp.hero?.heroClass || opp.hero?.class;
   const oppHeroPower = getStat(opp.hero, 'power', opp) || 0;
   const isOppBerserker = (oppHeroClass === "Berserker" || oppHeroClass === "Warrior");
   const isOppHighPower = oppHeroPower >= 3 || opp.battleZone.some(u => u && (getStat(u, 'power', opp) || 0) >= 2);
   const isAntiBreakthroughThreat = isOppBerserker || isOppHighPower;
+  const oppThreatDmg = opp.battleZone.reduce((sum, u) => sum + ((u && !u.isExhausted && (u.charge || 0) >= (u.chargeReq || 1)) ? estimateCardExpectedDamage(u, opp) : 0), 0)
+    + opp.skills.reduce((maxD, s) => Math.max(maxD, (s && !s.isExhausted && (s.charge || 0) >= (s.chargeReq || 1)) ? estimateCardExpectedDamage(s, opp) : 0), 0);
 
   // -------------------------------------------------------------
-  // A. BENCH & ROTATION MANAGEMENT (Stage: 'initial' only)
+  // A. BENCH & ROTATION MANAGEMENT (Stage: 'initial' or 'post_charge')
   // -------------------------------------------------------------
-  if (stage === 'initial') {
+  if (stage === 'initial' || stage === 'post_charge') {
     // 1. Advance unlocked Bench units to open Battle Zone slots
     for (let bIdx = 0; bIdx < p.bench.length; bIdx++) {
       const bUnit = p.bench[bIdx];
@@ -18235,24 +18840,45 @@ async function manageAIFormation(pIdx, diff, stage = 'initial') {
       if (!bUnit || bUnit.benchLocked) continue;
 
       const openBz = p.battleZone.findIndex(s => s === null);
-      if (openBz !== -1) {
-        if (diff === "HARD" && isAntiBreakthroughThreat && openBz === 0) {
-          const isFragileToken = (bUnit.isToken || bUnit.currentHealth <= 1);
-          if (isFragileToken) {
-            // Anti-Breakthrough: Fragile 1-HP tokens avoid Vanguard against Berserker high-Power enemies
+      if (openBz === -1) break;
+
+      const canStrikeFromBench = checkKeyword(bUnit, p, "canStrikeFromBench");
+      const canStrikeNow = (bUnit.charge || 0) >= (bUnit.chargeReq || 1) && !bUnit.isExhausted;
+      const bzCount = p.battleZone.filter(Boolean).length;
+      const isFragileToken = (bUnit.isToken || bUnit.currentHealth <= 1);
+
+      if (diff !== "EASY" && isAntiBreakthroughThreat && openBz === 0 && isFragileToken && !stageInfo.isSurvivalMode) {
+        // Anti-Breakthrough: Fragile 1-HP tokens avoid Vanguard against Berserker / high-Power enemies
+        continue;
+      }
+
+      if (profile.useBenchGarrison) {
+        // Keep Bench Strikers safe on the Bench unless BZ is empty and Hero is under immediate lethal pressure
+        if (canStrikeFromBench) {
+          if (!(bzCount === 0 && p.hero.currentHealth <= Math.max(8, oppThreatDmg + 2))) continue;
+        }
+        // In Bench Garrison mode, uncharged Bench Allies stay on Bench to soak passive Charge unless:
+        // (a) charged and ready to fight (and won't lose Charge Advantage unnecessarily at End Phase),
+        // (b) Battle Zone is completely empty and we need a sturdy tank/Vanguard buffer (or Survival Mode),
+        // (c) Inspiring Commander buffing active BZ attackers.
+        if (!canStrikeNow) {
+          const isSturdyEmergencyTank = (bzCount === 0 && !isFragileToken && (bUnit.currentHealth >= 4 || stageInfo.isSurvivalMode));
+          const isAuraSupport = (bUnit.id === 'inspiring_commander' && bzCount >= 1 && (bUnit.currentHealth || 1) >= 3);
+          if (!isSturdyEmergencyTank && !isAuraSupport) {
             continue;
           }
         }
-        await showActionShowcase({
-          card: bUnit,
-          actionTag: `${p.name.toUpperCase()} FORMATION ADVANCE`,
-          title: bUnit.name,
-          description: `Advanced from Bench to Battle Zone Slot ${openBz + 1}`,
-          targetSlotId: `${getPlayerDomPrefix(pIdx)}-bz-${openBz}`,
-          duration: 1300
-        });
-        await swapPlayerSlots(pIdx, 'bench', bIdx, 'bz', openBz, true);
       }
+
+      await showActionShowcase({
+        card: bUnit,
+        actionTag: `${p.name.toUpperCase()} FORMATION ADVANCE`,
+        title: bUnit.name,
+        description: `Advanced from Bench to Battle Zone Slot ${openBz + 1}`,
+        targetSlotId: `${getPlayerDomPrefix(pIdx)}-bz-${openBz}`,
+        duration: 1300
+      });
+      await swapPlayerSlots(pIdx, 'bench', bIdx, 'bz', openBz, true);
     }
 
     // 2. Swapping charged or sturdy unlocked Bench units with uncharged/weak Battle Zone units
@@ -18261,6 +18887,7 @@ async function manageAIFormation(pIdx, diff, stage = 'initial') {
         const bUnit = p.bench[bIdx];
         // STRICT BENCH LOCK CONSTRAINT
         if (!bUnit || bUnit.benchLocked) continue;
+        if (profile.useBenchGarrison && checkKeyword(bUnit, p, "canStrikeFromBench")) continue;
 
         const canStrike = (bUnit.charge || 0) >= (bUnit.chargeReq || 1) && !bUnit.isExhausted;
         const isSturdyBench = bUnit.currentHealth >= 5 || (getStat(bUnit, 'defense', p) || 0) >= 2;
@@ -18287,16 +18914,24 @@ async function manageAIFormation(pIdx, diff, stage = 'initial') {
       }
     }
 
-    // 3. Tactical Retreat to Bench (Anti-Breakthrough & Garrison Economy)
+    // 3. Tactical Retreat to Bench (Anti-Breakthrough, Charge Inheritance & Garrison Economy)
     // Rulebook: "During your Command Phase, you may freely move an Ally from the Battle Zone to an open slot on the Bench"
     if (diff !== "EASY") {
       const openBenchSlot = p.bench.findIndex(s => s === null);
       if (openBenchSlot !== -1) {
+        const bzUnits = p.battleZone.filter(Boolean);
         const retreatIdx = p.battleZone.findIndex((u, idx) => {
           if (!u) return false;
           const cannotStrike = (u.charge || 0) < (u.chargeReq || 1) || u.isExhausted;
-          // Severely wounded ally (1 HP) who cannot strike can retreat if other allies are on the board
-          if (u.currentHealth === 1 && cannotStrike && p.battleZone.filter(Boolean).length > 1) return true;
+          // Severely wounded ally (1 HP) who cannot strike retreats if other allies exist or enemy threatens free Breakthrough/Gold
+          if (u.currentHealth === 1 && cannotStrike && (bzUnits.length > 1 || (profile.useBenchRetreat && isAntiBreakthroughThreat && p.hero.currentHealth > 8))) return true;
+          if (profile.useBenchRetreat && stage === 'post_charge') {
+            // Retreat non-Vanguard uncharged allies or Bench Strikers so they safely generate +1 Garrison Charge on Bench
+            if (checkKeyword(u, p, "canStrikeFromBench") && idx > 0) return true;
+            if (idx > 0 && bzUnits.length >= 2 && (u.charge || 0) < (u.chargeReq || 1) && u.id !== 'inspiring_commander') return true;
+            // Protect valuable >=2 Charge carriers that cannot fight cleanly from dying on front line
+            if (idx > 0 && (u.charge || 0) >= 2 && u.currentHealth <= 2 && cannotStrike) return true;
+          }
           return false;
         });
 
@@ -18329,11 +18964,11 @@ async function manageAIFormation(pIdx, diff, stage = 'initial') {
     if (occupiedBzIndices.length >= 2) {
       // 1. Optimize Vanguard (Slot 0): Find unit with highest Vanguard Score
       let bestVanguardIdx = 0;
-      let bestScore = getUnitVanguardScore(p.battleZone[0], p);
+      let bestScore = getUnitVanguardScore(p.battleZone[0], p, opp);
 
       for (let i = 1; i < occupiedBzIndices.length; i++) {
         const idx = occupiedBzIndices[i];
-        const score = getUnitVanguardScore(p.battleZone[idx], p);
+        const score = getUnitVanguardScore(p.battleZone[idx], p, opp);
         if (score > bestScore) {
           bestScore = score;
           bestVanguardIdx = idx;
@@ -18517,29 +19152,50 @@ function checkAIAction() {
   const diff = gameState.aiDifficulty || "MEDIUM";
   const opp = getPrimaryOpponentForPlayer(activeP.index);
   if (!opp) return;
+  const profile = getAIDifficultyProfile(diff);
+  const stageInfo = getAIGameStage(activeP, opp, diff);
+  const oppHeroClass = opp.hero?.heroClass || opp.hero?.class;
+  const oppHeroPower = getStat(opp.hero, 'power', opp) || 0;
+  const isOppBerserker = (oppHeroClass === "Berserker" || oppHeroClass === "Warrior");
+  const isOppHighPower = oppHeroPower >= 3 || opp.battleZone.some(u => u && (getStat(u, 'power', opp) || 0) >= 2);
+  const isAntiBreakthroughThreat = isOppBerserker || isOppHighPower;
+  const isFirstTurnSkipCombat = (gameState.turnNumber === 1 && gameState.activePlayerIndex === gameState.firstPlayerIndex);
+
+  const reactiveFlashes = (activeP.hand || []).filter(c => {
+    if (!c || c.type !== "Flash") return false;
+    const cls = classifyFlashCard(c);
+    return cls.isHeal || cls.isEvasion;
+  });
+  const minReactiveGold = (reactiveFlashes.length > 0 && diff === "HARD" && !stageInfo.isLethalMode)
+    ? Math.min(...reactiveFlashes.map(f => Number(f.goldCost) || 0))
+    : 0;
+
   const aiDomPrx = getPlayerDomPrefix(activeP.index);
   const aiBzPrx = getPlayerBoardZonePrefix(activeP.index);
 
   setTimeout(async () => {
     try {
       if (PHASES[gameState.currentPhaseIndex] === "COMMAND") {
-      // 0. Use Flash Mana Potions in Command Phase if we have Gold and need Mana or Charge (Medium / Hard)
-      if (diff !== "EASY") {
+      // 0. Use Mana / Charge Flashes in Command Phase when needed
+      if ((profile.useGenericFlashOffense || 0) > 0) {
         for (let i = activeP.hand.length - 1; i >= 0; i--) {
           const c = activeP.hand[i];
-          if (c && c.type === "Flash" && c.id === "mana_potion" && activeP.gold >= (c.goldCost || 0)) {
-            const needsManaForHand = activeP.hand.some(h => h !== c && h.manaCost !== undefined && h.manaCost === activeP.manaPool + 1);
-            const hasUncharged = [...activeP.battleZone, ...activeP.skills].some(u => u && (u.charge || 0) < (u.chargeReq || 1));
-            if (needsManaForHand || hasUncharged) {
-              await showActionShowcase({
-                card: c,
-                actionTag: `${activeP.name.toUpperCase()} CAST FLASH`,
-                title: c.name,
-                description: `Using ${c.name} (-${c.goldCost || 0} Gold) to gain Mana`,
-                duration: 1500
-              });
-              await playFlashCard(activeP, i);
-            }
+          if (!c || c.type !== "Flash" || !canAIAffordFlash(activeP, c)) continue;
+          const cls = classifyFlashCard(c);
+          if (!(cls.isMana || cls.isCharge) || cls.isDamage || cls.isEvasion || cls.isHeal) continue;
+          const gCost = Number(c.goldCost) || 0;
+          if (gCost > 0 && minReactiveGold > 0 && (activeP.gold - gCost) < minReactiveGold && !stageInfo.isLethalMode) continue;
+          const needsManaForHand = activeP.hand.some(h => h !== c && h.manaCost !== undefined && h.manaCost > activeP.manaPool && h.manaCost <= activeP.manaPool + 2);
+          const hasUncharged = [...activeP.battleZone, ...activeP.skills].some(u => u && (u.charge || 0) < (u.chargeReq || 1));
+          if ((needsManaForHand || (hasUncharged && !isFirstTurnSkipCombat)) && Math.random() < (diff === "EASY" ? 0.5 : 1.0)) {
+            await showActionShowcase({
+              card: c,
+              actionTag: `${activeP.name.toUpperCase()} CAST FLASH`,
+              title: c.name,
+              description: `Using ${c.name} to boost Mana / Charge`,
+              duration: 1500
+            });
+            await playFlashCard(activeP, i);
           }
         }
       }
@@ -18547,18 +19203,31 @@ function checkAIAction() {
       // 1. Command Phase Formation Management: Rearrange slots, advance/rotate Bench units (with Bench Lock constraint), and tactical retreat
       await manageAIFormation(gameState.activePlayerIndex, diff, 'initial');
 
-      // Helper function to deploy an affordable ally
+      // Helper function to deploy an affordable ally with stage, curve, and Bench Garrison awareness
       const tryDeployOneAlly = async () => {
+        const alreadyLearnedForCurve = isTeamsMode() ? activeP.skillLearnedThisTurn : gameState.skillLearnedThisTurn;
         let affordable = [];
         activeP.hand.forEach((c, idx) => {
           if (c && c.type === "Ally" && activeP.manaPool >= c.manaCost) {
-            affordable.push({ card: c, originalIndex: idx });
+            let deployScore = (c.manaCost || 0) * 3 + estimateCardExpectedDamage(c, activeP) * 2 + (c.health || 1) * 1.5;
+            if (stageInfo.stage === "EARLY" && (c.manaCost || 0) <= 3) deployScore += 5;
+            if (stageInfo.isSurvivalMode && ((c.health || 0) >= 5 || (c.defense || 0) >= 1)) deployScore += 8;
+            if (c.strikeType === "Multi" || checkKeyword(c, activeP, "multiStrike")) deployScore += 6;
+            if (!alreadyLearnedForCurve) {
+              const remMana = activeP.manaPool - (c.manaCost || 0);
+              const keepsSkillPlayable = activeP.hand.some(h => {
+                if (!h || h.type !== "Skill" || (h.manaCost || 0) > remMana) return false;
+                const lvl = h.skillLevel || 1;
+                return !activeP.skills[lvl - 1] && (lvl === 1 || Boolean(activeP.skills[lvl - 2]));
+              });
+              if (keepsSkillPlayable) deployScore += 10;
+            }
+            if (diff === "EASY") deployScore += Math.random() * 12;
+            affordable.push({ card: c, originalIndex: idx, deployScore });
           }
         });
         if (affordable.length === 0) return false;
-        if (diff !== "EASY") {
-          affordable.sort((a, b) => (b.card.manaCost || 0) - (a.card.manaCost || 0));
-        }
+        affordable.sort((a, b) => b.deployScore - a.deployScore);
 
         const pick = affordable[0];
         const c = pick.card;
@@ -18569,12 +19238,25 @@ function checkAIAction() {
         let benchSlot = activeP.bench.findIndex(x => x === null);
         if (bzSlot === -1 && benchSlot === -1) return false;
 
+        const isFragileToken = (c.isToken || (c.health || 1) <= 1);
+        const remManaAfterDeploy = activeP.manaPool - (c.manaCost || 0);
+        const canChargeThisTurn = remManaAfterDeploy >= (c.chargeReq || 1);
+        const bzOccupied = activeP.battleZone.filter(Boolean).length;
+
         let useBench = false;
         if (bzSlot === -1 && benchSlot !== -1) {
           useBench = true; // Battle Zone is full
-        } else if (diff === "HARD" && benchSlot !== -1 && bzSlot === 0 && (c.isToken || c.health <= 1) && isAntiBreakthroughThreat) {
-          // Fragile 1-HP token avoids Vanguard against Berserker high power
-          useBench = true;
+        } else if (benchSlot !== -1) {
+          if (diff !== "EASY" && bzSlot === 0 && isFragileToken && isAntiBreakthroughThreat && !stageInfo.isSurvivalMode) {
+            // Fragile 1-HP token avoids Vanguard against Berserker / high-Power enemies
+            useBench = true;
+          } else if (profile.useBenchGarrison && bzOccupied >= 1) {
+            const isBenchStriker = checkKeyword(c, activeP, "canStrikeFromBench");
+            const isFragileRangedUncharged = (c.attackType === "Ranged" && (c.health || 1) <= 3 && !stageInfo.isSurvivalMode && !canChargeThisTurn);
+            if (isBenchStriker || isFirstTurnSkipCombat || (!canChargeThisTurn && !stageInfo.isSurvivalMode && (c.chargeReq || 1) >= 1) || isFragileRangedUncharged) {
+              useBench = true;
+            }
+          }
         }
 
         const targetSlot = useBench ? benchSlot : bzSlot;
@@ -18630,14 +19312,19 @@ function checkAIAction() {
         }
       }
 
-      // 3. Board Presence Check: If Battle Zone is empty, deploy an Ally FIRST before spending all mana on skills!
+      // 3. Board Presence Check: If Battle Zone is empty, deploy an Ally FIRST unless chasing an immediate lethal Skill!
+      const alreadyLearnedSkill = isTeamsMode() ? activeP.skillLearnedThisTurn : gameState.skillLearnedThisTurn;
+      const hasImmediateLethalSkill = !alreadyLearnedSkill && (stageInfo.isLethalMode || opp.hero.currentHealth <= 8) && activeP.hand.some(c => {
+        if (!c || c.type !== "Skill" || activeP.manaPool < c.manaCost) return false;
+        const lvl = c.skillLevel || 1;
+        return !activeP.skills[lvl - 1] && (lvl === 1 || Boolean(activeP.skills[lvl - 2])) && getEffectiveNetDamage(c, activeP, opp.hero, opp) >= Math.min(8, opp.hero.currentHealth);
+      });
       const bzCountInitial = activeP.battleZone.filter(Boolean).length;
-      if (bzCountInitial === 0) {
+      if (bzCountInitial === 0 && !hasImmediateLethalSkill) {
         await tryDeployOneAlly();
       }
 
-      // 4. Learn Skill (1 per turn, prioritizing highest learnable skillLevel)
-      const alreadyLearnedSkill = isTeamsMode() ? activeP.skillLearnedThisTurn : gameState.skillLearnedThisTurn;
+      // 4. Learn Skill (1 per turn, scored by scoreAISkillValue & scaled by skillTierStrictness)
       if (!alreadyLearnedSkill) {
         const learnableSkills = activeP.hand
           .map((c, idx) => ({ c, idx }))
@@ -18646,9 +19333,13 @@ function checkAIAction() {
             const lvl = c.skillLevel || 1;
             const slotIdx = lvl - 1;
             return !activeP.skills[slotIdx] && (lvl === 1 || Boolean(activeP.skills[slotIdx - 1]));
-          });
+          })
+          .map(item => ({
+            ...item,
+            score: scoreAISkillValue(item.c, activeP, opp) + (Math.random() - 0.5) * 40 * (1 - (profile.skillTierStrictness || 1))
+          }));
         if (learnableSkills.length > 0) {
-          if (diff !== "EASY") learnableSkills.sort((a, b) => (b.c.skillLevel || 1) - (a.c.skillLevel || 1));
+          learnableSkills.sort((a, b) => b.score - a.score);
           const pick = learnableSkills[0];
           await showActionShowcase({
             card: pick.c,
@@ -18682,19 +19373,36 @@ function checkAIAction() {
         await manageAIFormation(gameState.activePlayerIndex, diff, 'post_deploy');
       }
 
-      // 5. Equip Equipment (Smart target selection on Medium / Hard, respecting class/race restrictions)
+      // 5. Equip Equipment (Dagger->Slice&Dice Hero check via subtype only, Armor preference, reactive Gold guard)
+      const heroHasSliceAndDice = [...(activeP.skills || []), ...(activeP.hand || [])].some(s =>
+        s && s.type === "Skill" && (s.mechanics?.sliceAndDiceFlatDmg || s.mechanics?.staticModifiers?.some(m => m.effect?.action === "flatDamageOverride"))
+      );
       for (let i = activeP.hand.length - 1; i >= 0; i--) {
         const c = activeP.hand[i];
         if (c && c.type === "Equipment" && activeP.gold >= c.goldCost) {
           const validUnits = [activeP.hero, ...activeP.battleZone.filter(u => u !== null), ...activeP.bench.filter(u => u !== null)].filter(u => canUnitEquipCard(u, c));
           if (validUnits.length === 0) continue;
+          const isDefensiveEquip = Boolean((c.defenseModifier || 0) > 0 || (c.defense || 0) > 0 || /armor|shield/i.test(c.equipmentType || c.subtype || c.subType || ""));
+          if (diff === "HARD" && activeP.hero.currentHealth <= 14 && minReactiveGold > 0 && (activeP.gold - (c.goldCost || 0)) < minReactiveGold && !isDefensiveEquip && !stageInfo.isLethalMode) {
+            continue;
+          }
           let equipTarget = validUnits[0];
           if (diff !== "EASY") {
             const wantsAlly = c.mechanics?.staticModifiers?.some(m => m.condition?.type === "isEquippedToAlly");
-            const isWeapon = Boolean(c.attack || c.rangedAttack || c.powerModifier || (c.equipmentType && c.equipmentType.includes("Weapon")));
-            if (wantsAlly) {
+            const isDagger = [c.subtype, c.subType, c.equipmentType].some(v => v && String(v).toLowerCase().includes("dagger"));
+            const isWeapon = Boolean(c.attack || c.rangedAttack || c.powerModifier || (c.equipmentType && c.equipmentType.includes("Weapon")) || isDagger);
+            if (isDagger && heroHasSliceAndDice && validUnits.includes(activeP.hero)) {
+              equipTarget = activeP.hero;
+            } else if (wantsAlly) {
               const bestAlly = validUnits.find(u => u !== activeP.hero);
               if (bestAlly) equipTarget = bestAlly;
+            } else if (isDefensiveEquip) {
+              if (activeP.hero.currentHealth <= 14 && validUnits.includes(activeP.hero)) {
+                equipTarget = activeP.hero;
+              } else {
+                const van = activeP.battleZone[0];
+                if (van && validUnits.includes(van)) equipTarget = van;
+              }
             } else if (isWeapon && c.id !== "favars_scepter") {
               const heroHasMatchingSkill = activeP.skills.some(s => s && s.attackType === c.attackType);
               if (!heroHasMatchingSkill || !validUnits.includes(activeP.hero)) {
@@ -18703,7 +19411,12 @@ function checkAIAction() {
               }
             }
           }
-          const targetSlotId = (equipTarget === activeP.hero) ? `${aiDomPrx}-hero-slot` : `${aiBzPrx}-bz-${activeP.battleZone.indexOf(equipTarget)}`;
+          let targetSlotId = `${aiDomPrx}-hero-slot`;
+          if (equipTarget !== activeP.hero) {
+            const bzIdx = activeP.battleZone.indexOf(equipTarget);
+            const benchIdx = activeP.bench.indexOf(equipTarget);
+            targetSlotId = bzIdx !== -1 ? `${aiBzPrx}-bz-${bzIdx}` : `${aiBzPrx}-bench-${Math.max(0, benchIdx)}`;
+          }
           await showActionShowcase({
             card: c,
             actionTag: `${activeP.name.toUpperCase()} EQUIPPED ITEM`,
@@ -18725,11 +19438,13 @@ function checkAIAction() {
       }
 
       // 6. Healing Flash Items in Command Phase if damaged (Medium only)
-      // Hard Mode AI hoards Items and Gold for the Combat Phase stack over-heal!
+      // Hard Mode AI hoards Healing Items and Gold for the Combat Phase stack over-heal!
       if (diff === "MEDIUM") {
         for (let i = activeP.hand.length - 1; i >= 0; i--) {
           const c = activeP.hand[i];
-          if (c && c.type === "Flash" && (c.id === "small_healing_potion" || c.id === "favars_elixir") && activeP.gold >= (c.goldCost || 0)) {
+          if (!c || c.type !== "Flash" || !canAIAffordFlash(activeP, c)) continue;
+          const cls = classifyFlashCard(c);
+          if ((c.id === "small_healing_potion" || c.id === "favars_elixir" || (cls.isHeal && !cls.isEvasion)) && (c.goldCost === undefined || activeP.gold >= (c.goldCost || 0))) {
             const maxH = activeP.hero.maxHealth || activeP.hero.health;
             if (activeP.hero.currentHealth <= maxH - 4) {
               await showActionShowcase({
@@ -18746,137 +19461,150 @@ function checkAIAction() {
         }
       }
 
-      // 7. Spend leftover mana charging units/skills/equipment
-      if (diff === "EASY") {
-        while (activeP.manaPool > 0) {
-          let chargeables = [];
-          // Prioritize Battle Zone allies and Hero Skills first so attacks are enabled, then bench
-          [...activeP.battleZone, ...activeP.skills, ...activeP.bench, ...activeP.hero.equipment].forEach(u => {
-            if (u && u.chargeReq !== undefined) {
-              const targetCharge = getUnitOptimalChargeTarget(u, activeP);
-              if ((u.charge || 0) < targetCharge) chargeables.push({ unit: u, targetCharge });
-            }
-          });
-          if (chargeables.length > 0) {
-            let t = chargeables[0].unit;
-            t.charge = (t.charge || 0) + 1;
-            activeP.manaPool -= 1;
-          } else {
-            break;
+      // 7. Unified Smart Mana Charging (Hard, Medium, Easy scaled via AI_DIFFICULTY_PROFILE)
+      // Priority 1: Charge active Battle Zone Allies, Bench Strikers, unlocked finishable Bench Allies, and Hero Skills that can attack THIS turn
+      if (!isFirstTurnSkipCombat) {
+        let activeCandidates = [];
+        const pushActiveUnit = (u, isSkill = false, extraBoost = 0) => {
+          if (!u || u.chargeReq === undefined) return;
+          const targetCharge = getUnitOptimalChargeTarget(u, activeP, diff);
+          const curCharge = u.charge || 0;
+          if (curCharge >= targetCharge) return;
+          const need = targetCharge - curCharge;
+          let priority = isSkill ? scoreAISkillValue(u, activeP, opp) : (estimateCardExpectedDamage(u, activeP) * 2 + (need <= activeP.manaPool ? 6 : 0));
+          if (u.attackType === "Ranged") {
+            const accProb = calculateAccuracyProbability(u, activeP);
+            if (diff === "HARD" && accProb < 0.50) priority *= 0.35;
+            else priority *= accProb;
           }
-        }
-      } else {
-        // Smart Mana Charging (Medium / Hard):
-        // Priority 1: Complete chargeReq on active Battle Zone Allies and Hero Skills that can attack THIS turn!
-        const isFirstTurnSkipCombat = (gameState.turnNumber === 1 && gameState.activePlayerIndex === gameState.firstPlayerIndex);
-        if (!isFirstTurnSkipCombat) {
-          let activeCandidates = [];
-          activeP.battleZone.forEach(u => {
-            if (u && !u.isExhausted && u.chargeReq !== undefined) {
-              const targetCharge = getUnitOptimalChargeTarget(u, activeP);
-              if ((u.charge || 0) < targetCharge) {
-                let priority = estimateCardExpectedDamage(u, activeP);
-                if (u.attackType === "Ranged") {
-                  const accProb = calculateAccuracyProbability(u, activeP);
-                  if (diff === "HARD" && accProb < 0.50) {
-                    // Dexterity-Weighted Risk Assessment: Don't gamble precious mana/charge on sub-50% accuracy!
-                    priority *= 0.35;
-                  } else {
-                    priority *= accProb;
-                  }
-                }
-                activeCandidates.push({ unit: u, need: targetCharge - (u.charge || 0), targetCharge, priority });
-              }
-            }
-          });
-          if (!activeP.hero.isExhausted) {
-            activeP.skills.forEach(s => {
-              if (s && s.chargeReq !== undefined) {
-                const targetCharge = getUnitOptimalChargeTarget(s, activeP);
-                if ((s.charge || 0) < targetCharge) {
-                  let priority = estimateCardExpectedDamage(s, activeP) + (s.skillLevel || 1) * 15;
-                  if (s.name === "Tsunami" || s.id === "Skill_Tsunami" || s.id === "skill_tsunami") {
-                    priority += 35; // Tsunami is a game-ending multi-strike board wiper!
-                  }
-                  if (s.attackType === "Ranged") {
-                    const accProb = calculateAccuracyProbability(s, activeP);
-                    if (diff === "HARD" && accProb < 0.50) {
-                      priority *= 0.35;
-                    } else {
-                      priority *= accProb;
-                    }
-                  }
-                  activeCandidates.push({ unit: s, need: targetCharge - (s.charge || 0), targetCharge, priority });
-                }
-              }
-            });
-          }
-          // Sort by highest priority first (favoring high-tier skills and key attackers), then fewest charge needed
-          activeCandidates.sort((a, b) => {
-            if (b.priority >= a.priority + 8) return 1;
-            if (a.priority >= b.priority + 8) return -1;
-            const aCanFinish = a.need <= activeP.manaPool ? 1 : 0;
-            const bCanFinish = b.need <= activeP.manaPool ? 1 : 0;
-            if (aCanFinish !== bCanFinish) return bCanFinish - aCanFinish;
-            if (a.need !== b.need) return a.need - b.need;
-            return b.priority - a.priority;
-          });
+          priority += extraBoost;
+          priority += (Math.random() - 0.5) * 30 * (1 - (profile.skillTierStrictness || 1));
+          activeCandidates.push({ unit: u, need, targetCharge, priority, isSkill });
+        };
 
-          for (const cand of activeCandidates) {
-            const cap = cand.targetCharge || cand.unit.chargeReq || 1;
-            while (activeP.manaPool > 0 && (cand.unit.charge || 0) < cap) {
-              cand.unit.charge = (cand.unit.charge || 0) + 1;
-              activeP.manaPool -= 1;
+        activeP.battleZone.forEach(u => {
+          if (u && !u.isExhausted) pushActiveUnit(u, false, 0);
+        });
+        activeP.bench.forEach(u => {
+          if (!u || u.isExhausted) return;
+          if (checkKeyword(u, activeP, "canStrikeFromBench")) {
+            pushActiveUnit(u, false, 0);
+          } else if (!u.benchLocked && profile.useBenchGarrison) {
+            const targetCharge = getUnitOptimalChargeTarget(u, activeP, diff);
+            const need = targetCharge - (u.charge || 0);
+            const hasBzOpenOrSwap = activeP.battleZone.includes(null) || activeP.battleZone.some(bz => bz && ((bz.charge || 0) < (bz.chargeReq || 1) || bz.isExhausted));
+            if (need > 0 && need <= activeP.manaPool && hasBzOpenOrSwap) {
+              pushActiveUnit(u, false, -2);
             }
           }
+        });
+
+        if (!activeP.hero.isExhausted) {
+          const heroSkillScores = activeP.skills.map(s => s ? scoreAISkillValue(s, activeP, opp) : -999);
+          const bestSkillScore = Math.max(-999, ...heroSkillScores);
+          activeP.skills.forEach((s, sIdx) => {
+            if (!s) return;
+            const sScore = heroSkillScores[sIdx];
+            const isMulti = s.strikeType === "Multi" || checkKeyword(s, activeP, "multiStrike");
+            const isLethalHero = getEffectiveNetDamage(s, activeP, opp.hero, opp) >= opp.hero.currentHealth;
+            let boost = isLethalHero ? 120 : 0;
+            if ((s.skillLevel || 1) === 1 && !isMulti && bestSkillScore >= sScore + 18) {
+              boost -= 30 * (profile.skillTierStrictness || 1);
+            }
+            pushActiveUnit(s, true, boost);
+          });
         }
 
-        // Priority 2: Charge matching Weapons on ready attackers
-        const allEquip = [
-          ...(activeP.hero.equipment || []),
-          ...activeP.battleZone.flatMap(u => (u && u.equipment) ? u.equipment : [])
-        ];
-        for (const eq of allEquip) {
-          while (activeP.manaPool > 0 && eq && eq.chargeReq !== undefined && (eq.charge || 0) < eq.chargeReq) {
-            eq.charge = (eq.charge || 0) + 1;
+        // Sort by highest priority first, then finishable with remaining Mana, then fewest Charge needed
+        activeCandidates.sort((a, b) => {
+          if (b.priority >= a.priority + 8) return 1;
+          if (a.priority >= b.priority + 8) return -1;
+          const aCanFinish = a.need <= activeP.manaPool ? 1 : 0;
+          const bCanFinish = b.need <= activeP.manaPool ? 1 : 0;
+          if (aCanFinish !== bCanFinish) return bCanFinish - aCanFinish;
+          if (a.need !== b.need) return a.need - b.need;
+          return b.priority - a.priority;
+        });
+
+        for (const cand of activeCandidates) {
+          const cap = cand.targetCharge || cand.unit.chargeReq || 1;
+          while (activeP.manaPool > 0 && (cand.unit.charge || 0) < cap) {
+            cand.unit.charge = (cand.unit.charge || 0) + 1;
             activeP.manaPool -= 1;
           }
         }
+      }
 
-        // Priority 3: Activate Command Phase Abilities (e.g. Comrade's Call, Essence Wellspring, Astute Cleric, Scroll-Bound Peddler)
-        await aiTryActivateAbilities(activeP, "COMMAND", diff);
+      // Priority 2: Charge matching Weapons on ready attackers (Hero weapons with ready Skill first)
+      const heroHasReadySkill = !activeP.hero.isExhausted && activeP.skills.some(s => s && (s.charge || 0) >= (s.chargeReq || 1));
+      const allEquip = [
+        ...(activeP.hero.equipment || []).map(eq => ({ eq, prio: heroHasReadySkill ? 2 : 0 })),
+        ...activeP.battleZone.flatMap(u => (u && u.equipment) ? u.equipment.map(eq => ({ eq, prio: (u && !u.isExhausted && (u.charge || 0) >= (u.chargeReq || 1)) ? 1 : 0 })) : [])
+      ].sort((a, b) => b.prio - a.prio).map(x => x.eq);
+      for (const eq of allEquip) {
+        while (activeP.manaPool > 0 && eq && eq.chargeReq !== undefined && (eq.charge || 0) < eq.chargeReq) {
+          eq.charge = (eq.charge || 0) + 1;
+          activeP.manaPool -= 1;
+        }
+      }
 
-        // Priority 4: Secondary Charging for all difficulty levels
-        // Hard Mode banks at most 1 unallocated Mana if it has surplus, and spends the rest charging high-tier skills and board allies!
-        const maxBank = (diff === "HARD" && activeP.manaPool >= 3) ? 1 : 0;
-        while (activeP.manaPool > maxBank) {
-          let secondary = [];
-          [...activeP.skills, ...activeP.battleZone, ...activeP.bench, ...allEquip].forEach(u => {
-            if (u && u.chargeReq !== undefined) {
-              const targetCharge = getUnitOptimalChargeTarget(u, activeP);
-              if ((u.charge || 0) < targetCharge) secondary.push({ unit: u, targetCharge });
-            }
-          });
-          if (secondary.length > 0) {
-            secondary.sort((a, b) => {
-              const aSkillBonus = (a.unit.type === "Skill") ? (a.unit.skillLevel || 1) * 8 : 0;
-              const bSkillBonus = (b.unit.type === "Skill") ? (b.unit.skillLevel || 1) * 8 : 0;
-              const aTsunami = (a.unit.name === "Tsunami" || a.unit.id === "Skill_Tsunami" || a.unit.id === "skill_tsunami") ? 35 : 0;
-              const bTsunami = (b.unit.name === "Tsunami" || b.unit.id === "Skill_Tsunami" || b.unit.id === "skill_tsunami") ? 35 : 0;
-              const aRem = a.targetCharge - (a.unit.charge || 0);
-              const bRem = b.targetCharge - (b.unit.charge || 0);
-              return (bSkillBonus + bTsunami - bRem) - (aSkillBonus + aTsunami - aRem);
-            });
-            secondary[0].unit.charge = (secondary[0].unit.charge || 0) + 1;
-            activeP.manaPool -= 1;
-          } else {
-            break;
+      // Priority 3: Activate Command Phase Abilities
+      await aiTryActivateAbilities(activeP, "COMMAND", diff);
+
+      // Priority 4: Secondary Charging with End-Phase Passive Charge Preservation & Dynamic Mana Bank
+      let maxBank = 0;
+      if (profile.dynamicManaBank) {
+        const holdsBigPlay = activeP.hand.some(h => h && (h.type === "Skill" || h.type === "Ally") && (h.manaCost || 0) >= 4);
+        if (holdsBigPlay && activeP.manaPool >= 2 && isFirstTurnSkipCombat) {
+          maxBank = Math.min(2, activeP.manaPool);
+        } else if (activeP.manaPool >= 3) {
+          maxBank = 1;
+        }
+      }
+
+      while (activeP.manaPool > maxBank) {
+        let secondary = [];
+        const addSecondary = (u, isPassiveEligible) => {
+          if (!u || u.chargeReq === undefined) return;
+          const targetCharge = getUnitOptimalChargeTarget(u, activeP, diff);
+          const baseReq = u.chargeReq || 1;
+          // ResolveEndPhase gives +1 passive Charge (up to chargeReq) to Benched Allies and Learned Skills
+          let effectiveCap = targetCharge;
+          if (profile.skipPassiveChargeWaste && isPassiveEligible && targetCharge <= baseReq) {
+            effectiveCap = Math.max(0, targetCharge - 1);
           }
-        }
+          if ((u.charge || 0) >= effectiveCap) return;
+          let score = (u.type === "Skill") ? scoreAISkillValue(u, activeP, opp) : (estimateCardExpectedDamage(u, activeP) * 4);
+          if (u.type === "Skill" && (u.skillLevel || 1) === 1 && !(u.strikeType === "Multi" || checkKeyword(u, activeP, "multiStrike"))) {
+            const hasStrongerUnchargedSkill = activeP.skills.some(other => other && other !== u && (other.charge || 0) < getUnitOptimalChargeTarget(other, activeP, diff) && scoreAISkillValue(other, activeP, opp) >= score + 18);
+            if (hasStrongerUnchargedSkill) score -= 28 * (profile.skillTierStrictness || 1);
+          }
+          const rem = effectiveCap - (u.charge || 0);
+          score += (Math.random() - 0.5) * 20 * (1 - (profile.skillTierStrictness || 1));
+          secondary.push({ unit: u, score: score - rem * 2 });
+        };
 
-        if (diff === "HARD" && activeP.manaPool > 0) {
-          addLogEntry(`<span style="color:#38bdf8; font-weight:bold;">[AI TACTIC]</span> ${activeP.name} banks ${activeP.manaPool} unallocated Mana for future high-impact turns.`);
+        activeP.skills.forEach(s => addSecondary(s, isFirstTurnSkipCombat || activeP.hero.isExhausted || (s && (s.charge || 0) < (s.chargeReq || 1))));
+        activeP.battleZone.forEach(u => addSecondary(u, false));
+        activeP.bench.forEach(u => addSecondary(u, true));
+        allEquip.forEach(eq => addSecondary(eq, false));
+
+        if (secondary.length > 0) {
+          secondary.sort((a, b) => b.score - a.score);
+          secondary[0].unit.charge = (secondary[0].unit.charge || 0) + 1;
+          activeP.manaPool -= 1;
+        } else {
+          break;
         }
+      }
+
+      // Post-Charge Formation Pass: Advance newly charged unlocked Bench Allies & retreat uncharged non-Vanguard BZ Allies
+      if (diff !== "EASY") {
+        await manageAIFormation(gameState.activePlayerIndex, diff, 'post_charge');
+      }
+
+      if (diff === "HARD" && activeP.manaPool > 0) {
+        addLogEntry(`<span style="color:#38bdf8; font-weight:bold;">[AI TACTIC]</span> ${activeP.name} banks ${activeP.manaPool} unallocated Mana for future high-impact turns.`);
       }
 
       if (isTeamsMode()) {
@@ -18893,26 +19621,50 @@ function checkAIAction() {
       setTimeout(() => advancePhase(true), 1100);
 
     } else if (PHASES[gameState.currentPhaseIndex] === "COMBAT") {
-      if (gameState.strikesUsed >= gameState.maxStrikes) { setTimeout(() => advancePhase(true), 600); return; }
+      if (gameState.strikesUsed >= (gameState.maxStrikes || 3)) { setTimeout(() => advancePhase(true), 600); return; }
 
-      // 0. Combat Phase Flash Items & Activated Abilities (Medium / Hard)
-      if (diff !== "EASY") {
-        // Play Mana Potion if 1 Charge unlocks an attacker for this Combat Phase
-        for (let i = activeP.hand.length - 1; i >= 0; i--) {
-          const c = activeP.hand[i];
-          if (c && c.type === "Flash" && c.id === "mana_potion" && activeP.gold >= (c.goldCost || 0)) {
-            const oneChargeAway = [
-              ...activeP.battleZone.filter(u => u && !u.isExhausted),
-              ...(!activeP.hero.isExhausted ? activeP.skills.filter(s => s !== null) : [])
-            ].some(u => ((u.chargeReq || 1) - (u.charge || 0)) === 1);
-            if (oneChargeAway) {
-              await playFlashCard(activeP, i);
-            }
+      // Pre-Combat Non-Combat Damage Ordering (enable Hemophage Reaver D8 / Fester-Spit Ghoul +1 Ranged BEFORE attacking)
+      const hasNonCombatSynergyUnit = [...activeP.battleZone, ...activeP.bench].some(u =>
+        u && !u.isExhausted && (u.id === "hemophage_reaver" || u.id === "fester_spit_ghoul" || /non-combat damage/i.test(u.abilities || u.text || ""))
+      );
+      if (profile.preCombatNonCombatOrder && !gameState.enemyTookNonCombatDamageThisTurn && hasNonCombatSynergyUnit) {
+        await aiTryActivateAbilities(activeP, "COMBAT", diff, { onlyNonCombatDamage: true });
+        if (!gameState.enemyTookNonCombatDamageThisTurn) {
+          for (let i = activeP.hand.length - 1; i >= 0; i--) {
+            const c = activeP.hand[i];
+            if (!c || c.type !== "Flash" || !canAIAffordFlash(activeP, c)) continue;
+            const cls = classifyFlashCard(c);
+            if (!cls.isNonCombatDamage) continue;
+            const gCost = Number(c.goldCost) || 0;
+            if (gCost > 0 && minReactiveGold > 0 && (activeP.gold - gCost) < minReactiveGold && !stageInfo.isLethalMode) continue;
+            await playFlashCard(activeP, i);
+            break;
           }
         }
-
-        await aiTryActivateAbilities(activeP, "COMBAT", diff);
       }
+
+      // Play Charge / Mana Flash if 1 Charge unlocks an attacker for this Combat Phase
+      if ((profile.useGenericFlashOffense || 0) > 0) {
+        for (let i = activeP.hand.length - 1; i >= 0; i--) {
+          const c = activeP.hand[i];
+          if (!c || c.type !== "Flash" || !canAIAffordFlash(activeP, c)) continue;
+          const cls = classifyFlashCard(c);
+          if (!(c.id === "mana_potion" || cls.isCharge || cls.isMana) || cls.isDamage || cls.isEvasion || cls.isHeal) continue;
+          const gCost = Number(c.goldCost) || 0;
+          if (gCost > 0 && minReactiveGold > 0 && (activeP.gold - gCost) < minReactiveGold && !stageInfo.isLethalMode) continue;
+          const oneChargeAway = [
+            ...activeP.battleZone.filter(u => u && !u.isExhausted),
+            ...activeP.bench.filter(u => u && !u.isExhausted && checkKeyword(u, activeP, "canStrikeFromBench")),
+            ...(!activeP.hero.isExhausted ? activeP.skills.filter(s => s !== null) : [])
+          ].some(u => ((u.chargeReq || 1) - (u.charge || 0)) === 1);
+          if (oneChargeAway && Math.random() < profile.useGenericFlashOffense) {
+            await playFlashCard(activeP, i);
+          }
+        }
+      }
+
+      await aiTryActivateAbilities(activeP, "COMBAT", diff);
+      if (gameState.strikesUsed >= (gameState.maxStrikes || 3)) { setTimeout(() => advancePhase(true), 600); return; }
 
       // Gather all ready attackers (Allies, Bench Allies with canStrikeFromBench, & Skills)
       let attackers = [];
@@ -18930,155 +19682,365 @@ function checkAIAction() {
           if (u && !u.isExhausted && u.charge >= u.chargeReq) attackers.push({ type: 'ally', slot: idx, card: u, playerIndex: u.ownerIndex !== undefined ? u.ownerIndex : activeP.index });
       });
       activeP.bench.forEach((u, idx) => {
-          const canBenchStrike = u && (u.canStrikeFromBench || u.mechanics?.staticModifiers?.some(m => m.effect?.action === "canStrikeFromBench"));
+          const canBenchStrike = u && checkKeyword(u, activeP, "canStrikeFromBench");
           if (u && canBenchStrike && !u.isExhausted && u.charge >= (u.chargeReq || 1)) attackers.push({ type: 'bench_ally', slot: idx, card: u, playerIndex: u.ownerIndex !== undefined ? u.ownerIndex : activeP.index });
       });
 
       if (attackers.length > 0) {
-          // Play offensive Flash buffs (Potion of Vigor / Tavern Draught / Favar's Elixir on Mage) before striking on Medium / Hard
-          if (diff !== "EASY") {
+          // Generic Combat Flash offense & buffs scaled by profile.useGenericFlashOffense
+          if ((profile.useGenericFlashOffense || 0) > 0) {
             for (let i = activeP.hand.length - 1; i >= 0; i--) {
               const c = activeP.hand[i];
-              if (!c || c.type !== "Flash" || activeP.gold < (c.goldCost || 0)) continue;
+              if (!c || c.type !== "Flash" || !canAIAffordFlash(activeP, c) || c.id === "mana_potion") continue;
+              const cls = classifyFlashCard(c);
+              if (cls.isEvasion) continue;
+              const gCost = Number(c.goldCost) || 0;
+              const allEnemies = [...opp.battleZone, ...opp.bench].filter(Boolean);
+              const isImmediateFinish = cls.isDamage && (opp.hero.currentHealth <= cls.maxDmg || allEnemies.some(u => u.currentHealth <= cls.maxDmg));
+              if (gCost > 0 && minReactiveGold > 0 && (activeP.gold - gCost) < minReactiveGold && !stageInfo.isLethalMode && !isImmediateFinish) {
+                continue;
+              }
+              if (Math.random() > profile.useGenericFlashOffense) continue;
+
               if (c.id === "potion_of_vigor") {
                 await playFlashCard(activeP, i);
               } else if (c.id === "tavern_draught") {
-                const hasMeleeAttacker = attackers.some(a => a.card.attackType === "Melee");
-                if (hasMeleeAttacker) await playFlashCard(activeP, i);
+                if (attackers.some(a => a.card.attackType === "Melee")) await playFlashCard(activeP, i);
               } else if (c.id === "favars_elixir") {
                 const hasMageAttacker = attackers.some(a => {
                   const u = a.type === 'skill' ? activeP.hero : a.card;
                   return u.heroClass === "Mage" || u.unitClass === "Mage";
                 });
                 if (hasMageAttacker && activeP.hero.currentHealth <= 18) await playFlashCard(activeP, i);
+              } else if (cls.isDamage && (isImmediateFinish || stageInfo.isLethalMode)) {
+                await playFlashCard(activeP, i);
+              } else if (cls.isBuff && !cls.isHeal) {
+                await playFlashCard(activeP, i);
               }
             }
           }
 
           const nextStrikeNum = gameState.strikesUsed + 1;
-          const strikesRemaining = (gameState.maxStrikes || 2) - gameState.strikesUsed;
-          let aInfo = null;
+          const strikesRemaining = (gameState.maxStrikes || 3) - gameState.strikesUsed;
 
-          // Helper for cards that specifically require Strike 2 or 3
           const getStrikeTriggerVal = (card) => {
               const ab = card.mechanics?.passiveAbilities?.find(a => a.condition?.type === "strikeCount");
               return ab ? ab.condition.value : null;
           };
+          const hasHeroStrike1Trigger = (att, pObj) => {
+              return att.type === 'skill' && Boolean(pObj?.hero?.mechanics?.passiveAbilities?.some(a => a.condition?.type === "strikeCount" && a.condition?.value === 1));
+          };
+          const isMultiAttacker = (att, pObj) => {
+              return att.card.strikeType === "Multi" || checkKeyword(att.card, pObj, "multiStrike") || (att.type === 'skill' && pObj?.hero && checkKeyword(pObj.hero, pObj, "multiStrike"));
+          };
+          const canMultiRepeat = (att, pObj) => {
+              if (!isMultiAttacker(att, pObj)) return false;
+              const depletes = (att.card.name === "Tsunami" || att.card.id === "Skill_Tsunami" || att.card.id === "skill_tsunami") ||
+                (att.card.text || att.card.abilities || "").toLowerCase().includes("deplete 1 charge");
+              return !depletes || (att.card.charge || 0) >= (att.card.chargeReq || 1) + 1;
+          };
 
-          // --- Tactical Strike Scheming (Multi-Strike Sequencing & Breakthrough Setup) ---
+          // Evaluate optimal target & risk metrics for any candidate attacker
+          const evaluateAttackerTarget = (att) => {
+              const atkP = gameState.players[att.playerIndex !== undefined ? att.playerIndex : activeP.index] || activeP;
+              const aUnit = (att.type === 'skill') ? atkP.hero : att.card;
+              const expDmg = estimateCardExpectedDamage(att.card, atkP);
+              const isRanged = att.card.attackType === "Ranged";
+              const bzEmpty = opp.battleZone.every(s => s === null);
+              const hasOverreach = checkKeyword(att.card, atkP, "overreach") || checkKeyword(aUnit, atkP, "overreach");
+              const accProb = isRanged ? calculateAccuracyProbability(att.card, atkP) : 1.0;
+
+              let tType = 'bz'; let tSlot = 0; let tUnit = opp.hero;
+              let breakthroughHeroLethal = false;
+
+              if (!isRanged) {
+                  if (bzEmpty) {
+                      tType = 'hero'; tUnit = opp.hero;
+                  } else if (hasOverreach) {
+                      const vIdx = opp.battleZone.findIndex(s => s !== null);
+                      const vanguard = opp.battleZone[vIdx];
+                      const netHero = getEffectiveNetDamage(att.card, atkP, opp.hero, opp);
+                      const netVan = vanguard ? getEffectiveNetDamage(att.card, atkP, vanguard, opp) : 0;
+                      if (diff === "EASY") {
+                          if (Math.random() > 0.5) { tSlot = vIdx; tUnit = vanguard; tType = 'bz'; }
+                          else { tType = 'hero'; tUnit = opp.hero; }
+                      } else if (stageInfo.isLethalMode || opp.hero.currentHealth <= Math.max(10, netHero * 2)) {
+                          tType = 'hero'; tUnit = opp.hero;
+                      } else if (atkP.hero.currentHealth >= 15 && vanguard && netVan >= vanguard.currentHealth && (vanguard.charge || 0) >= (vanguard.chargeReq || 1)) {
+                          tSlot = vIdx; tUnit = vanguard; tType = 'bz';
+                      } else {
+                          tType = 'hero'; tUnit = opp.hero;
+                      }
+                  } else {
+                      tSlot = opp.battleZone.findIndex(s => s !== null);
+                      tUnit = opp.battleZone[tSlot] || opp.hero;
+                      if (!opp.battleZone[tSlot]) tType = 'hero';
+                  }
+              } else {
+                  let validTargets = [];
+                  if (bzEmpty || hasOverreach) validTargets.push({ t: 'hero', s: 0, u: opp.hero });
+                  opp.battleZone.forEach((u, i) => { if (u) validTargets.push({ t: 'bz', s: i, u }); });
+                  opp.bench.forEach((u, i) => { if (u) validTargets.push({ t: 'bench', s: i, u }); });
+
+                  if (validTargets.length > 0) {
+                      if (diff === "EASY" && Math.random() < 0.35) {
+                          const choice = validTargets[Math.floor(Math.random() * validTargets.length)];
+                          tType = choice.t; tSlot = choice.s; tUnit = choice.u;
+                      } else {
+                          const oppVanguardIndex = opp.battleZone.findIndex(s => s !== null);
+                          validTargets.sort((a, b) => {
+                              const scoreTarget = (cand) => {
+                                  const u = cand.u;
+                                  const isVanguard = (cand.t === 'bz' && cand.s === oppVanguardIndex);
+                                  const uHP = u.currentHealth;
+                                  const netDmg = getEffectiveNetDamage(att.card, atkP, u, opp);
+                                  const lethal = netDmg >= uHP;
+                                  if (cand.t === 'hero') {
+                                      if (uHP <= netDmg) return 2000;
+                                      return (70 + (30 - uHP)) * accProb;
+                                  }
+                                  if (isVanguard) {
+                                      let bt = 0;
+                                      if (lethal) {
+                                          const rawExcess = netDmg - uHP;
+                                          const isPierce = checkKeyword(att.card, atkP, "piercing") || (att.type === 'skill' && checkKeyword(atkP.hero, atkP, "piercing"));
+                                          const heroPierceProof = checkKeyword(opp.hero, opp, "pierceProof");
+                                          const hDef = (isPierce && !heroPierceProof) ? 0 : (getStat(opp.hero, 'defense', opp) || 0);
+                                          bt = Math.max(0, rawExcess - hDef);
+                                      }
+                                      let s = 50 + (lethal ? 60 : netDmg * 8) + (bt * 25);
+                                      if (bt >= opp.hero.currentHealth) return 1950;
+                                      return s * accProb;
+                                  }
+                                  let s = 30;
+                                  if (lethal) {
+                                      s += 55 + (u.manaCost || 2) * 5;
+                                      if ((u.charge || 0) >= (u.chargeReq || 1)) s += 25;
+                                      if (u.mechanics?.activatedAbilities?.length || u.mechanics?.staticModifiers?.length) s += 20;
+                                      const wastedDmg = Math.max(0, netDmg - uHP);
+                                      if (wastedDmg >= 3) s -= wastedDmg * 12;
+                                  } else {
+                                      s += netDmg * 5;
+                                  }
+                                  if (u.attackType === "Melee" || u.isExhausted || (u.charge || 0) < (u.chargeReq || 1)) s += 20;
+                                  return s * accProb;
+                              };
+                              return scoreTarget(b) - scoreTarget(a);
+                          });
+                          const choice = validTargets[0];
+                          tType = choice.t; tSlot = choice.s; tUnit = choice.u;
+                      }
+                  } else {
+                      tType = 'hero'; tUnit = opp.hero;
+                  }
+              }
+
+              const netDmg = getEffectiveNetDamage(att.card, atkP, tUnit, opp);
+              if (tType === 'bz' && tUnit !== opp.hero && netDmg > tUnit.currentHealth) {
+                  const isPierce = checkKeyword(att.card, atkP, "piercing") || (att.type === 'skill' && checkKeyword(atkP.hero, atkP, "piercing"));
+                  const heroPierceProof = checkKeyword(opp.hero, opp, "pierceProof");
+                  const hDef = (isPierce && !heroPierceProof) ? 0 : (getStat(opp.hero, 'defense', opp) || 0);
+                  if (Math.max(0, (netDmg - tUnit.currentHealth) - hDef) >= opp.hero.currentHealth) breakthroughHeroLethal = true;
+              }
+              const counterThreat = getAIUnitCounterThreat(tUnit, opp, att.card, atkP);
+              const isHeroLethal = (tType === 'hero' && netDmg >= opp.hero.currentHealth) || breakthroughHeroLethal;
+              const isUnitKill = (tType !== 'hero' && tUnit !== opp.hero && netDmg >= tUnit.currentHealth);
+              const wouldKillHero = (att.type === 'skill' && counterThreat >= atkP.hero.currentHealth && !isHeroLethal);
+              const isSuicidalAlly = (att.type !== 'skill' && !isHeroLethal && !isUnitKill && counterThreat >= att.card.currentHealth && (att.card.manaCost || 0) >= 2 && !(stageInfo.isLethalMode && netDmg > 0));
+              const isZeroDmg = (netDmg <= 0 && !stageInfo.isLethalMode);
+
+              return { targetType: tType, targetSlot: tSlot, targetUnit: tUnit, netDmg, counterThreat, expDmg, accProb, isHeroLethal, isUnitKill, wouldKillHero, isSuicidalAlly, isZeroDmg };
+          };
+
+          // Precompute per-Hero ready Multi-Strike & top Skill scores
+          const heroSkillMeta = {};
+          attackers.filter(a => a.type === 'skill').forEach(a => {
+              const pIdx = a.playerIndex !== undefined ? a.playerIndex : activeP.index;
+              const pObj = gameState.players[pIdx] || activeP;
+              if (!heroSkillMeta[pIdx]) heroSkillMeta[pIdx] = { hasMultiSkill: false, bestSkillVal: -999 };
+              if (isMultiAttacker(a, pObj)) heroSkillMeta[pIdx].hasMultiSkill = true;
+              const sVal = scoreAISkillValue(a.card, pObj, opp);
+              if (sVal > heroSkillMeta[pIdx].bestSkillVal) heroSkillMeta[pIdx].bestSkillVal = sVal;
+          });
+
           const oppVanguardIdx = opp.battleZone.findIndex(s => s !== null);
           const hasVanguard = (oppVanguardIdx !== -1);
           let chosenScheme = null;
 
-          if (hasVanguard && strikesRemaining >= 2 && attackers.length >= 2) {
-              const vanguard = opp.battleZone[oppVanguardIdx];
-              const vDef = getStat(vanguard, 'defense', opp) || 0;
-              const vHP = vanguard.currentHealth;
-              const heroDef = getStat(opp.hero, 'defense', opp) || 0;
-
+          // --- Tactical Strike Scheming (Multi-Strike Sequencing, Breakthrough & 3-Strike Lethal) ---
+          if (strikesRemaining >= 2 && (attackers.length >= 2 || attackers.some(a => canMultiRepeat(a, gameState.players[a.playerIndex ?? activeP.index] || activeP)))) {
+              const vanguard = hasVanguard ? opp.battleZone[oppVanguardIdx] : null;
+              const vHP = vanguard ? vanguard.currentHealth : 0;
               let schemes = [];
-              for (let i = 0; i < attackers.length; i++) {
-                  for (let j = 0; j < attackers.length; j++) {
-                      if (i === j) continue;
-                      const att1 = attackers[i];
-                      const att2 = attackers[j];
-                      if (att1.type === 'skill' && att2.type === 'skill' && att1.playerIndex === att2.playerIndex) continue; // Same Hero cannot strike twice in one turn!
-                      const dmg1 = Math.max(0, estimateCardExpectedDamage(att1.card, activeP) - vDef);
-                      const dmg2 = Math.max(0, estimateCardExpectedDamage(att2.card, activeP) - vDef);
-                      const att1Power = getStat((att1.type === 'skill' ? activeP.hero : att1.card), 'power', activeP) || 0;
-                      const att2Power = getStat((att2.type === 'skill' ? activeP.hero : att2.card), 'power', activeP) || 0;
-                      const att1HasMulti = att1.card.strikeType === "Multi" || checkKeyword(att1.card, activeP, "multiStrike");
-                      const att2HasMulti = att2.card.strikeType === "Multi" || checkKeyword(att2.card, activeP, "multiStrike");
-                      const att2HasStrike2 = (getStrikeTriggerVal(att2.card) === 2);
-                      const att1HasStrike2 = (getStrikeTriggerVal(att1.card) === 2);
-                      if (att1HasStrike2) continue; // att1 shouldn't waste its Strike 2 bonus on Strike 1
 
-                      // Scheme Plan A (Advanced Strike Sequencing): Low-damage or Multi-Strike unit clears Vanguard / strips Defense on Strike 1
-                      // -> High-Power single-strike Ally attacks on Strike 2, unleashing full unmitigated Direct Assault / Breakthrough on the enemy Hero!
-                      if (dmg1 >= vHP) {
-                          const att2HeroDmg = Math.max(0, estimateCardExpectedDamage(att2.card, activeP) - heroDef);
-                          const isAtt2Heavier = estimateCardExpectedDamage(att2.card, activeP) >= estimateCardExpectedDamage(att1.card, activeP);
-                          const score = 170 + (att2HeroDmg * 15) + (att2Power * 12) + (att1HasMulti ? 25 : 0) + (isAtt2Heavier ? 35 : 0);
+              for (let i = 0; i < attackers.length; i++) {
+                  const att1 = attackers[i];
+                  const att1P = gameState.players[att1.playerIndex ?? activeP.index] || activeP;
+                  const att1Multi = isMultiAttacker(att1, att1P);
+                  const att1CanRepeat = canMultiRepeat(att1, att1P);
+                  const eval1 = evaluateAttackerTarget(att1);
+                  if (eval1.wouldKillHero) continue;
+                  if (eval1.isZeroDmg && !(nextStrikeNum === 1 && hasHeroStrike1Trigger(att1, att1P))) continue;
+
+                  const att1Trig = getStrikeTriggerVal(att1.card);
+                  if (att1Trig && att1Trig > nextStrikeNum) continue;
+
+                  for (let j = 0; j < attackers.length; j++) {
+                      if (i === j && !att1CanRepeat) continue;
+                      const att2 = attackers[j];
+                      const att2P = gameState.players[att2.playerIndex ?? activeP.index] || activeP;
+                      if (att1.type === 'skill' && att2.type === 'skill' && (att1.playerIndex ?? activeP.index) === (att2.playerIndex ?? activeP.index) && !att1Multi) {
+                          continue; // Single-Strike Hero Skill exhausts Hero, blocking att2 Hero Skill!
+                      }
+
+                      const dmg1ToTarget = hasVanguard ? getEffectiveNetDamage(att1.card, att1P, vanguard, opp) : getEffectiveNetDamage(att1.card, att1P, opp.hero, opp);
+                      const dmg2ToVan = hasVanguard ? getEffectiveNetDamage(att2.card, att2P, vanguard, opp) : getEffectiveNetDamage(att2.card, att2P, opp.hero, opp);
+                      const att1HeroDmg = getEffectiveNetDamage(att1.card, att1P, opp.hero, opp);
+                      const att2HeroDmg = getEffectiveNetDamage(att2.card, att2P, opp.hero, opp);
+                      const att2Power = getStat((att2.type === 'skill' ? att2P.hero : att2.card), 'power', att2P) || 0;
+                      const att2Trig = getStrikeTriggerVal(att2.card);
+                      const att2MatchesNext = (att2Trig === nextStrikeNum + 1);
+                      const strike1Bonus = (nextStrikeNum === 1 && hasHeroStrike1Trigger(att1, att1P)) ? 35 : 0;
+
+                      // Penalize blowing a Single-Strike Hero Skill on Strike 1/2 when that Hero has a Multi-Strike Skill ready
+                      let singleExhaustPenalty = 0;
+                      if (att1.type === 'skill' && !att1Multi && heroSkillMeta[att1P.index]?.hasMultiSkill && att1HeroDmg < opp.hero.currentHealth) {
+                          singleExhaustPenalty = 120 * (profile.multiBeforeSingleSkill || 1);
+                      }
+
+                      if (stageInfo.isLethalMode && (!hasVanguard || (dmg1ToTarget + dmg2ToVan >= vHP && (att1HeroDmg + att2HeroDmg - vHP) >= opp.hero.currentHealth) || (!hasVanguard && att1HeroDmg + att2HeroDmg >= opp.hero.currentHealth))) {
+                          const score = 260 + att1HeroDmg * 10 + att2HeroDmg * 12 + strike1Bonus - singleExhaustPenalty;
+                          schemes.push({ att1, att2, type: 'LETHAL_CLOSEOUT', score });
+                      }
+
+                      if (hasVanguard && dmg1ToTarget >= vHP) {
+                          const isAtt2Heavier = estimateCardExpectedDamage(att2.card, att2P) >= estimateCardExpectedDamage(att1.card, att1P);
+                          const score = 170 + (att2HeroDmg * 15) + (att2Power * 12) + (att1Multi ? 30 : 0) + (isAtt2Heavier ? 35 : 0) + strike1Bonus - singleExhaustPenalty;
                           schemes.push({ att1, att2, type: 'CLEAR_THEN_HERO', score });
                       }
 
-                      // Scheme Plan B (Breakthrough Setup): Strip Defense & Soften Vanguard on Strike 1
-                      // -> High-Power single-strike Ally attacks on Strike 2, pushing maximum unmitigated Breakthrough into the enemy Hero!
-                      if (dmg1 > 0 && dmg1 < vHP && (vHP - dmg1) <= 4) {
-                          const remHP = vHP - dmg1;
-                          if (dmg2 > remHP || att2HasStrike2) {
-                              const projectedBreakthrough = Math.max(0, (dmg2 - remHP) - heroDef);
-                              const score = 145 + (projectedBreakthrough * 22) + (att2Power * 12) + (att2HasStrike2 ? 25 : 0);
-                              schemes.push({ att1, att2, type: 'BREAKTHROUGH_SETUP', score, remHP, breakthrough: projectedBreakthrough });
+                      if (hasVanguard && dmg1ToTarget > 0 && dmg1ToTarget < vHP && (vHP - dmg1ToTarget) <= 4) {
+                          const remHP = vHP - dmg1ToTarget;
+                          if (dmg2ToVan > remHP || att2MatchesNext) {
+                              const rawBT = dmg2ToVan - remHP;
+                              const isP2 = checkKeyword(att2.card, att2P, "piercing") || (att2.type === 'skill' && checkKeyword(att2P.hero, att2P, "piercing"));
+                              const hPP = checkKeyword(opp.hero, opp, "pierceProof");
+                              const heroD = (isP2 && !hPP) ? 0 : (getStat(opp.hero, 'defense', opp) || 0);
+                              const projectedBreakthrough = Math.max(0, rawBT - heroD);
+                              const score = 145 + (projectedBreakthrough * 22) + (att2Power * 12) + (att2MatchesNext ? 25 : 0) + strike1Bonus - singleExhaustPenalty;
+                              schemes.push({ att1, att2, type: 'BREAKTHROUGH_SETUP', score });
                           }
                       }
 
-                      // Scheme Plan C: Strike 2 Advantage/Crit Trigger (e.g. Pummel)
-                      if (att2HasStrike2 && !att1HasStrike2) {
-                          const score = 100 + dmg1 + dmg2 + 25;
-                          schemes.push({ att1, att2, type: 'STRIKE_2_TRIGGER', score });
+                      if (att2MatchesNext || strike1Bonus > 0) {
+                          const score = 100 + dmg1ToTarget + dmg2ToVan + (att2MatchesNext ? 25 : 0) + strike1Bonus - singleExhaustPenalty;
+                          schemes.push({ att1, att2, type: 'STRIKE_TRIGGER', score });
                       }
                   }
               }
 
               if (schemes.length > 0) {
                   schemes.sort((a, b) => b.score - a.score);
-                  const best = schemes[0];
-                  if (diff === "HARD") {
-                      chosenScheme = best;
-                  } else if (diff === "MEDIUM") {
-                      if (Math.random() < 0.75) chosenScheme = best;
-                  } else if (diff === "EASY") {
-                      if (Math.random() < 0.40) chosenScheme = best;
+                  if (Math.random() < (profile.schemeChance ?? 0.75)) {
+                      chosenScheme = schemes[0];
                   }
               }
           }
 
-          if (chosenScheme) {
-              aInfo = chosenScheme.att1;
-              if (chosenScheme.type === 'CLEAR_THEN_HERO') {
-                  addLogEntry(`<span style="color:#a855f7; font-weight:bold;">[AI TACTIC]</span> ${activeP.name} sequences strikes: clearing Vanguard with <strong>${chosenScheme.att1.card.name}</strong> on Strike 1 to unleash a massive Direct Assault on the Hero with <strong>${chosenScheme.att2.card.name}</strong> on Strike 2!`);
-              } else if (chosenScheme.type === 'BREAKTHROUGH_SETUP') {
-                  addLogEntry(`<span style="color:#a855f7; font-weight:bold;">[AI TACTIC]</span> ${activeP.name} sequences strikes: striking with <strong>${chosenScheme.att1.card.name}</strong> to soften Vanguard for a devastating Breakthrough on Strike 2!`);
-              }
-          } else if (diff === "EASY") {
-              // Easy: if strikesRemaining === 1 and Vanguard is low HP (<= 4), 60% chance to pick heaviest attacker to finish it off
-              if (strikesRemaining === 1 && hasVanguard && opp.battleZone[oppVanguardIdx].currentHealth <= 4 && Math.random() < 0.60) {
-                  attackers.sort((a, b) => estimateCardExpectedDamage(b.card, activeP) - estimateCardExpectedDamage(a.card, activeP));
-                  aInfo = attackers[0];
-              } else {
-                  aInfo = attackers[Math.floor(Math.random() * attackers.length)];
-              }
-          } else {
-              // Medium / Hard general attacker scoring (taking into account strike count bonuses and finishing blows)
-              const scoredAttackers = attackers.map(att => {
-                  let score = estimateCardExpectedDamage(att.card, activeP);
-                  if (att.type === 'skill') {
-                      // Heavy priority boost for high-tier skills (Level 3 > Level 2 > Level 1)!
-                      score += (att.card.skillLevel || 1) * 20;
-                  }
-                  if (att.card.attackType === "Ranged") {
-                      const accProb = calculateAccuracyProbability(att.card, activeP);
-                      if (diff === "HARD" && accProb < 0.50) {
-                          score *= 0.4; // Dexterity-Weighted Risk Assessment: down-weight sub-50% gamble
-                      } else {
-                          score *= accProb;
+          // Unified General Attacker Scoring (Hard, Medium, Easy scaled by AI_DIFFICULTY_PROFILE)
+          const evalCache = new Map();
+          const getCachedEval = (att) => {
+              if (!evalCache.has(att)) evalCache.set(att, evaluateAttackerTarget(att));
+              return evalCache.get(att);
+          };
+
+          const scoredAttackers = attackers.map(att => {
+              const atkP = gameState.players[att.playerIndex ?? activeP.index] || activeP;
+              const ev = getCachedEval(att);
+              const isSkill = att.type === 'skill';
+              const isMulti = isMultiAttacker(att, atkP);
+              let score = isSkill ? scoreAISkillValue(att.card, atkP, opp) : (ev.netDmg * 3 + ev.expDmg * 1.5);
+
+              if (ev.isHeroLethal) score += 500;
+              if (ev.isUnitKill) score += 45;
+              if (ev.isZeroDmg) score -= 100;
+
+              if (isSkill) {
+                  const meta = heroSkillMeta[atkP.index];
+                  if (meta) {
+                      const sVal = scoreAISkillValue(att.card, atkP, opp);
+                      if (sVal < meta.bestSkillVal - 15 && !ev.isHeroLethal) {
+                          score -= 60 * (profile.skillTierStrictness || 1);
+                      }
+                      if (strikesRemaining >= 2 && meta.hasMultiSkill && !ev.isHeroLethal) {
+                          if (!isMulti && Math.random() < (profile.multiBeforeSingleSkill || 0)) {
+                              score -= 85; // Prevent Single-Strike Skill from exhausting Hero before Multi-Strike Skill!
+                          } else if (isMulti) {
+                              score += 40;
+                          }
                       }
                   }
-                  const strikeTrig = getStrikeTriggerVal(att.card);
-                  if (strikeTrig === nextStrikeNum) {
-                      score += 30; // Big bonus for matching Strike 2 or Strike 3!
-                  } else if (strikeTrig && strikeTrig > nextStrikeNum && attackers.length > 1) {
-                      score -= 20; // Save Strike 2 / Strike 3 card for its matching strike!
+                  if (nextStrikeNum === 1 && hasHeroStrike1Trigger(att, atkP)) {
+                      score += 35; // Irith Goldenthorn Strike 1 trigger
                   }
-                  // If on Strike 2+ and Vanguard is low HP, strongly prioritize heavy attackers to maximize Breakthrough damage
-                  if (nextStrikeNum >= 2 && hasVanguard && opp.battleZone[oppVanguardIdx].currentHealth <= 4) {
-                      score += score * 0.5; // Amplify high damage for massive breakthrough
-                  }
-                  return { att, score };
-              });
-              scoredAttackers.sort((a, b) => b.score - a.score);
-              aInfo = scoredAttackers[0].att;
+              }
+
+              if (att.card.attackType === "Ranged") {
+                  if (diff === "HARD" && ev.accProb < 0.50) score *= 0.4;
+                  else score *= ev.accProb;
+              }
+
+              const strikeTrig = getStrikeTriggerVal(att.card);
+              if (strikeTrig === nextStrikeNum) {
+                  score += 30;
+              } else if (strikeTrig && strikeTrig > nextStrikeNum && attackers.length > 1) {
+                  score -= 25;
+              }
+
+              if (nextStrikeNum >= 2 && hasVanguard && opp.battleZone[oppVanguardIdx].currentHealth <= 4) {
+                  score += Math.max(0, score * 0.45);
+              }
+
+              score += (Math.random() - 0.5) * 28 * (1 - (profile.skillTierStrictness || 1));
+              return { att, score, ev };
+          });
+          scoredAttackers.sort((a, b) => b.score - a.score);
+
+          // Candidate selection with voluntary early Combat stop on 0-damage or suicidal non-lethal attacks
+          const orderedCandidates = [];
+          if (chosenScheme && chosenScheme.att1) orderedCandidates.push(chosenScheme.att1);
+          scoredAttackers.forEach(item => {
+              if (!orderedCandidates.includes(item.att)) orderedCandidates.push(item.att);
+          });
+
+          let aInfo = null;
+          let chosenEval = null;
+          for (const cand of orderedCandidates) {
+              const atkP = gameState.players[cand.playerIndex ?? activeP.index] || activeP;
+              const ev = getCachedEval(cand);
+              const allowStrike1 = (nextStrikeNum === 1 && hasHeroStrike1Trigger(cand, atkP));
+              if (ev.isZeroDmg && !allowStrike1 && Math.random() < (profile.avoidZeroDmgStrikes || 0)) continue;
+              if (ev.wouldKillHero && (profile.avoidSuicidalStrikes || 0) > 0) continue;
+              if (ev.isSuicidalAlly && Math.random() < (profile.avoidSuicidalStrikes || 0)) continue;
+              aInfo = cand;
+              chosenEval = ev;
+              break;
+          }
+
+          if (!aInfo) {
+              addLogEntry(`<span style="color:#f59e0b; font-weight:bold;">[AI TACTIC]</span> ${activeP.name} holds remaining Strikes to avoid unprofitable or suicidal trades.`);
+              setTimeout(() => advancePhase(true), 600);
+              return;
+          }
+
+          if (chosenScheme && aInfo === chosenScheme.att1) {
+              if (chosenScheme.type === 'CLEAR_THEN_HERO') {
+                  addLogEntry(`<span style="color:#a855f7; font-weight:bold;">[AI TACTIC]</span> ${activeP.name} sequences strikes: clearing Vanguard with <strong>${chosenScheme.att1.card.name}</strong> to unleash a Direct Assault with <strong>${chosenScheme.att2.card.name}</strong>!`);
+              } else if (chosenScheme.type === 'BREAKTHROUGH_SETUP') {
+                  addLogEntry(`<span style="color:#a855f7; font-weight:bold;">[AI TACTIC]</span> ${activeP.name} sequences strikes: softening Vanguard with <strong>${chosenScheme.att1.card.name}</strong> for a devastating Breakthrough with <strong>${chosenScheme.att2.card.name}</strong>!`);
+              } else if (chosenScheme.type === 'LETHAL_CLOSEOUT') {
+                  addLogEntry(`<span style="color:#ef4444; font-weight:bold;">[AI LETHAL]</span> ${activeP.name} initiates a 3-Strike lethal sequence with <strong>${chosenScheme.att1.card.name}</strong>!`);
+              }
           }
 
           if (aInfo.playerIndex === undefined) aInfo.playerIndex = activeP.index;
@@ -19092,111 +20054,10 @@ function checkAIAction() {
           });
           gameState.selectedAttacker = aInfo;
 
-          let isRanged = aInfo.card.attackType === "Ranged";
-          let bzEmpty = opp.battleZone.every(s => s === null);
-          let hasOverreach = checkKeyword(aInfo.card, atkPlayer, "overreach") || checkKeyword(aUnit, atkPlayer, "overreach");
-          const expectedDmg = estimateCardExpectedDamage(aInfo.card, atkPlayer);
+          const targetType = chosenEval.targetType;
+          const targetSlot = chosenEval.targetSlot;
+          const targetUnit = chosenEval.targetUnit;
 
-          let targetType = 'bz'; let targetSlot = 0; let targetUnit = null;
-
-          if (!isRanged) {
-              if (bzEmpty) {
-                  targetType = 'hero'; targetUnit = opp.hero;
-              } else if (hasOverreach) {
-                  const vIdx = opp.battleZone.findIndex(s => s !== null);
-                  const vanguard = opp.battleZone[vIdx];
-                  if (diff === "EASY") {
-                      if (Math.random() > 0.5) { targetSlot = vIdx; targetUnit = vanguard; }
-                      else { targetType = 'hero'; targetUnit = opp.hero; }
-                  } else {
-                      // Bypass Vanguard to hit Hero unless Vanguard is lethal-killable AND high threat while Hero isn't in lethal range
-                      const canKillHeroSoon = opp.hero.currentHealth <= expectedDmg * 2;
-                      const canKillVanguardCleanly = vanguard && vanguard.currentHealth <= expectedDmg && (vanguard.charge || 0) >= (vanguard.chargeReq || 1);
-                      if (!canKillHeroSoon && canKillVanguardCleanly && diff !== "HARD") {
-                          targetSlot = vIdx; targetUnit = vanguard;
-                      } else {
-                          targetType = 'hero'; targetUnit = opp.hero;
-                      }
-                  }
-              } else {
-                  targetSlot = opp.battleZone.findIndex(s => s !== null);
-                  targetUnit = opp.battleZone[targetSlot];
-              }
-          } else {
-              // Ranged can target any Enemy Ally (Battle Zone or Bench) and Hero if Battle Zone is empty or Overreach
-              let validTargets = [];
-              if (bzEmpty || hasOverreach) validTargets.push({ t: 'hero', s: 0, u: opp.hero });
-              opp.battleZone.forEach((u, i) => { if (u) validTargets.push({ t: 'bz', s: i, u: u }); });
-              opp.bench.forEach((u, i) => { if (u) validTargets.push({ t: 'bench', s: i, u: u }); });
-
-              if (validTargets.length > 0) {
-                  if (diff === "EASY") {
-                      let choice = validTargets[Math.floor(Math.random() * validTargets.length)];
-                      targetType = choice.t; targetSlot = choice.s; targetUnit = choice.u;
-                  } else {
-                      const accProb = calculateAccuracyProbability(aInfo.card, atkPlayer);
-                      const oppVanguardIndex = opp.battleZone.findIndex(s => s !== null);
-
-                      // Score ranged targets on Medium / Hard
-                      validTargets.sort((a, b) => {
-                          const scoreTarget = (cand) => {
-                              const u = cand.u;
-                              const isVanguard = (cand.t === 'bz' && cand.s === oppVanguardIndex);
-                              const uHP = u.currentHealth;
-                              const uDef = getStat(u, 'defense', opp) || 0;
-                              const netDmg = Math.max(0, expectedDmg - uDef);
-                              const lethal = netDmg >= uHP;
-
-                              if (cand.t === 'hero') {
-                                  if (uHP <= netDmg) return 2000; // Lethal on Hero wins game!
-                                  return (70 + (30 - uHP)) * accProb;
-                              }
-
-                              if (isVanguard) {
-                                  // Ranged Breakthrough Negation:
-                                  // The rules state that excess damage from Ranged attacks is completely negated if it hits a Slot 2, Slot 3, or Benched unit,
-                                  // but spills over to the Hero if it hits the Vanguard!
-                                  let breakthrough = 0;
-                                  if (lethal) {
-                                      const rawExcess = netDmg - uHP;
-                                      const heroDef = getStat(opp.hero, 'defense', opp) || 0;
-                                      breakthrough = Math.max(0, rawExcess - heroDef);
-                                  }
-                                  let s = 50 + (lethal ? 60 : netDmg * 8) + (breakthrough * 25);
-                                  if (breakthrough >= opp.hero.currentHealth) return 1950;
-                                  return s * accProb;
-                              }
-
-                              // Non-Vanguard (Rear slot 2/3 or Bench):
-                              // Ranged Breakthrough Negation: Excess damage is COMPLETELY NEGATED!
-                              let s = 30;
-                              if (lethal) {
-                                  s += 55 + (u.manaCost || 2) * 5;
-                                  // High threat bonus
-                                  if ((u.charge || 0) >= (u.chargeReq || 1)) s += 25;
-                                  if (u.mechanics?.activatedAbilities?.length || u.mechanics?.staticModifiers?.length) s += 20;
-                                  // If we are massively overkilling a low-HP benched unit with high-damage ranged attack,
-                                  // excess damage disappears completely! Penalize the waste so high-damage ranged attacks target Vanguard!
-                                  const wastedDmg = Math.max(0, netDmg - uHP);
-                                  if (wastedDmg >= 3) {
-                                      s -= wastedDmg * 12;
-                                  }
-                              } else {
-                                  s += netDmg * 5;
-                              }
-                              // Melee allies CANNOT counterstrike Ranged attacks! Free damage!
-                              if (u.attackType === "Melee" || u.isExhausted || (u.charge || 0) < (u.chargeReq || 1)) s += 20;
-                              return s * accProb;
-                          };
-                          return scoreTarget(b) - scoreTarget(a);
-                      });
-                      let choice = validTargets[0];
-                      targetType = choice.t; targetSlot = choice.s; targetUnit = choice.u;
-                  }
-              } else {
-                  targetType = 'hero'; targetUnit = opp.hero;
-              }
-          }
           if (isFFAMode() && opp.index !== getLocalPlayerIndex()) {
             gameState.viewedOpponentIndex = opp.index;
             renderAll();
@@ -19218,7 +20079,7 @@ function checkAIAction() {
       }
 
     } else if (PHASES[gameState.currentPhaseIndex] === "END") {
-      // End Phase Smart Trading for Gold so AI can afford Equipment & Flash Items!
+      // End Phase Smart Trading for Gold while protecting core Flashes, sequential Skills, and needed Equipment
       const tradeAIPlayers = [activeP];
       if (isTeamsMode()) {
         const tmIdx = getTeammateIndex(activeP.index);
@@ -19233,22 +20094,45 @@ function checkAIAction() {
             .filter(item => item.c.type !== "Ally" && item.val > 0);
 
           if (tradeCandidates.length > 0) {
+            const reactiveFlashCount = tp.hand.filter(h => {
+              if (!h || h.type !== "Flash") return false;
+              const hCls = classifyFlashCard(h);
+              return hCls.isHeal || hCls.isEvasion;
+            }).length;
+
             const scoredTrades = tradeCandidates.map(item => {
               const c = item.c;
               let expendability = 0;
               if (c.type === "Skill") {
-                const slotIdx = (c.skillLevel || 1) - 1;
-                if (tp.skills[slotIdx] !== null) expendability += 100;
+                const lvl = c.skillLevel || 1;
+                const slotIdx = lvl - 1;
                 const sameLvlCount = tp.hand.filter(h => h.type === "Skill" && h.skillLevel === c.skillLevel).length;
+                if (tp.skills[slotIdx] !== null) expendability += 100;
                 if (sameLvlCount > 1) expendability += 80;
-                if (c.skillLevel === 3 && !tp.skills[0] && !tp.skills[1]) expendability += 45;
+                if (lvl === 3 && !tp.skills[0] && !tp.skills[1] && !tp.hand.some(h => h.type === "Skill" && (h.skillLevel || 1) === 2)) {
+                  expendability += 45;
+                } else if (profile.smartTradingProtection && tp.skills[slotIdx] === null && sameLvlCount === 1) {
+                  const hasPrevReady = lvl === 1 || tp.skills[slotIdx - 1] !== null || tp.hand.some(h => h && h.type === "Skill" && (h.skillLevel || 1) === lvl - 1);
+                  if (hasPrevReady) expendability -= 70;
+                }
               } else if (c.type === "Synergy") {
                 const alreadyActive = tp.synergies.some(s => s && s.id === c.id);
                 const dupInHand = tp.hand.filter(h => h.id === c.id).length > 1;
                 if (alreadyActive || dupInHand) expendability += 85;
               } else if (c.type === "Equipment") {
-                const dupEquipped = tp.hero.equipment.some(e => e.id === c.id);
-                if (dupEquipped) expendability += 75;
+                const dupEquipped = [tp.hero, ...tp.battleZone, ...tp.bench].some(u => u && (u.equipment || []).some(e => e.id === c.id));
+                const dupInHand = tp.hand.filter(h => h.id === c.id).length > 1;
+                if (dupEquipped || dupInHand) {
+                  expendability += 75;
+                } else if (profile.smartTradingProtection) {
+                  const canEquipNow = [tp.hero, ...tp.battleZone, ...tp.bench].some(u => u && canUnitEquipCard(u, c));
+                  if (canEquipNow) expendability -= 45;
+                }
+              } else if (c.type === "Flash" && profile.smartTradingProtection) {
+                const cCls = classifyFlashCard(c);
+                if ((cCls.isHeal || cCls.isEvasion) && reactiveFlashCount <= 1) {
+                  expendability -= 90;
+                }
               }
               const goldNeededInHand = tp.hand.some(h => h !== c && (h.goldCost || 0) > tp.gold);
               if (goldNeededInHand) expendability += 25;
@@ -19260,7 +20144,8 @@ function checkAIAction() {
             scoredTrades.sort((a, b) => b.score - a.score);
             const best = scoredTrades[0];
             const minThreshold = (diff === "EASY") ? 80 : 25;
-            if (best && best.score >= minThreshold && (diff !== "EASY" || Math.random() < 0.5)) {
+            const hoardGoldSkip = Boolean(profile.smartTradingProtection && tp.gold >= 6 && tp.hand.length < 9 && best && best.score < 80);
+            if (best && !hoardGoldSkip && best.score >= minThreshold && (diff !== "EASY" || Math.random() < 0.5)) {
               tp.hand.splice(best.idx, 1);
               tp.discard.push(best.c);
               tp.gold += best.val;
@@ -20030,7 +20915,7 @@ function showDiscardInspect(pIdx) {
     // Show newest first (reverse of discard array)
     const reversed = [...pile].map((c, origIdx) => ({ card: c, origIdx })).reverse();
     reversed.forEach(({ card, origIdx }) => {
-      const artUrl = getCardArtUrl(card);
+      const artUrl = getCardArtUrl(card, 160);
       const safeName = (card.name || '').replace(/'/g, "\\'");
       const rarityColor = card.rarity === 'Legendary' ? '#f59e0b' : (card.rarity === 'Rare' ? '#38bdf8' : (card.rarity === 'Uncommon' ? '#10b981' : '#cbd5e1'));
       const costBadge = card.manaCost !== undefined ? `<span style="background:rgba(56,189,248,0.2); border:1px solid #38bdf8; color:#38bdf8; padding:1px 6px; border-radius:4px; font-size:0.75rem;">${card.manaCost} Mana</span>` : (card.goldCost !== undefined ? `<span style="background:rgba(245,158,11,0.2); border:1px solid #f59e0b; color:#f59e0b; padding:1px 6px; border-radius:4px; font-size:0.75rem;">${card.goldCost} Gold</span>` : '');
@@ -20039,7 +20924,7 @@ function showDiscardInspect(pIdx) {
 
       html += `
         <div style="display:flex; align-items:center; gap:12px; background:#0f172a; border:1px solid #334155; border-radius:8px; padding:8px 12px; transition:border-color 0.2s;">
-          <img src="${artUrl}" alt="${safeName}" onerror="handleCardArtError('${safeName}', this)" style="width:38px; height:52px; object-fit:cover; border-radius:4px; border:1px solid #475569; flex-shrink:0;">
+          <img src="${artUrl}" alt="${safeName}" loading="lazy" decoding="async" onerror="handleCardArtError('${safeName}', this)" style="width:38px; height:52px; object-fit:cover; border-radius:4px; border:1px solid #475569; flex-shrink:0;">
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
               <span style="font-weight:700; color:${rarityColor}; font-size:0.95rem;">${card.name}</span>
@@ -20073,7 +20958,7 @@ function showTokenInspect(pIdx) {
   } else {
     html = `<div style="max-height:360px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px;">`;
     tokens.forEach((card, idx) => {
-      const artUrl = getCardArtUrl(card);
+      const artUrl = getCardArtUrl(card, 160);
       const safeName = (card.name || card["Card Name"] || '').replace(/'/g, "\\'");
       const desc = (card.abilities || card.description || card["Abilities"] || '').replace(/<[^>]*>/g, '');
       const statLine = `${card.power !== undefined ? `⚔️ ${card.power} ` : ''}${card.attack ? `(${card.attack}) ` : ''}❤️ ${card.health || card.maxHealth || 3} 🏃 Dex ${card.dexterity !== undefined ? card.dexterity : 1}`;
@@ -20083,7 +20968,7 @@ function showTokenInspect(pIdx) {
 
       html += `
         <div style="display:flex; align-items:center; gap:12px; background:#0f172a; border:1px solid #334155; border-radius:8px; padding:8px 12px; transition:border-color 0.2s;">
-          <img src="${artUrl}" alt="${safeName}" onerror="handleCardArtError('${safeName}', this)" style="width:38px; height:52px; object-fit:cover; border-radius:4px; border:1px solid #475569; flex-shrink:0;">
+          <img src="${artUrl}" alt="${safeName}" loading="lazy" decoding="async" onerror="handleCardArtError('${safeName}', this)" style="width:38px; height:52px; object-fit:cover; border-radius:4px; border:1px solid #475569; flex-shrink:0;">
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
               <span style="font-weight:700; color:#fbbf24; font-size:0.95rem;">${card.name || card["Card Name"]}</span>

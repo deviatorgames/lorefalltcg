@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Lorefall TCG: Card Engine</title>
+  <link rel="preconnect" href="https://wsrv.nl" crossorigin />
+  <link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin />
+  <link rel="dns-prefetch" href="https://wsrv.nl" />
+  <link rel="dns-prefetch" href="https://raw.githubusercontent.com" />
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -479,6 +483,76 @@
         }
 
         return finalUrl;
+    }
+
+    const loadedCardImgUrls = new Set();
+
+    function getOptimizedImageUrl(url, width = 420, bustToken = null) {
+        const raw = formatImageUrl(url);
+        if (!raw) return { optUrl: null, rawUrl: null };
+        const rawWithBust = bustToken ? `${raw}${raw.includes('?') ? '&' : '?'}t=${bustToken}` : raw;
+        if (/^https?:\/\//i.test(raw) && !/(^https?:\/\/)?(localhost|127\.0\.0\.1|wsrv\.nl|images\.weserv\.nl)/i.test(raw)) {
+            const proxySrc = bustToken ? `${raw}${raw.includes('?') ? '&' : '?'}v=${bustToken}` : raw;
+            const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(proxySrc).replace(/'/g, '%27')}&w=${width}&output=webp&q=82&we${bustToken ? `&v=${bustToken}` : ''}`;
+            return { optUrl, rawUrl: rawWithBust };
+        }
+        return { optUrl: rawWithBust, rawUrl: rawWithBust };
+    }
+
+    function FastCardImg({ url, alt = '', width = 420, bustToken = null, className = '', loading = 'lazy', fetchPriority = 'auto' }) {
+        const { optUrl, rawUrl } = useMemo(() => getOptimizedImageUrl(url, width, bustToken), [url, width, bustToken]);
+        const imgRef = useRef(null);
+        const usedFallback = useRef(false);
+        const [src, setSrc] = useState(optUrl);
+        const [loaded, setLoaded] = useState(() => Boolean(optUrl && loadedCardImgUrls.has(optUrl)));
+
+        useEffect(() => {
+            usedFallback.current = false;
+            setSrc(optUrl);
+            if (optUrl && loadedCardImgUrls.has(optUrl)) {
+                setLoaded(true);
+            } else if (imgRef.current && imgRef.current.complete && imgRef.current.naturalWidth > 0 && (imgRef.current.getAttribute('src') === optUrl)) {
+                if (optUrl) loadedCardImgUrls.add(optUrl);
+                setLoaded(true);
+            } else {
+                setLoaded(false);
+            }
+        }, [optUrl]);
+
+        useEffect(() => {
+            if (imgRef.current && fetchPriority && fetchPriority !== 'auto') {
+                try { imgRef.current.setAttribute('fetchpriority', fetchPriority); } catch (e) {}
+            }
+        }, [fetchPriority, src]);
+
+        if (!src) return null;
+
+        const handleLoad = () => {
+            if (src) loadedCardImgUrls.add(src);
+            setLoaded(true);
+        };
+
+        const handleError = () => {
+            if (!usedFallback.current && rawUrl && src !== rawUrl) {
+                usedFallback.current = true;
+                setSrc(rawUrl);
+                return;
+            }
+            setLoaded(true);
+        };
+
+        return (
+            <img
+                ref={imgRef}
+                src={src}
+                alt={alt}
+                loading={loading}
+                decoding="async"
+                onLoad={handleLoad}
+                onError={handleError}
+                className={`${className} transition-opacity duration-200 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+            />
+        );
     }
 
     const BarChartRow = ({ label, value, max, color }) => (
@@ -3974,8 +4048,8 @@
       const [showAbilityBuilder, setShowAbilityBuilder] = useState(false);
       const [abilityBuilderTarget, setAbilityBuilderTarget] = useState('forge');
       const [initialBuilderClause, setInitialBuilderClause] = useState('');
-      // Session-wide cache-buster timestamp (prevents infinite network spam when typing)
-      const sessionBuster = useMemo(() => Date.now(), []);
+      // Per-card image cache buster (only busted when a card's Image URL is explicitly edited)
+      const [imageBustMap, setImageBustMap] = useState({});
 
       const [view, setView] = useState('arena');
       const [arenaNavCollapsed, setArenaNavCollapsed] = useState(false);
@@ -4643,6 +4717,9 @@
           }
 
           // 2. Update local state
+          if (key === "Image URL") {
+              setImageBustMap(prev => ({ ...prev, [cardId]: Date.now() }));
+          }
           setCards(prevCards => prevCards.map(c => c._id === cardId ? targetCard : c));
 
           setDeck(prevDeck => {
@@ -5576,7 +5653,7 @@
                   {/* Dynamic Grid */}
                   <div className="flex-1 overflow-y-auto px-3 md:px-6 pb-24 md:pb-6 min-h-0 w-full">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 w-full max-w-full">
-                      {filteredPool.map(card => {
+                      {filteredPool.map((card, cardIdx) => {
                         const cost = card["Mana Cost"] !== "" ? `${card["Mana Cost"]} Mana` : (card["Gold Cost"] !== "" ? `${card["Gold Cost"]} Gold` : null);
                         const isOfficialCard = String(card["Is Official"]) === "true" || card.Creator === 'Gavin';
                         return (
@@ -5584,7 +5661,15 @@
                             <div className="flex-1 flex flex-col min-w-0">
                               {card["Image URL"] && (
                                 <div className="w-full aspect-[4/3] sm:h-44 md:h-48 mb-2.5 rounded-lg bg-black/60 border border-slate-700/50 flex items-center justify-center p-2 shrink-0">
-                                    <img src={`${formatImageUrl(card["Image URL"])}?t=${sessionBuster}`} alt={card["Card Name"] || card["Hero Name"]} className="max-w-full max-h-full object-contain drop-shadow-md rounded" loading="lazy" />
+                                    <FastCardImg
+                                      url={card["Image URL"]}
+                                      alt={card["Card Name"] || card["Hero Name"]}
+                                      width={420}
+                                      bustToken={imageBustMap[card._id]}
+                                      loading={cardIdx < 10 ? "eager" : "lazy"}
+                                      fetchPriority={cardIdx < 10 ? "high" : "auto"}
+                                      className="max-w-full max-h-full object-contain drop-shadow-md rounded"
+                                    />
                                 </div>
                               )}
                               <div className="flex justify-between items-start gap-1 mb-1">
@@ -6073,7 +6158,14 @@
                     <div className="w-full max-w-xs md:max-w-sm relative z-10 bg-slate-800 border border-slate-600 rounded-2xl shadow-xl flex flex-col overflow-hidden min-w-0">
                         {forgeData["Image URL"] ? (
                             <div className="w-full h-32 md:h-64 bg-black flex items-center justify-center border-b border-slate-700 p-2">
-                                <img src={`${formatImageUrl(forgeData["Image URL"])}?t=${Date.now()}`} className="max-w-full max-h-full object-contain drop-shadow-md rounded" />
+                                <FastCardImg
+                                  url={forgeData["Image URL"]}
+                                  alt={forgeData["Card Name"] || "Preview"}
+                                  width={560}
+                                  loading="eager"
+                                  fetchPriority="high"
+                                  className="max-w-full max-h-full object-contain drop-shadow-md rounded"
+                                />
                             </div>
                         ) : (
                             <div className="w-full h-20 md:h-44 bg-slate-900 flex items-center justify-center border-b border-slate-700 text-slate-600 font-bold text-xs uppercase tracking-widest">
@@ -6618,7 +6710,15 @@
               <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl p-0 max-h-[95dvh] flex flex-col sm:flex-row shadow-2xl overflow-hidden min-w-0">
                 {modalCard["Image URL"] && (
                   <div className="w-full sm:w-1/2 h-[30dvh] sm:min-h-[600px] bg-black border-b sm:border-b-0 sm:border-r border-slate-800 flex items-center justify-center p-2 md:p-4 shrink-0">
-                    <img src={`${formatImageUrl(modalCard["Image URL"])}?t=${Date.now()}`} className="max-w-full max-h-full object-contain drop-shadow-2xl rounded-xl" />
+                    <FastCardImg
+                      url={modalCard["Image URL"]}
+                      alt={modalCard["Card Name"] || modalCard["Hero Name"]}
+                      width={760}
+                      bustToken={imageBustMap[modalCard._id]}
+                      loading="eager"
+                      fetchPriority="high"
+                      className="max-w-full max-h-full object-contain drop-shadow-2xl rounded-xl"
+                    />
                   </div>
                 )}
                 
