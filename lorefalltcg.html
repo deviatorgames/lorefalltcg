@@ -18443,7 +18443,64 @@ function getEffectiveNetDamage(card, atkPlayer, defUnit, defPlayer) {
   return Math.max(0, raw - defVal);
 }
 
-function getAIUnitCounterThreat(defUnit, defPlayer, atkCard, atkPlayer) {
+function estimateCardMaxDamage(card, player) {
+  if (!card) return 0;
+  const isSkill = card.type === "Skill";
+  const charUnit = (isSkill && player) ? player.hero : card;
+  const hasAutoCrit = checkKeyword(card, player, "autoCritical") || (charUnit && checkKeyword(charUnit, player, "autoCritical"));
+
+  if (card.attackType === "Ranged") {
+    let baseRng = getStat(card, 'rangedAttack', player) || 0;
+    let bonusRng = (charUnit && charUnit !== card) ? (getStat(charUnit, 'rangedAttack', player) || 0) : 0;
+    if (charUnit && charUnit.equipment) {
+      charUnit.equipment.forEach(eq => {
+        const eqAtkType = eq.attackType || (eq.rangedAttack !== undefined ? "Ranged" : "Melee");
+        const reqWCharge = (eq.chargeReq !== undefined && Number(eq.chargeReq) > 0) ? Number(eq.chargeReq) : 1;
+        if (eqAtkType === "Ranged" && eq.rangedAttack && (eq.charge || 0) >= reqWCharge) {
+          bonusRng += Number(eq.rangedAttack) || 0;
+        }
+      });
+    }
+    let total = baseRng + bonusRng;
+    if (hasAutoCrit) total *= 2;
+    return total;
+  } else {
+    const flatOverride = card.temp_overrideAttackValue || (charUnit && charUnit.temp_overrideAttackValue);
+    const sliceMod = card.mechanics?.staticModifiers?.find(m => m.effect?.action === "flatDamageOverride" && (!player || evaluateCondition(m.condition, card, { triggerPlayer: player })));
+    const sliceFallback = (!sliceMod && card.mechanics?.sliceAndDiceFlatDmg && player?.hero && hasDaggerEquipped(player.hero))
+      ? card.mechanics.sliceAndDiceFlatDmg
+      : null;
+
+    let maxDie = 0;
+    if (flatOverride) {
+      maxDie = Number(flatOverride) || 4;
+    } else if (sliceMod || sliceFallback !== null) {
+      maxDie = sliceMod ? (Number(sliceMod.effect.value) || 4) : (Number(sliceFallback) || 4);
+    } else {
+      const dieStr = getEffectiveAttackDie(card, player) || card.attack || "D4";
+      maxDie = parseInt(String(dieStr).replace(/\D/g, "")) || 4;
+    }
+
+    let pow = getStat(card, 'power', player) || 0;
+    if (isSkill && player && player.hero) {
+      pow += (getStat(player.hero, 'power', player) || 0);
+    }
+    if (charUnit && charUnit.equipment) {
+      charUnit.equipment.forEach(eq => {
+        const eqAtkType = eq.attackType || (eq.rangedAttack !== undefined ? "Ranged" : "Melee");
+        const reqWCharge = (eq.chargeReq !== undefined && Number(eq.chargeReq) > 0) ? Number(eq.chargeReq) : 1;
+        if (eqAtkType === "Melee" && eq.attack && (eq.charge || 0) >= reqWCharge) {
+          const eqDieMax = parseInt(String(eq.attack).replace(/\D/g, "")) || 0;
+          maxDie += eqDieMax;
+        }
+      });
+    }
+    if (hasAutoCrit) maxDie *= 2;
+    return maxDie + pow;
+  }
+}
+
+function getAIUnitCounterThreat(defUnit, defPlayer, atkCard, atkPlayer, useMaxRoll = false) {
   if (!defUnit || !defPlayer || !atkCard) return 0;
   const atkUnit = (atkCard.type === "Skill" && atkPlayer) ? atkPlayer.hero : atkCard;
   const atkDef = atkUnit ? (getStat(atkUnit, 'defense', atkPlayer) || 0) : 0;
@@ -18456,8 +18513,8 @@ function getAIUnitCounterThreat(defUnit, defPlayer, atkCard, atkPlayer) {
     if (validSkills.length === 0) return 0;
     let bestThreat = 0;
     for (const s of validSkills) {
-      let dmg = estimateCardExpectedDamage(s, defPlayer);
-      if (s.attackType === "Ranged") dmg *= calculateAccuracyProbability(s, defPlayer);
+      let dmg = useMaxRoll ? estimateCardMaxDamage(s, defPlayer) : estimateCardExpectedDamage(s, defPlayer);
+      if (!useMaxRoll && s.attackType === "Ranged") dmg *= calculateAccuracyProbability(s, defPlayer);
       const isPiercing = checkKeyword(s, defPlayer, "piercing") || checkKeyword(defPlayer.hero, defPlayer, "piercing");
       const hasPierceProof = atkUnit && checkKeyword(atkUnit, atkPlayer, "pierceProof");
       const net = Math.max(0, dmg - ((isPiercing && !hasPierceProof) ? 0 : atkDef));
@@ -18468,8 +18525,8 @@ function getAIUnitCounterThreat(defUnit, defPlayer, atkCard, atkPlayer) {
 
   if (defUnit.isExhausted || (!isFreeCounter && (defUnit.charge || 0) < (defUnit.chargeReq || 1))) return 0;
   if (!canRangeMatch(defUnit.attackType)) return 0;
-  let dmg = estimateCardExpectedDamage(defUnit, defPlayer);
-  if (defUnit.attackType === "Ranged") dmg *= calculateAccuracyProbability(defUnit, defPlayer);
+  let dmg = useMaxRoll ? estimateCardMaxDamage(defUnit, defPlayer) : estimateCardExpectedDamage(defUnit, defPlayer);
+  if (!useMaxRoll && defUnit.attackType === "Ranged") dmg *= calculateAccuracyProbability(defUnit, defPlayer);
   const isPiercing = checkKeyword(defUnit, defPlayer, "piercing");
   const hasPierceProof = atkUnit && checkKeyword(atkUnit, atkPlayer, "pierceProof");
   return Math.max(0, dmg - ((isPiercing && !hasPierceProof) ? 0 : atkDef));
@@ -19935,13 +19992,19 @@ function checkAIAction() {
                   if (Math.max(0, (netDmg - tUnit.currentHealth) - hDef) >= opp.hero.currentHealth) breakthroughHeroLethal = true;
               }
               const counterThreat = getAIUnitCounterThreat(tUnit, opp, att.card, atkP);
+              const directMaxCounter = getAIUnitCounterThreat(tUnit, opp, att.card, atkP, true);
+              const heroInterveneMaxCounter = (att.type === 'skill' && tType !== 'hero' && opp.hero && !opp.hero.isExhausted)
+                ? getAIUnitCounterThreat(opp.hero, opp, att.card, atkP, true)
+                : 0;
+              const worstCaseHeroCounter = Math.max(directMaxCounter, heroInterveneMaxCounter);
               const isHeroLethal = (tType === 'hero' && netDmg >= opp.hero.currentHealth) || breakthroughHeroLethal;
               const isUnitKill = (tType !== 'hero' && tUnit !== opp.hero && netDmg >= tUnit.currentHealth);
-              const wouldKillHero = (att.type === 'skill' && counterThreat >= atkP.hero.currentHealth && !isHeroLethal);
+              const wouldKillHero = (att.type === 'skill' && worstCaseHeroCounter >= atkP.hero.currentHealth && !isHeroLethal);
+              const isNearHeroDeath = (att.type === 'skill' && !isHeroLethal && worstCaseHeroCounter > 0 && (atkP.hero.currentHealth - worstCaseHeroCounter) <= 2);
               const isSuicidalAlly = (att.type !== 'skill' && !isHeroLethal && !isUnitKill && counterThreat >= att.card.currentHealth && (att.card.manaCost || 0) >= 2 && !(stageInfo.isLethalMode && netDmg > 0));
               const isZeroDmg = (netDmg <= 0 && !stageInfo.isLethalMode);
 
-              return { targetType: tType, targetSlot: tSlot, targetUnit: tUnit, netDmg, counterThreat, expDmg, accProb, isHeroLethal, isUnitKill, wouldKillHero, isSuicidalAlly, isZeroDmg };
+              return { targetType: tType, targetSlot: tSlot, targetUnit: tUnit, netDmg, counterThreat, worstCaseHeroCounter, expDmg, accProb, isHeroLethal, isUnitKill, wouldKillHero, isNearHeroDeath, isSuicidalAlly, isZeroDmg };
           };
 
           // Precompute per-Hero ready Multi-Strike & top Skill scores
@@ -19999,15 +20062,24 @@ function checkAIAction() {
                       if (att1.type === 'skill' && !att1Multi && heroSkillMeta[att1P.index]?.hasMultiSkill && att1HeroDmg < opp.hero.currentHealth) {
                           singleExhaustPenalty = 120 * (profile.multiBeforeSingleSkill || 1);
                       }
+                      // Never delay a high-impact Multi-Strike attacker (e.g. Iceshard Barrage) behind a weak Single-Strike unit (e.g. Gladeweaver) unless clearing for immediate Hero lethal
+                      const att2Multi = isMultiAttacker(att2, att2P);
+                      const att1Exp = estimateCardExpectedDamage(att1.card, att1P);
+                      const att2Exp = estimateCardExpectedDamage(att2.card, att2P);
+                      let multiDelayPenalty = 0;
+                      if (!att1Multi && att2Multi && (att2Exp >= 4 || att2.type === 'skill') && att2Exp > att1Exp && att1HeroDmg < opp.hero.currentHealth) {
+                          multiDelayPenalty = 150 * (profile.multiBeforeSingleSkill || 1);
+                      }
+                      const multiLeadBonus = att1Multi ? (att1.type === 'skill' ? 75 : 40) : 0;
 
                       if (stageInfo.isLethalMode && (!hasVanguard || (dmg1ToTarget + dmg2ToVan >= vHP && (att1HeroDmg + att2HeroDmg - vHP) >= opp.hero.currentHealth) || (!hasVanguard && att1HeroDmg + att2HeroDmg >= opp.hero.currentHealth))) {
-                          const score = 260 + att1HeroDmg * 10 + att2HeroDmg * 12 + strike1Bonus - singleExhaustPenalty;
+                          const score = 260 + att1HeroDmg * 10 + att2HeroDmg * 12 + strike1Bonus + multiLeadBonus - singleExhaustPenalty - (multiDelayPenalty * 0.4);
                           schemes.push({ att1, att2, type: 'LETHAL_CLOSEOUT', score });
                       }
 
                       if (hasVanguard && dmg1ToTarget >= vHP) {
-                          const isAtt2Heavier = estimateCardExpectedDamage(att2.card, att2P) >= estimateCardExpectedDamage(att1.card, att1P);
-                          const score = 170 + (att2HeroDmg * 15) + (att2Power * 12) + (att1Multi ? 30 : 0) + (isAtt2Heavier ? 35 : 0) + strike1Bonus - singleExhaustPenalty;
+                          const isAtt2Heavier = att2Exp >= att1Exp;
+                          const score = 170 + (att2HeroDmg * 15) + (att2Power * 12) + multiLeadBonus + (isAtt2Heavier ? 25 : 0) + strike1Bonus - singleExhaustPenalty - multiDelayPenalty;
                           schemes.push({ att1, att2, type: 'CLEAR_THEN_HERO', score });
                       }
 
@@ -20019,13 +20091,13 @@ function checkAIAction() {
                               const hPP = checkKeyword(opp.hero, opp, "pierceProof");
                               const heroD = (isP2 && !hPP) ? 0 : (getStat(opp.hero, 'defense', opp) || 0);
                               const projectedBreakthrough = Math.max(0, rawBT - heroD);
-                              const score = 145 + (projectedBreakthrough * 22) + (att2Power * 12) + (att2MatchesNext ? 25 : 0) + strike1Bonus - singleExhaustPenalty;
+                              const score = 145 + (projectedBreakthrough * 22) + (att2Power * 12) + (att2MatchesNext ? 25 : 0) + strike1Bonus + multiLeadBonus - singleExhaustPenalty - multiDelayPenalty;
                               schemes.push({ att1, att2, type: 'BREAKTHROUGH_SETUP', score });
                           }
                       }
 
                       if (att2MatchesNext || strike1Bonus > 0) {
-                          const score = 100 + dmg1ToTarget + dmg2ToVan + (att2MatchesNext ? 25 : 0) + strike1Bonus - singleExhaustPenalty;
+                          const score = 100 + dmg1ToTarget + dmg2ToVan + (att2MatchesNext ? 25 : 0) + strike1Bonus + multiLeadBonus - singleExhaustPenalty - multiDelayPenalty;
                           schemes.push({ att1, att2, type: 'STRIKE_TRIGGER', score });
                       }
                   }
@@ -20056,6 +20128,11 @@ function checkAIAction() {
               if (ev.isHeroLethal) score += 500;
               if (ev.isUnitKill) score += 45;
               if (ev.isZeroDmg) score -= 100;
+              if (ev.isNearHeroDeath && (profile.avoidSuicidalStrikes || 0) >= 0.85) score -= 160;
+
+              if (strikesRemaining >= 2 && isMulti) {
+                  score += (isSkill ? 55 : 30) * (profile.skillTierStrictness || 1);
+              }
 
               if (isSkill) {
                   const meta = heroSkillMeta[atkP.index];
@@ -20077,9 +20154,10 @@ function checkAIAction() {
                   }
               }
 
+              // Non-skill Ranged units still respect low-accuracy weighting; Skills already weight accuracy in scoreAISkillValue
               if (att.card.attackType === "Ranged") {
                   if (diff === "HARD" && ev.accProb < 0.50) score *= 0.4;
-                  else score *= ev.accProb;
+                  else if (!isSkill) score *= ev.accProb;
               }
 
               const strikeTrig = getStrikeTriggerVal(att.card);
