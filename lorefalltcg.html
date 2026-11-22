@@ -211,6 +211,143 @@
   }
   .equip-tab:hover { background: var(--mana); color: #000; border-color: #fff; right: -27px; }
 
+  .hero-card-slot .card-mini {
+    position: relative;
+    z-index: 12;
+  }
+  .hero-equip-peek {
+    position: absolute;
+    left: 3px;
+    right: 3px;
+    height: 26px;
+    padding: 2px 7px 7px 7px;
+    border-radius: 6px 6px 2px 2px;
+    background: linear-gradient(180deg, #332918 0%, #1c1710 65%, #0f172a 100%);
+    border: 1.5px solid #b49248;
+    border-bottom: none;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 4px;
+    color: #fef3c7;
+    font-size: 0.62rem;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+  }
+  .hero-equip-peek:hover {
+    transform: translateY(-2px);
+    border-color: var(--gold);
+    background: linear-gradient(180deg, #473920 0%, #261f14 70%, #172033 100%);
+    z-index: 11 !important;
+  }
+  .hero-equip-peek-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px #000;
+  }
+  .hero-equip-peek-cost {
+    flex-shrink: 0;
+    font-size: 0.56rem;
+    font-weight: 800;
+    color: var(--gold);
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(212, 175, 55, 0.45);
+    border-radius: 999px;
+    padding: 0 4px;
+    line-height: 1.2;
+  }
+  .hero-equip-peek-cost.charge-clickable,
+  .ally-equip-bar-cost.charge-clickable {
+    cursor: pointer;
+    border-color: var(--mana);
+    color: #e0f2fe;
+    background: rgba(14, 116, 144, 0.72);
+    box-shadow: 0 0 6px rgba(56, 189, 248, 0.5);
+    transition: transform 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+  }
+  .hero-equip-peek-cost.charge-clickable:hover,
+  .ally-equip-bar-cost.charge-clickable:hover {
+    transform: scale(1.12);
+    background: var(--mana);
+    color: #0f172a;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.9);
+  }
+  .hero-equip-peek-cost.charge-ready,
+  .ally-equip-bar-cost.charge-ready {
+    border-color: #34d399;
+    color: #d1fae5;
+    background: rgba(6, 95, 70, 0.78);
+  }
+
+  /* Ally Top Equipment Header Strips (keeps 10:7 slot aspect ratio, shifts Ally art down) */
+  .ally-equip-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 15px;
+    padding: 0 5px;
+    background: linear-gradient(180deg, #332918 0%, #1c1710 85%);
+    border-bottom: 1px solid rgba(180, 146, 72, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    color: #fef3c7;
+    font-size: 0.54rem;
+    font-weight: 800;
+    line-height: 1;
+    z-index: 6;
+    pointer-events: auto;
+    cursor: pointer;
+  }
+  .ally-equip-bar:hover {
+    background: linear-gradient(180deg, #473920 0%, #261f14 85%);
+  }
+  .ally-equip-bar-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px #000;
+  }
+  .ally-equip-bar-cost {
+    flex-shrink: 0;
+    font-size: 0.5rem;
+    font-weight: 800;
+    color: var(--gold);
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(212, 175, 55, 0.45);
+    border-radius: 999px;
+    padding: 0 4px;
+    line-height: 1.15;
+  }
+  .ally-mini.has-ally-equip .card-mini-img:not(.board-crop-img) {
+    top: var(--ally-equip-offset, 15px);
+  }
+  .ally-mini.has-ally-equip .card-mini-img.board-crop-img {
+    top: calc(-8.5714% + var(--ally-equip-offset, 15px));
+  }
+  .ally-mini.has-ally-equip .mini-stat-overlay .mini-ally-charge,
+  .ally-mini.has-ally-equip .mini-charge-icon {
+    top: calc(2px + var(--ally-equip-offset, 15px)) !important;
+  }
+  .ally-mini.has-ally-equip .mini-stat-overlay .mini-dex,
+  .ally-mini.has-ally-equip .mini-dex {
+    top: calc(2px + var(--ally-equip-offset, 15px)) !important;
+  }
+  .ally-mini.has-ally-equip .board-kw-strip {
+    top: calc(3px + var(--ally-equip-offset, 15px));
+  }
+
   /* ==========================================================================
      MULTIPLAYER GAMETYPES: FREE FOR ALL (4P) & TEAMS (2v2) LAYOUTS
      ========================================================================== */
@@ -2629,12 +2766,22 @@
   }
 
   .fc-overlay-atk {
-    top: 61%;
+    top: 63%;
     left: 12.5%;
     animation: none !important;
   }
+  .fc-overlay-atk.fc-icon-pow {
+    width: 48px;
+    width: clamp(20px, 16cqw, 48px);
+    height: 48px;
+    height: clamp(20px, 16cqw, 48px);
+  }
+  .fc-overlay-atk.fc-icon-pow span {
+    font-size: 1.55rem;
+    font-size: clamp(0.65rem, 8.2cqw, 1.55rem);
+  }
   .fc-overlay-charge {
-    top: 60%;
+    top: 62.5%;
     right: 12.5%;
     animation: none !important;
   }
@@ -11674,6 +11821,13 @@ function showArenaPreview(event, pIdx, zone, slot, directCard = null) {
     else if (zone === 'skill') card = p.skills[slot];
     else if (zone === 'synergy') card = p.synergies[slot];
     else if (zone === 'equip') card = p.hero?.equipment?.[slot];
+    else if (typeof zone === 'string' && zone.startsWith('bzEquip_')) {
+      const uSlot = parseInt(zone.split('_')[1], 10);
+      card = p.battleZone[uSlot]?.equipment?.[slot];
+    } else if (typeof zone === 'string' && zone.startsWith('benchEquip_')) {
+      const uSlot = parseInt(zone.split('_')[1], 10);
+      card = p.bench[uSlot]?.equipment?.[slot];
+    }
   }
   if (!card) return;
 
@@ -11684,7 +11838,7 @@ function showArenaPreview(event, pIdx, zone, slot, directCard = null) {
     previewEl.classList.toggle('preview-right', putOnRight);
   }
 
-  const isInPlay = (zone === 'hero' || zone === 'bz' || zone === 'ally' || zone === 'bench' || zone === 'skill' || zone === 'synergy' || zone === 'equip');
+  const isInPlay = (zone === 'hero' || zone === 'bz' || zone === 'ally' || zone === 'bench' || zone === 'skill' || zone === 'synergy' || zone === 'equip' || (typeof zone === 'string' && (zone.startsWith('bzEquip_') || zone.startsWith('benchEquip_'))));
   const phase = PHASES[gameState.currentPhaseIndex];
   const isMyTurn = Boolean(p && isPlayerActiveTurn(p.index) && !p.isAI);
 
@@ -12618,13 +12772,42 @@ function renderPlayer(pIdx, explicitPrx = null) {
     if (oppTokenD) oppTokenD.innerText = (p.tokens || []).length;
   }
   
-  const eqTabHTML = (p.hero.equipment && p.hero.equipment.length > 0) ? `<div id="${prx}-equip-tab" class="equip-tab" onclick="openEquipmentDetail(${pIdx}, 'hero', 0, 0, event)" onmouseenter="showArenaPreview(event, ${pIdx}, 'equip', 0)" onmouseleave="hideArenaPreview()">Equip (${p.hero.equipment.length})</div>` : "";
+  const localPlayerIdx = getLocalPlayerIndex();
+  const curPhaseName = PHASES[gameState.currentPhaseIndex];
+  const canChargeHeroEquip = Boolean(p && !p.isAI && isPlayerActiveTurn(localPlayerIdx) && isSameTeam(localPlayerIdx, pIdx) && curPhaseName === "COMMAND");
+  const heroEquips = (p.hero.equipment && Array.isArray(p.hero.equipment)) ? p.hero.equipment : [];
+  const heroEquipPeeksHTML = heroEquips.map((eq, eqIdx) => {
+    if (!eq) return '';
+    const bottomOffset = -7 + (eqIdx * 19);
+    const zVal = Math.max(1, 10 - eqIdx);
+    const eqTitle = (eq.name || 'Equipment').replace(/"/g, '&quot;');
+    const hasChReq = eq.chargeReq !== undefined;
+    const isChReady = hasChReq && (eq.charge || 0) >= (eq.chargeReq || 1);
+    const chClickable = hasChReq && canChargeHeroEquip;
+    const chargeStr = hasChReq ? `⚡${eq.charge || 0}/${eq.chargeReq}` : (eq.goldCost !== undefined ? `${eq.goldCost}G` : '');
+    const costBadgeClass = `hero-equip-peek-cost${chClickable ? ' charge-clickable' : ''}${isChReady ? ' charge-ready' : ''}`;
+    const costBadgeAttrs = chClickable
+      ? ` onclick="event.stopPropagation(); modifyCharge(${pIdx}, 'equip', ${eqIdx}, 1);" title="Click to +1 Charge (1 Mana)"`
+      : '';
+    return `
+      <div class="hero-equip-peek"
+           data-eq-idx="${eqIdx}"
+           style="bottom: calc(100% + ${bottomOffset}px); z-index: ${zVal};"
+           title="${eqTitle}"
+           onclick="event.stopPropagation(); openEquipmentDetail(${pIdx}, 'hero', 0, ${eqIdx}, event)"
+           onmouseenter="showArenaPreview(event, ${pIdx}, 'equip', ${eqIdx})"
+           onmouseleave="hideArenaPreview()">
+        <span class="hero-equip-peek-name">${eq.name || 'Equipment'}</span>
+        ${chargeStr ? `<span class="${costBadgeClass}"${costBadgeAttrs}>${chargeStr}</span>` : ''}
+      </div>
+    `;
+  }).join('');
   const heroSlotEl = document.getElementById(prx + "-hero-slot");
   if (heroSlotEl) {
     heroSlotEl.classList.toggle('eliminated-hero', Boolean(p.isEliminated));
-    const heroHTML = createCardHTML(p.hero, pIdx, 'hero', 0) + eqTabHTML;
+    const heroHTML = heroEquipPeeksHTML + createCardHTML(p.hero, pIdx, 'hero', 0);
     updateSlotContentSafe(heroSlotEl, heroHTML);
-    heroSlotEl.onclick = (e) => { if(e.target.className !== 'equip-tab') handleCardInteraction(pIdx, 'hero', 0); };
+    heroSlotEl.onclick = (e) => { if (!e.target.closest('.hero-equip-peek')) handleCardInteraction(pIdx, 'hero', 0); };
     heroSlotEl.onmouseenter = (e) => showArenaPreview(e, pIdx, 'hero', 0);
     heroSlotEl.onmouseleave = () => hideArenaPreview();
   }
@@ -12804,10 +12987,32 @@ function renderPlayer(pIdx, explicitPrx = null) {
     }
   }
 
+  const trackEquip = (eqList, parentSlotEl, fallbackPrefix, selectorPrefix) => {
+    if (!eqList || !Array.isArray(eqList)) return;
+    eqList.forEach((eq, eqIdx) => {
+      if (!eq) return;
+      const eqKey = eq.instanceId || `${fallbackPrefix}:eq:${eqIdx}:${eq.name || ''}`;
+      const chg = eq.charge ?? 0;
+      curCards[eqKey] = { hp: 0, chg };
+      const prevEq = prev?.cards?.[eqKey];
+      if (prevEq && chg > prevEq.chg && parentSlotEl) {
+        const badgeEl = parentSlotEl.querySelector(`${selectorPrefix}[data-eq-idx="${eqIdx}"] ${selectorPrefix}-cost`) || parentSlotEl.querySelector(`${selectorPrefix}[data-eq-idx="${eqIdx}"]`) || parentSlotEl;
+        triggerStatGainFlash(badgeEl, `+${chg - prevEq.chg}⚡`, 'stat-gain-charge');
+        if (typeof AudioManager !== 'undefined' && AudioManager.playManaPowerUp) AudioManager.playManaPowerUp();
+      }
+    });
+  };
+
+  trackEquip(p.hero?.equipment, document.getElementById(prx + "-hero-slot"), `${prx}:hero`, '.hero-equip-peek');
+
   for (let s = 0; s < 3; s++) {
     if (prx === 'p1' || prx === 'p2') {
-      trackUnit(p.battleZone[s], document.getElementById(prx + "-bz-" + s));
-      trackUnit(p.bench[s], document.getElementById(prx + "-bench-" + s));
+      const bzEl = document.getElementById(prx + "-bz-" + s);
+      const benchEl = document.getElementById(prx + "-bench-" + s);
+      trackUnit(p.battleZone[s], bzEl);
+      trackUnit(p.bench[s], benchEl);
+      trackEquip(p.battleZone[s]?.equipment, bzEl, `${prx}:bz:${s}`, '.ally-equip-bar');
+      trackEquip(p.bench[s]?.equipment, benchEl, `${prx}:bench:${s}`, '.ally-equip-bar');
     }
     trackUnit(p.skills[s], document.getElementById(prx + "-skill-" + s));
   }
@@ -13105,7 +13310,7 @@ function createCardHTML(card, pIdx, zone, slot) {
     }
     const dexVal = (isAlly && card.dexterity !== undefined) ? getStat(card, 'dexterity', p) : "";
     const hpVal = isAlly ? (card.currentHealth !== undefined ? card.currentHealth : (card.health !== undefined ? card.health : "")) : "";
-    const powVal = isAlly ? getStat(card, 'power', p) : (card.powerModifier ? `+${card.powerModifier}` : "");
+    const powVal = isAlly ? getStat(card, 'power', p) : "";
     const atkVal = (card.attack || card.rangedAttack !== undefined)
       ? (card.attackType === "Ranged"
           ? (isEquipment ? `+${card.rangedAttack}` : getStat(card, 'rangedAttack', p))
@@ -13139,9 +13344,35 @@ function createCardHTML(card, pIdx, zone, slot) {
     let chBadge = (card.chargeReq !== undefined && card.type !== "Hero")
       ? `<div class="${chClass} ${chExtraClass}"${chClickAttr}><span>${card.charge || 0}/${card.chargeReq}</span></div>`
       : "";
-    let eqBadge = (card.equipment && card.equipment.length > 0 && zone !== 'hero')
-      ? `<div style="position:absolute; top:20%; left:4px; background:rgba(15,23,42,0.92); color:var(--gold); border:1px solid var(--gold); border-radius:4px; font-size:0.55rem; font-weight:800; padding:1px 3px; z-index:4;">🛡️${card.equipment.length}</div>`
-      : "";
+
+    const allyEquips = (isAlly && card.equipment && Array.isArray(card.equipment)) ? card.equipment.filter(Boolean) : [];
+    const canChargeAllyEquip = Boolean(p && !p.isAI && isPlayerActiveTurn(localIdx) && isSameTeam(localIdx, pIdx) && currentPhase === "COMMAND" && (zone === 'bz' || zone === 'bench'));
+    const allyEquipBarsHTML = allyEquips.map((eq, eqIdx) => {
+      const hasChReq = eq.chargeReq !== undefined;
+      const isChReady = hasChReq && (eq.charge || 0) >= (eq.chargeReq || 1);
+      const chClickable = hasChReq && canChargeAllyEquip;
+      const chargeStr = hasChReq ? `⚡${eq.charge || 0}/${eq.chargeReq}` : (eq.goldCost !== undefined ? `${eq.goldCost}G` : '');
+      const costClass = `ally-equip-bar-cost${chClickable ? ' charge-clickable' : ''}${isChReady ? ' charge-ready' : ''}`;
+      const equipZoneKey = `${zone}Equip_${slot}`;
+      const costAttrs = chClickable
+        ? ` onclick="event.stopPropagation(); modifyCharge(${pIdx}, '${equipZoneKey}', ${eqIdx}, 1);" title="Click to +1 Charge (1 Mana)"`
+        : '';
+      const eqTitle = (eq.name || 'Equipment').replace(/"/g, '&quot;');
+      return `
+        <div class="ally-equip-bar"
+             data-eq-idx="${eqIdx}"
+             style="top: ${eqIdx * 15}px;"
+             title="${eqTitle}"
+             onclick="event.stopPropagation(); openEquipmentDetail(${pIdx}, '${zone}', ${slot}, ${eqIdx}, event)"
+             onmouseenter="event.stopPropagation(); showArenaPreview(event, ${pIdx}, '${equipZoneKey}', ${eqIdx})"
+             onmouseleave="hideArenaPreview()">
+          <span class="ally-equip-bar-name">${eq.name || 'Equipment'}</span>
+          ${chargeStr ? `<span class="${costClass}"${costAttrs}>${chargeStr}</span>` : ''}
+        </div>
+      `;
+    }).join('');
+    const allyEquipClass = allyEquips.length > 0 ? 'has-ally-equip' : '';
+    const allyEquipStyle = allyEquips.length > 0 ? ` style="--ally-equip-offset: ${allyEquips.length * 15}px;"` : '';
 
     const isGoldCost = card.goldCost !== undefined;
     const costClass = isGoldCost ? 'mini-gold' : 'mini-mana';
@@ -13150,7 +13381,8 @@ function createCardHTML(card, pIdx, zone, slot) {
     const zoneClass = isSkill ? 'skill-mini' : (isAlly ? 'ally-mini' : (isSynergy ? 'synergy-mini' : ''));
 
     return `
-      <div class="card-mini ${zoneClass} ${ex} ${sel} ${deployAnimClass} ${activatableClass} ${chargedCardClass}" data-instance-id="${card.instanceId || ''}">
+      <div class="card-mini ${zoneClass} ${allyEquipClass} ${ex} ${sel} ${deployAnimClass} ${activatableClass} ${chargedCardClass}"${allyEquipStyle} data-instance-id="${card.instanceId || ''}">
+        ${allyEquipBarsHTML}
         <img class="card-mini-img ${isFullCard ? 'board-crop-img' : ''} ${getCardImgFadeClass(artUrl)}" src="${artUrl}" alt="${card.name}" decoding="async" onload="markCardImgLoaded(this); if(this.naturalHeight > this.naturalWidth * 1.2) this.classList.add('board-crop-img');" onerror="handleBoardCardArtError('${safeName}', this)">
         ${ownerBadgeHTML}
         <div class="mini-stat-overlay">
@@ -13158,7 +13390,6 @@ function createCardHTML(card, pIdx, zone, slot) {
           ${manaVal !== "" ? `<div class="${costClass}"><span>${manaVal}</span></div>` : ''}
           ${dexVal !== "" ? `<div class="mini-dex"><span>${dexVal}</span></div>` : ''}
           ${chBadge}
-          ${eqBadge}
           ${atkBadgeHTML}
           ${hpVal !== "" ? `<div class="mini-hp"><span>${hpVal}</span></div>` : ''}
           ${powVal !== "" ? `<div class="mini-pow"><span>${powVal}</span></div>` : ''}
@@ -13843,11 +14074,11 @@ function generateFullCardView(card, p, zone, slot, isMyTurn, phase, omitActions 
             const req = card.chargeReq || 1;
             if ((card.charge || 0) >= req && gameState.strikesUsed < gameState.maxStrikes) canStrike = true;
         }
-        const atkClass = (card.attackType === "Ranged") ? "fc-icon-ranged" : "fc-icon-melee";
+        const atkClass = hasPowerModBand ? "fc-icon-pow" : ((card.attackType === "Ranged") ? "fc-icon-ranged" : "fc-icon-melee");
         attackBadgeHTML = `
           <div class="fc-live-stat fc-overlay-atk fc-icon-atk ${atkClass} ${canStrike ? 'ready-to-strike' : ''}" 
                ${canStrike ? `onclick="declareStrikeFromDetail(${p.index}, '${zone}', ${slot})"` : ''} 
-               title="${canStrike ? 'Click to Declare Strike!' : (card.attackType || 'Melee') + ' Attack'}">
+               title="${canStrike ? 'Click to Declare Strike!' : (hasPowerModBand ? 'Weapon Power Bonus' : (card.attackType || 'Melee') + ' Attack')}">
             <span class="${String(atkVal).length > 2 ? 'fc-long-val' : ''}">${atkVal}</span>
           </div>
         `;
@@ -13864,7 +14095,7 @@ function generateFullCardView(card, p, zone, slot, isMyTurn, phase, omitActions 
     }
 
     const hp = card.currentHealth !== undefined ? card.currentHealth : (card.health !== undefined ? card.health : "");
-    const power = (card.type === "Hero" || card.type === "Ally") ? getStat(card,'power',p) : (card.powerModifier !== undefined ? `+${card.powerModifier}` : "");
+    const power = (card.type === "Hero" || card.type === "Ally") ? getStat(card,'power',p) : "";
 
     return `
       <div class="fc-card-art-frame">
@@ -15567,6 +15798,13 @@ function modifyCharge(playerIndex, zone, slotIndex, delta, spenderIndex = null) 
   else if (zone === 'bench') unit = p.bench[slotIndex]; 
   else if (zone === 'skill') unit = p.skills[slotIndex];
   else if (zone === 'equip') unit = p.hero.equipment[slotIndex];
+  else if (typeof zone === 'string' && zone.startsWith('bzEquip_')) {
+    const uSlot = parseInt(zone.split('_')[1], 10);
+    unit = p.battleZone[uSlot]?.equipment?.[slotIndex];
+  } else if (typeof zone === 'string' && zone.startsWith('benchEquip_')) {
+    const uSlot = parseInt(zone.split('_')[1], 10);
+    unit = p.bench[uSlot]?.equipment?.[slotIndex];
+  }
   if (!unit) return;
   if (unit.type === 'Hero') return;
 
