@@ -11422,8 +11422,21 @@ function hasBoardCardArt(card) {
   return card.type !== "Token";
 }
 
+const resolvedBoardArtUrlCache = new Map();
+
+function getBoardCardFallbackUrl(card, width = CANONICAL_CARD_IMG_WIDTH) {
+  if (!card || !card.name) return null;
+  const info = getBoardCardInfo(card);
+  const fileName = info ? info.file : `${card.name} - Board.png`;
+  const encodedName = encodeURIComponent(fileName).replace(/'/g, '%27');
+  return getOptimizedArenaImageUrl(`${GITHUB_CARD_ART_BASE}${encodedName}`, width);
+}
+
 function getBoardCardArtUrl(card, width = CANONICAL_CARD_IMG_WIDTH) {
   if (!card || !card.name) return null;
+  if (width === CANONICAL_CARD_IMG_WIDTH && resolvedBoardArtUrlCache.has(card.name)) {
+    return resolvedBoardArtUrlCache.get(card.name);
+  }
   if (card.board_image_url) {
     const formatted = formatArenaImageUrl(card.board_image_url);
     if (formatted) return getOptimizedArenaImageUrl(formatted, width);
@@ -11443,6 +11456,7 @@ function getBoardCardArtUrl(card, width = CANONICAL_CARD_IMG_WIDTH) {
 
 function handleBoardCardArtError(cardName, imgEl) {
   if (!imgEl) return;
+  if (cardName) imgEl.dataset.boardCardName = cardName;
   const info = getBoardCardInfo({ name: cardName });
   const fileName = info ? info.file : `${cardName} - Board.png`;
   const encodedName = encodeURIComponent(fileName).replace(/'/g, '%27');
@@ -11486,7 +11500,12 @@ const loadedImageUrls = new Set();
 function markCardImgLoaded(imgEl) {
   if (!imgEl) return;
   const s = imgEl.getAttribute('src') || imgEl.currentSrc || imgEl.src;
-  if (s) loadedImageUrls.add(s);
+  if (s) {
+    loadedImageUrls.add(s);
+    if (imgEl.dataset && imgEl.dataset.boardCardName) {
+      resolvedBoardArtUrlCache.set(imgEl.dataset.boardCardName, s);
+    }
+  }
   imgEl.classList.add('img-loaded');
 }
 
@@ -11497,13 +11516,15 @@ function getCardImgFadeClass(url) {
 const preloadedImageCache = new Map();
 const preloadHighQueue = [];
 const preloadLowQueue = [];
+const preloadQueuedUrls = new Set();
 let preloadActiveCount = 0;
 const MAX_CONCURRENT_PRELOADS = 6;
 
 function pumpPreloadQueue() {
   while (preloadActiveCount < MAX_CONCURRENT_PRELOADS && (preloadHighQueue.length > 0 || preloadLowQueue.length > 0)) {
-    const url = preloadHighQueue.length > 0 ? preloadHighQueue.shift() : preloadLowQueue.shift();
-    if (!url || preloadedImageCache.has(url)) continue;
+    const job = preloadHighQueue.length > 0 ? preloadHighQueue.shift() : preloadLowQueue.shift();
+    if (!job || !job.url || preloadedImageCache.has(job.url)) continue;
+    const { url, meta } = job;
     preloadActiveCount++;
     const img = new Image();
     img.decoding = 'async';
@@ -11514,20 +11535,27 @@ function pumpPreloadQueue() {
     };
     img.onload = () => {
       loadedImageUrls.add(url);
+      if (meta && meta.boardCardName) {
+        resolvedBoardArtUrlCache.set(meta.boardCardName, url);
+      }
       finish();
     };
-    img.onerror = finish;
+    img.onerror = () => {
+      if (meta && meta.fallbackUrl && meta.fallbackUrl !== url) {
+        preloadImageUrl(meta.fallbackUrl, Boolean(meta.highPriority), { boardCardName: meta.boardCardName });
+      }
+      finish();
+    };
     img.src = url;
   }
 }
 
-function preloadImageUrl(url, highPriority = false) {
-  if (!url || preloadedImageCache.has(url)) return;
-  if (highPriority) {
-    if (!preloadHighQueue.includes(url)) preloadHighQueue.push(url);
-  } else {
-    if (!preloadHighQueue.includes(url) && !preloadLowQueue.includes(url)) preloadLowQueue.push(url);
-  }
+function preloadImageUrl(url, highPriority = false, meta = null) {
+  if (!url || preloadedImageCache.has(url) || preloadQueuedUrls.has(url)) return;
+  preloadQueuedUrls.add(url);
+  const job = { url, meta: meta ? { ...meta, highPriority } : null };
+  if (highPriority) preloadHighQueue.push(job);
+  else preloadLowQueue.push(job);
   pumpPreloadQueue();
 }
 
@@ -11548,34 +11576,51 @@ function preloadAllDeckImages() {
 
     if (!gameState.players || gameState.players.length === 0) return;
 
-    // 2. High priority: Visible Heroes & starting hands in the active match (canonical 600px URL shared by every view)
+    const isBoardPlayable = (c) => c && (c.type === "Hero" || c.type === "Ally" || c.type === "Skill" || c.type === "Synergy" || c.type === "Equipment" || c.type === "Token");
+    const preloadCardBoard = (c, highPriority) => {
+      if (!isBoardPlayable(c) || !hasBoardCardArt(c)) return;
+      const bUrl = getBoardCardArtUrl(c);
+      const fbUrl = getBoardCardFallbackUrl(c);
+      if (bUrl) preloadImageUrl(bUrl, highPriority, { boardCardName: c.name, fallbackUrl: fbUrl !== bUrl ? fbUrl : null });
+    };
+
+    // 2. High priority: Visible Heroes, active board cards, AND starting hands (both hand art & board art!)
     const seenDeckCards = new Set();
-    const deferredDeckUrls = [];
+    const deferredJobs = [];
 
     gameState.players.forEach(p => {
       if (!p) return;
       if (p.hero) {
-        if (hasBoardCardArt(p.hero)) preloadImageUrl(getBoardCardArtUrl(p.hero), true);
+        preloadCardBoard(p.hero, true);
         if (hasCardArt(p.hero)) preloadImageUrl(getCardArtUrl(p.hero), true);
       }
+      [...(p.battleZone || []), ...(p.bench || []), ...(p.skills || []), ...(p.synergies || [])].forEach(c => {
+        if (!c) return;
+        preloadCardBoard(c, true);
+        if (hasCardArt(c)) preloadImageUrl(getCardArtUrl(c), true);
+      });
       (p.hand || []).forEach(c => {
-        if (c && hasCardArt(c)) preloadImageUrl(getCardArtUrl(c), true);
+        if (!c) return;
+        if (hasCardArt(c)) preloadImageUrl(getCardArtUrl(c), true);
+        preloadCardBoard(c, true);
       });
       [...(p.deck || []), ...(p.tokens || [])].forEach(c => {
         if (!c || !c.name || seenDeckCards.has(c.name)) return;
         seenDeckCards.add(c.name);
-        if (hasCardArt(c)) deferredDeckUrls.push(getCardArtUrl(c));
-        if ((c.type === "Ally" || c.type === "Skill" || c.type === "Synergy" || c.type === "Equipment" || c.type === "Token") && hasBoardCardArt(c)) {
-          deferredDeckUrls.push(getBoardCardArtUrl(c));
+        if (hasCardArt(c)) deferredJobs.push({ url: getCardArtUrl(c), meta: null });
+        if (isBoardPlayable(c) && hasBoardCardArt(c)) {
+          const bUrl = getBoardCardArtUrl(c);
+          const fbUrl = getBoardCardFallbackUrl(c);
+          if (bUrl) deferredJobs.push({ url: bUrl, meta: { boardCardName: c.name, fallbackUrl: fbUrl !== bUrl ? fbUrl : null } });
         }
       });
     });
 
     // 3. Low priority (short delay & throttled): remaining unique cards in the current match's decks
     if (window.__preloadDeckTimer) clearTimeout(window.__preloadDeckTimer);
-    if (deferredDeckUrls.length > 0) {
+    if (deferredJobs.length > 0) {
       window.__preloadDeckTimer = setTimeout(() => {
-        deferredDeckUrls.forEach(u => preloadImageUrl(u, false));
+        deferredJobs.forEach(j => preloadImageUrl(j.url, false, j.meta));
       }, 150);
     }
   } catch (e) {}
