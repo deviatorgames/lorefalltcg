@@ -487,19 +487,19 @@
 
     const loadedCardImgUrls = new Set();
 
-    function getOptimizedImageUrl(url, width = 420, bustToken = null) {
+    function getOptimizedImageUrl(url, width = 600, bustToken = null) {
         const raw = formatImageUrl(url);
         if (!raw) return { optUrl: null, rawUrl: null };
         const rawWithBust = bustToken ? `${raw}${raw.includes('?') ? '&' : '?'}t=${bustToken}` : raw;
         if (/^https?:\/\//i.test(raw) && !/(^https?:\/\/)?(localhost|127\.0\.0\.1|wsrv\.nl|images\.weserv\.nl)/i.test(raw)) {
             const proxySrc = bustToken ? `${raw}${raw.includes('?') ? '&' : '?'}v=${bustToken}` : raw;
-            const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(proxySrc).replace(/'/g, '%27')}&w=${width}&output=webp&q=82&we${bustToken ? `&v=${bustToken}` : ''}`;
+            const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(proxySrc).replace(/'/g, '%27')}&w=${width}&output=webp&q=80&we${bustToken ? `&v=${bustToken}` : ''}`;
             return { optUrl, rawUrl: rawWithBust };
         }
         return { optUrl: rawWithBust, rawUrl: rawWithBust };
     }
 
-    function FastCardImg({ url, alt = '', width = 420, bustToken = null, className = '', loading = 'lazy', fetchPriority = 'auto' }) {
+    function FastCardImg({ url, alt = '', width = 600, bustToken = null, className = '', loading = 'lazy', fetchPriority = 'auto' }) {
         const { optUrl, rawUrl } = useMemo(() => getOptimizedImageUrl(url, width, bustToken), [url, width, bustToken]);
         const imgRef = useRef(null);
         const usedFallback = useRef(false);
@@ -5664,7 +5664,7 @@
                                     <FastCardImg
                                       url={card["Image URL"]}
                                       alt={card["Card Name"] || card["Hero Name"]}
-                                      width={420}
+                                      width={600}
                                       bustToken={imageBustMap[card._id]}
                                       loading={cardIdx < 10 ? "eager" : "lazy"}
                                       fetchPriority={cardIdx < 10 ? "high" : "auto"}
@@ -6161,7 +6161,7 @@
                                 <FastCardImg
                                   url={forgeData["Image URL"]}
                                   alt={forgeData["Card Name"] || "Preview"}
-                                  width={560}
+                                  width={600}
                                   loading="eager"
                                   fetchPriority="high"
                                   className="max-w-full max-h-full object-contain drop-shadow-md rounded"
@@ -6713,7 +6713,7 @@
                     <FastCardImg
                       url={modalCard["Image URL"]}
                       alt={modalCard["Card Name"] || modalCard["Hero Name"]}
-                      width={760}
+                      width={600}
                       bustToken={imageBustMap[modalCard._id]}
                       loading="eager"
                       fetchPriority="high"

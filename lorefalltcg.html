@@ -5962,10 +5962,12 @@ function formatArenaImageUrl(url) {
 
 const IS_LOCAL_ARENA_HOST = (typeof window !== 'undefined' && (window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
 
-function getOptimizedArenaImageUrl(rawUrl, width = 440) {
+const CANONICAL_CARD_IMG_WIDTH = 600;
+
+function getOptimizedArenaImageUrl(rawUrl, width = CANONICAL_CARD_IMG_WIDTH) {
   if (!rawUrl || typeof rawUrl !== 'string') return rawUrl;
   if (/^https?:\/\//i.test(rawUrl) && !/(^https?:\/\/)?(localhost|127\.0\.0\.1|wsrv\.nl|images\.weserv\.nl)/i.test(rawUrl)) {
-    return `https://wsrv.nl/?url=${encodeURIComponent(rawUrl).replace(/'/g, '%27')}&w=${width}&output=webp&q=82&we`;
+    return `https://wsrv.nl/?url=${encodeURIComponent(rawUrl).replace(/'/g, '%27')}&w=${width}&output=webp&q=80&we`;
   }
   return rawUrl;
 }
@@ -8373,7 +8375,7 @@ async function runScoutPhase(player) {
           const isKept = keptSet.has(idx);
           const hasArt = hasCardArt(card);
           if (hasArt) {
-            const artUrl = getCardArtUrl(card, 440);
+            const artUrl = getCardArtUrl(card);
             const safeName = (card.name || "").replace(/'/g, "\\'");
             return `
               <div class="scout-card ${isKept ? 'kept' : 'unwanted'}" onclick="window.toggleScoutCard(${idx})" onmouseenter="showArenaPreview(event, ${player.index}, 'scout', ${idx})" onmouseleave="hideArenaPreview()" style="padding:4px; align-items:center;">
@@ -8743,7 +8745,7 @@ function renderDeckSelectionUI() {
     else if (/Hollowed/i.test(faction) || /Hollowed/i.test(deckKey)) factionColor = "#a855f7";
 
     const safeKey = deckKey.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-    const heroArtUrl = (heroCard && hasCardArt(heroCard)) ? getCardArtUrl(heroCard, 440) : null;
+    const heroArtUrl = (heroCard && hasCardArt(heroCard)) ? getCardArtUrl(heroCard) : null;
     const safeHeroName = (heroName || "").replace(/'/g, "\\'");
     const heroArtBannerHTML = heroArtUrl
       ? `<div class="deck-hero-art-banner"><img class="${getCardImgFadeClass(heroArtUrl)}" src="${heroArtUrl}" alt="${safeHeroName}" decoding="async" onload="markCardImgLoaded(this)" onerror="if(!this.dataset.triedRawFallback){handleCardArtError('${safeHeroName}', this);}else{this.parentElement.style.display='none';}"></div>`
@@ -10726,7 +10728,7 @@ function startOnlineScoutPhase() {
       const isKept = onlineScoutState.keptSet.has(idx);
       const hasArt = hasCardArt(card);
       if (hasArt) {
-        const artUrl = getCardArtUrl(card, 440);
+        const artUrl = getCardArtUrl(card);
         const safeName = (card.name || "").replace(/'/g, "\\'");
         return `
           <div class="scout-card ${isKept ? 'kept' : 'unwanted'}" onclick="window.toggleOnlineScoutCard(${idx})" onmouseenter="showArenaPreview(event, ${myPlayer.index}, 'scout', ${idx})" onmouseleave="hideArenaPreview()" style="padding:4px; align-items:center;">
@@ -11420,7 +11422,7 @@ function hasBoardCardArt(card) {
   return card.type !== "Token";
 }
 
-function getBoardCardArtUrl(card, width = 420) {
+function getBoardCardArtUrl(card, width = CANONICAL_CARD_IMG_WIDTH) {
   if (!card || !card.name) return null;
   if (card.board_image_url) {
     const formatted = formatArenaImageUrl(card.board_image_url);
@@ -11458,7 +11460,7 @@ function handleBoardCardArtError(cardName, imgEl) {
   // Stage 2: Try proxied GitHub repo Board Art
   if (cardName && !imgEl.dataset.triedRepoProxy) {
     imgEl.dataset.triedRepoProxy = "1";
-    imgEl.src = getOptimizedArenaImageUrl(rawGithubUrl, 420);
+    imgEl.src = getOptimizedArenaImageUrl(rawGithubUrl, CANONICAL_CARD_IMG_WIDTH);
     return;
   }
   // Stage 3: Fallback to raw local file path on hosted origins
@@ -11496,7 +11498,7 @@ const preloadedImageCache = new Map();
 const preloadHighQueue = [];
 const preloadLowQueue = [];
 let preloadActiveCount = 0;
-const MAX_CONCURRENT_PRELOADS = 4;
+const MAX_CONCURRENT_PRELOADS = 6;
 
 function pumpPreloadQueue() {
   while (preloadActiveCount < MAX_CONCURRENT_PRELOADS && (preloadHighQueue.length > 0 || preloadLowQueue.length > 0)) {
@@ -11546,40 +11548,40 @@ function preloadAllDeckImages() {
 
     if (!gameState.players || gameState.players.length === 0) return;
 
-    // 2. High priority: Visible Heroes & starting hands in the active match
+    // 2. High priority: Visible Heroes & starting hands in the active match (canonical 600px URL shared by every view)
     const seenDeckCards = new Set();
     const deferredDeckUrls = [];
 
     gameState.players.forEach(p => {
       if (!p) return;
       if (p.hero) {
-        if (hasBoardCardArt(p.hero)) preloadImageUrl(getBoardCardArtUrl(p.hero, 420), true);
-        if (hasCardArt(p.hero)) preloadImageUrl(getCardArtUrl(p.hero, 440), true);
+        if (hasBoardCardArt(p.hero)) preloadImageUrl(getBoardCardArtUrl(p.hero), true);
+        if (hasCardArt(p.hero)) preloadImageUrl(getCardArtUrl(p.hero), true);
       }
       (p.hand || []).forEach(c => {
-        if (c && hasCardArt(c)) preloadImageUrl(getCardArtUrl(c, 440), true);
+        if (c && hasCardArt(c)) preloadImageUrl(getCardArtUrl(c), true);
       });
-      (p.deck || []).forEach(c => {
+      [...(p.deck || []), ...(p.tokens || [])].forEach(c => {
         if (!c || !c.name || seenDeckCards.has(c.name)) return;
         seenDeckCards.add(c.name);
-        if (hasCardArt(c)) deferredDeckUrls.push(getCardArtUrl(c, 440));
-        if ((c.type === "Ally" || c.type === "Skill" || c.type === "Synergy" || c.type === "Equipment") && hasBoardCardArt(c)) {
-          deferredDeckUrls.push(getBoardCardArtUrl(c, 420));
+        if (hasCardArt(c)) deferredDeckUrls.push(getCardArtUrl(c));
+        if ((c.type === "Ally" || c.type === "Skill" || c.type === "Synergy" || c.type === "Equipment" || c.type === "Token") && hasBoardCardArt(c)) {
+          deferredDeckUrls.push(getBoardCardArtUrl(c));
         }
       });
     });
 
-    // 3. Low priority (delayed & throttled): remaining unique cards in the current match's decks
+    // 3. Low priority (short delay & throttled): remaining unique cards in the current match's decks
     if (window.__preloadDeckTimer) clearTimeout(window.__preloadDeckTimer);
     if (deferredDeckUrls.length > 0) {
       window.__preloadDeckTimer = setTimeout(() => {
         deferredDeckUrls.forEach(u => preloadImageUrl(u, false));
-      }, 450);
+      }, 150);
     }
   } catch (e) {}
 }
 
-function getCardArtUrl(card, width = 440) {
+function getCardArtUrl(card, width = CANONICAL_CARD_IMG_WIDTH) {
   if (!card || !card.name) return null;
   const formattedUrl = formatArenaImageUrl(card.image_url);
   if (formattedUrl) return getOptimizedArenaImageUrl(formattedUrl, width);
@@ -11734,7 +11736,7 @@ function showActionShowcase({ card, actionTag, title, description, targetSlotId,
     if (slotEl && card) {
       try {
         if (hasCardArt(card)) {
-          const artUrl = getCardArtUrl(card, 760);
+          const artUrl = getCardArtUrl(card);
           const safeName = (card.name || "").replace(/'/g, "\\'");
           slotEl.innerHTML = `<img class="${getCardImgFadeClass(artUrl)}" src="${artUrl}" alt="${card.name}" decoding="async" fetchpriority="high" onload="markCardImgLoaded(this)" onerror="handleCardArtError('${safeName}', this)">`;
         } else {
@@ -12457,7 +12459,7 @@ function playCardDrawVisual(player, card) {
     if (overlay && cardBox) {
       if (badge) badge.textContent = `CARD DRAWN • ${card.name}`;
       if (hasCardArt(card)) {
-        const artUrl = getCardArtUrl(card, 760);
+        const artUrl = getCardArtUrl(card);
         const safeName = (card.name || '').replace(/'/g, "\\'");
         cardBox.innerHTML = `<img class="${getCardImgFadeClass(artUrl)}" src="${artUrl}" alt="${card.name}" decoding="async" fetchpriority="high" onload="markCardImgLoaded(this)" onerror="handleCardArtError('${safeName}', this)">`;
       } else {
@@ -12815,7 +12817,7 @@ function renderHand(overridePlayerIdx = null) {
     el.dataset.cardName = card.name || "";
     if (hasCardArt(card)) {
       el.className = 'hand-card';
-      const artUrl = getCardArtUrl(card, 440);
+      const artUrl = getCardArtUrl(card);
       const safeName = (card.name || "").replace(/'/g, "\\'");
       el.innerHTML = `<img class="hand-card-img ${getCardImgFadeClass(artUrl)}" src="${artUrl}" alt="${card.name}" decoding="async" fetchpriority="high" onload="markCardImgLoaded(this)" onerror="handleCardArtError('${safeName}', this)">`;
     } else {
@@ -13012,7 +13014,7 @@ function createCardHTML(card, pIdx, zone, slot) {
       let stats = `<div class="card-stats-row"><span>❤️${card.currentHealth}</span><span>⚔️${atk}</span></div><div class="card-stats-row"><span>💥${pow}</span><span>⚡${getStat(card, 'dexterity', p)}</span></div>`;
       return `<div class="card-mini classic-mini hero-mini ${ex} ${sel} ${deployAnimClass} ${activatableClass}" data-instance-id="${card.instanceId || ''}"><div class="card-header"><div class="card-name">${card.name}</div></div><div class="card-stats" style="margin-bottom:3px;">${stats}</div>${hpBar}</div>`;
     }
-    const artUrl = hasBoardCardArt(card) ? getBoardCardArtUrl(card, 420) : getCardArtUrl(card, 440);
+    const artUrl = hasBoardCardArt(card) ? getBoardCardArtUrl(card) : getCardArtUrl(card);
     const safeName = (card.name || "").replace(/'/g, "\\'");
     const manaVal = card.mana !== undefined ? getStat(card, 'mana', p) : "";
     const dexVal = card.dexterity !== undefined ? getStat(card, 'dexterity', p) : "";
@@ -13040,7 +13042,7 @@ function createCardHTML(card, pIdx, zone, slot) {
 
   // 2. NON-HERO BOARD SLOTS (Battle Zone, Bench, Skill, Synergy) - 10:7 aspect ratio (pixels 60 to 760 crop)
   if (hasBoardCardArt(card)) {
-    const artUrl = getBoardCardArtUrl(card, 420);
+    const artUrl = getBoardCardArtUrl(card);
     const safeName = (card.name || "").replace(/'/g, "\\'");
     const boardInfo = getBoardCardInfo(card);
     const isFullCard = boardInfo ? Boolean(boardInfo.isFullCard) : false;
@@ -13744,8 +13746,8 @@ function generateFullCardView(card, p, zone, slot, isMyTurn, phase, omitActions 
     const isInPlay = (zone === 'hero' || zone === 'bz' || zone === 'ally' || zone === 'bench' || zone === 'skill' || zone === 'synergy' || zone === 'equip');
     const boardInfo = getBoardCardInfo(card);
     const artUrl = (isInPlay && boardInfo && boardInfo.isFullCard && !missingBoardArtSet.has(card.name))
-      ? getBoardCardArtUrl(card, 760)
-      : getCardArtUrl(card, 760);
+      ? getBoardCardArtUrl(card)
+      : getCardArtUrl(card);
     const safeName = (card.name || "").replace(/'/g, "\\'");
 
     // Hand / Scout / non-play previews show ONLY the card image itself
@@ -16817,11 +16819,14 @@ async function rollClashAttacker() {
           let baseRng = getStat(currentClash.attacker, 'rangedAttack', currentClash.attackerPlayer);
           let charBonusRng = (aUnit !== currentClash.attacker) ? (getStat(aUnit, 'rangedAttack', currentClash.attackerPlayer) || 0) : 0;
           let weaponBonusRng = 0;
+          let weaponNames = [];
           for (let eq of (currentClash.aInfo.activeWeapons || [])) {
               const reqWCharge = (eq.chargeReq !== undefined && Number(eq.chargeReq) > 0) ? Number(eq.chargeReq) : 1;
-              if (eq.rangedAttack && (eq.charge || 0) >= reqWCharge) weaponBonusRng += eq.rangedAttack;
+              if (eq.rangedAttack && (eq.charge || 0) >= reqWCharge) {
+                  weaponBonusRng += Number(eq.rangedAttack);
+                  weaponNames.push(`${eq.name} +${eq.rangedAttack}`);
+              }
           }
-          let perHitDmg = baseRng + charBonusRng + weaponBonusRng;
           for (let arrow = 1; arrow <= maxArrows; arrow++) {
               let accRoll = rollD20Adv(isAdv, isDisadv, isDoubleAdv, aptitudeVal);
               let totalAcc = accRoll + dex + accMod;
@@ -16836,10 +16841,15 @@ async function rollClashAttacker() {
               }
           }
           currentClash.atkHit = hits > 0;
-          currentClash.atkDamage = hits * perHitDmg;
+          currentClash.atkDamage = hits > 0 ? (hits * baseRng + charBonusRng + weaponBonusRng) : 0;
           gameState.strikesUsed = gameState.maxStrikes; updateStrikePips();
-          if (charBonusRng > 0 && aUnit !== currentClash.attacker) {
-              logMsg += `<span style="color:var(--mana);">Hero Ranged Bonus (${aUnit.name}): +${charBonusRng}</span><br>`;
+          if (hits > 0) {
+              if (charBonusRng > 0 && aUnit !== currentClash.attacker) {
+                  logMsg += `<span style="color:var(--mana);">Hero Ranged Bonus (${aUnit.name}): +${charBonusRng}</span><br>`;
+              }
+              if (weaponBonusRng > 0) {
+                  logMsg += `<span style="color:var(--gold);">Weapon Bonus (${weaponNames.join(', ')}): +${weaponBonusRng}</span><br>`;
+              }
           }
           logMsg += `Volley Total Hits: <strong>${hits}</strong> &rarr; Damage: <strong style="color:#10b981; font-size:1.1rem;">${currentClash.atkDamage}</strong>`;
       } else {
@@ -19019,14 +19029,6 @@ async function manageAIFormation(pIdx, diff, stage = 'initial') {
         }
       }
 
-      await showActionShowcase({
-        card: bUnit,
-        actionTag: `${p.name.toUpperCase()} FORMATION ADVANCE`,
-        title: bUnit.name,
-        description: `Advanced from Bench to Battle Zone Slot ${openBz + 1}`,
-        targetSlotId: `${getPlayerDomPrefix(pIdx)}-bz-${openBz}`,
-        duration: 1300
-      });
       await swapPlayerSlots(pIdx, 'bench', bIdx, 'bz', openBz, true);
     }
 
@@ -19049,15 +19051,6 @@ async function manageAIFormation(pIdx, diff, stage = 'initial') {
         });
 
         if (weakBzIdx !== -1) {
-          const swapped = p.battleZone[weakBzIdx];
-          await showActionShowcase({
-            card: bUnit,
-            actionTag: `${p.name.toUpperCase()} FORMATION ROTATION`,
-            title: bUnit.name,
-            description: `Rotated into Battle Zone Slot ${weakBzIdx + 1} with ${swapped.name}`,
-            targetSlotId: `${getPlayerDomPrefix(pIdx)}-bz-${weakBzIdx}`,
-            duration: 1300
-          });
           await swapPlayerSlots(pIdx, 'bench', bIdx, 'bz', weakBzIdx, true);
         }
       }
@@ -19085,15 +19078,6 @@ async function manageAIFormation(pIdx, diff, stage = 'initial') {
         });
 
         if (retreatIdx !== -1) {
-          const unitToRetreat = p.battleZone[retreatIdx];
-          await showActionShowcase({
-            card: unitToRetreat,
-            actionTag: `${p.name.toUpperCase()} TACTICAL RETREAT`,
-            title: unitToRetreat.name,
-            description: `Retreated to Bench to prevent Breakthrough and gather Garrison Charge`,
-            targetSlotId: `${getPlayerDomPrefix(pIdx)}-bench-${openBenchSlot}`,
-            duration: 1300
-          });
           await swapPlayerSlots(pIdx, 'bz', retreatIdx, 'bench', openBenchSlot, true);
         }
       }
@@ -19125,15 +19109,6 @@ async function manageAIFormation(pIdx, diff, stage = 'initial') {
       }
 
       if (bestVanguardIdx !== 0 && p.battleZone[bestVanguardIdx]) {
-        const bestUnit = p.battleZone[bestVanguardIdx];
-        await showActionShowcase({
-          card: bestUnit,
-          actionTag: `${p.name.toUpperCase()} VANGUARD FORMATION`,
-          title: bestUnit.name,
-          description: `Moved ${bestUnit.name} to Vanguard (Slot 1) to anchor the line`,
-          targetSlotId: `${getPlayerDomPrefix(pIdx)}-bz-0`,
-          duration: 1300
-        });
         await swapPlayerSlots(pIdx, 'bz', bestVanguardIdx, 'bz', 0, true);
       }
 
@@ -21085,7 +21060,7 @@ function showDiscardInspect(pIdx) {
     // Show newest first (reverse of discard array)
     const reversed = [...pile].map((c, origIdx) => ({ card: c, origIdx })).reverse();
     reversed.forEach(({ card, origIdx }) => {
-      const artUrl = getCardArtUrl(card, 160);
+      const artUrl = getCardArtUrl(card);
       const safeName = (card.name || '').replace(/'/g, "\\'");
       const rarityColor = card.rarity === 'Legendary' ? '#f59e0b' : (card.rarity === 'Rare' ? '#38bdf8' : (card.rarity === 'Uncommon' ? '#10b981' : '#cbd5e1'));
       const costBadge = card.manaCost !== undefined ? `<span style="background:rgba(56,189,248,0.2); border:1px solid #38bdf8; color:#38bdf8; padding:1px 6px; border-radius:4px; font-size:0.75rem;">${card.manaCost} Mana</span>` : (card.goldCost !== undefined ? `<span style="background:rgba(245,158,11,0.2); border:1px solid #f59e0b; color:#f59e0b; padding:1px 6px; border-radius:4px; font-size:0.75rem;">${card.goldCost} Gold</span>` : '');
@@ -21128,7 +21103,7 @@ function showTokenInspect(pIdx) {
   } else {
     html = `<div style="max-height:360px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px;">`;
     tokens.forEach((card, idx) => {
-      const artUrl = getCardArtUrl(card, 160);
+      const artUrl = getCardArtUrl(card);
       const safeName = (card.name || card["Card Name"] || '').replace(/'/g, "\\'");
       const desc = (card.abilities || card.description || card["Abilities"] || '').replace(/<[^>]*>/g, '');
       const statLine = `${card.power !== undefined ? `⚔️ ${card.power} ` : ''}${card.attack ? `(${card.attack}) ` : ''}❤️ ${card.health || card.maxHealth || 3} 🏃 Dex ${card.dexterity !== undefined ? card.dexterity : 1}`;
