@@ -8080,8 +8080,12 @@ function getStat(card, statName, player) {
               }
               if (currentClash.isCounter && currentClash.defenderPlayer === player) {
                   const dUnit = currentClash.tType === 'hero' ? currentClash.defenderPlayer.hero : currentClash.tUnit;
-                  if (dUnit === card && currentClash.defActiveWeapons && !currentClash.defActiveWeapons.includes(eq)) {
-                      meetsCharge = false;
+                  if (dUnit === card && currentClash.defActiveWeapons) {
+                      if (!currentClash.defActiveWeapons.includes(eq)) {
+                          meetsCharge = false;
+                      } else if (currentClash.usedFreeCounterstrike) {
+                          meetsCharge = true;
+                      }
                   }
               }
           }
@@ -16033,6 +16037,16 @@ function openClashAttackerWaiting(aInfo, defenderPlayer, tType, tSlot, tUnit) {
   modal.style.display = 'flex';
 }
 
+function hasFreeCounterstrike(player) {
+  if (!player || !player.hero) return false;
+  return Boolean(
+    player.hero.persistent_freeCounterstrike ||
+    player.hero.temp_freeCounterstrike ||
+    checkKeyword(player.hero, player, "freeCounterstrike") ||
+    player.hero.mechanics?.staticModifiers?.some(m => m.effect?.action === "freeCounterstrike")
+  );
+}
+
 function setupClashContext(aInfo, defenderPlayerIndex, tType, tSlot, isCounter, heroCounterAsset, defActiveWeapons, strikeNum) {
   const attackerPlayer = gameState.players[aInfo.playerIndex];
   const attacker = aInfo.card;
@@ -16231,7 +16245,7 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
       defVal = calcEffectiveDef(finalTargetUnit);
       estimatedIncoming = Math.max(0, expectedAtkDmg - defVal);
       willDie = (finalTargetUnit.currentHealth <= estimatedIncoming);
-      const isFreeCounter = defenderPlayer.hero.mechanics?.staticModifiers?.some(m => m.effect?.action === "freeCounterstrike");
+      const isFreeCounter = hasFreeCounterstrike(defenderPlayer);
       const attackerDef = getStat(attackerUnit, 'defense', attackerPlayer) || 0;
 
       if (gameState.gameMode === "TUTORIAL") {
@@ -16418,7 +16432,7 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
   let rangeValid = isCounterRangeValid(finalTargetUnit.attackType);
   let canCounter = false;
   let validCounters = [];
-  const isFreeCounter = defenderPlayer.hero.mechanics?.staticModifiers?.some(m => m.effect?.action === "freeCounterstrike");
+  const isFreeCounter = hasFreeCounterstrike(defenderPlayer);
 
   if (finalTargetType === 'hero') {
       if (!defenderPlayer.hero.isExhausted || isFreeCounter) {
@@ -16453,7 +16467,7 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
               const eqAtkType = eq.attackType || (eq.rangedAttack !== undefined ? "Ranged" : "Melee");
               const matchesAttackType = !eqAtkType || eqAtkType === counterAtkType;
               const reqWCharge = (eq.chargeReq !== undefined && Number(eq.chargeReq) > 0) ? Number(eq.chargeReq) : 1;
-              const isCharged = (eq.charge || 0) >= reqWCharge;
+              const isCharged = isFreeCounter || (eq.charge || 0) >= reqWCharge;
               if (isWeapon && matchesAttackType && isCharged) {
                   let bonusDesc = "";
                   if (eqAtkType === "Ranged" && eq.rangedAttack) bonusDesc = `+${eq.rangedAttack} Ranged Attack`;
@@ -16462,9 +16476,10 @@ async function promptDefenderDeclarationAsync(aInfo, defenderPlayer, tType, tSlo
                   else if (eq.powerModifier || eq.power) bonusDesc = `+${eq.powerModifier || eq.power} Power`;
                   else bonusDesc = eq.abilities || "Weapon Bonus";
 
+                  const chargeNote = isFreeCounter ? `FREE Counterstrike (0⚡ spent)` : `Spends ${reqWCharge}⚡`;
                   const useBonus = await showModalAsync(
-                      "Weapon Charged (Counterstrike)",
-                      `<strong>${eq.name}</strong> is charged (${eq.charge}/${reqWCharge}⚡). Use Bonus on Counterstrike?<br><div style="margin-top:8px; font-size:0.85rem; color:var(--mana);">Bonus: <strong>${bonusDesc}</strong> (Spends ${reqWCharge}⚡)</div>`,
+                      isFreeCounter ? "Weapon Ready (Free Counterstrike)" : "Weapon Charged (Counterstrike)",
+                      `<strong>${eq.name}</strong> (${eq.charge || 0}/${reqWCharge}⚡). Use Bonus on Counterstrike?<br><div style="margin-top:8px; font-size:0.85rem; color:var(--mana);">Bonus: <strong>${bonusDesc}</strong> (${chargeNote})</div>`,
                       [
                           { text: "Yes, Use Bonus", value: true, color: "#10b981" },
                           { text: "No", value: false }
@@ -16750,6 +16765,7 @@ async function executeStrikeResolution(aInfo, defenderPlayer, tType, tSlot, tUni
       addLogEntry(`<strong style="color:var(--mana);">${msg}</strong>`);
   }
 
+  const usedFreeCounterstrike = Boolean(isCounter && hasFreeCounterstrike(defenderPlayer));
   let resolvedDefWeapons = defActiveWeapons;
   if (isCounter && !resolvedDefWeapons) {
     const counterActor = (tType === 'hero' && heroCounterAsset) ? heroCounterAsset : tUnit;
@@ -16760,16 +16776,23 @@ async function executeStrikeResolution(aInfo, defenderPlayer, tType, tSlot, tUni
         const isWeapon = Boolean(eq.attack || (eq.rangedAttack !== undefined && Number(eq.rangedAttack) > 0) || eq.powerModifier || (eq.equipmentType && eq.equipmentType.includes("Weapon")));
         const eqAtkType = eq.attackType || (eq.rangedAttack !== undefined ? "Ranged" : "Melee");
         const reqWCharge = (eq.chargeReq !== undefined && Number(eq.chargeReq) > 0) ? Number(eq.chargeReq) : 1;
-        return isWeapon && (!eqAtkType || eqAtkType === counterAtkType) && (eq.charge || 0) >= reqWCharge;
+        return isWeapon && (!eqAtkType || eqAtkType === counterAtkType) && (usedFreeCounterstrike || (eq.charge || 0) >= reqWCharge);
       });
     } else {
       resolvedDefWeapons = [];
     }
   }
 
+  if (usedFreeCounterstrike && defenderPlayer.hero) {
+    delete defenderPlayer.hero.persistent_freeCounterstrike;
+    delete defenderPlayer.hero.temp_freeCounterstrike;
+    addLogEntry(`<strong style="color:#a855f7;">Free Counterstrike!</strong> ${defenderPlayer.hero.name}'s counterstrike costs 0 Charge and does not exhaust!`);
+  }
+
   currentClash = {
      aInfo, defenderPlayer, tType, tSlot, tUnit, isCounter, heroCounterAsset, strikeNum,
      defActiveWeapons: resolvedDefWeapons || [],
+     usedFreeCounterstrike,
      attackerPlayer, attacker, effectiveDef: 0, isPierced: false,
      atkDamage: 0, defDamage: 0, atkHit: true, isCrit: false,
      evaded: false, finalDamage: 0, breakthrough: 0
@@ -16959,7 +16982,7 @@ function checkKeyword(card, player, keyword) {
    if (!card) return false;
    const kw = keyword.toLowerCase();
    const isProt = (kw === "protection" || kw === "protectionfromenemyabilities");
-   if (card["temp_" + keyword] || card["temp_" + kw] || card["strikeTemp_" + keyword] || card["strikeTemp_" + kw]) return true;
+   if (card["temp_" + keyword] || card["temp_" + kw] || card["strikeTemp_" + keyword] || card["strikeTemp_" + kw] || card["persistent_" + keyword] || card["persistent_" + kw]) return true;
    if (isProt && (card.protection || card.protectionFromEnemyAbilities || card.temp_protection || card.temp_protectionFromEnemyAbilities)) return true;
    if (player && player.isCursed && kw === "disadvantage") return true;
 
@@ -17489,7 +17512,7 @@ async function rollClashDefender() {
   let isCrit = hasAutoCrit;
 
   // Deduct counterstrike charge unless Hero has freeCounterstrike (Malacai)
-  const isFreeCounter = currentClash.defenderPlayer.hero.mechanics?.staticModifiers?.some(m => m.effect?.action === "freeCounterstrike");
+  const isFreeCounter = Boolean(currentClash.usedFreeCounterstrike || hasFreeCounterstrike(currentClash.defenderPlayer));
   if (!isFreeCounter) {
       counterActor.charge = Math.max(0, (counterActor.charge || 0) - (counterActor.chargeReq || 1));
   }
@@ -17534,7 +17557,7 @@ async function rollClashDefender() {
           for (let eq of defActiveWeapons) {
               const eqAtkType = eq.attackType || (eq.rangedAttack !== undefined ? "Ranged" : "Melee");
               const reqWCharge = (eq.chargeReq !== undefined && Number(eq.chargeReq) > 0) ? Number(eq.chargeReq) : 1;
-              if (eq !== counterActor && eqAtkType === "Ranged" && eq.rangedAttack && (eq.charge || 0) >= reqWCharge) {
+              if (eq !== counterActor && eqAtkType === "Ranged" && eq.rangedAttack && (isFreeCounter || (eq.charge || 0) >= reqWCharge)) {
                   weaponBonusRng += Number(eq.rangedAttack);
                   weaponNames.push(`${eq.name} +${eq.rangedAttack}`);
                   if (!isFreeCounter) eq.charge = Math.max(0, (eq.charge || 0) - reqWCharge);
@@ -17620,7 +17643,7 @@ async function rollClashDefender() {
       for (let eq of defActiveWeapons) {
           const eqAtkType = eq.attackType || (eq.rangedAttack !== undefined ? "Ranged" : "Melee");
           const reqWCharge = (eq.chargeReq !== undefined && Number(eq.chargeReq) > 0) ? Number(eq.chargeReq) : 1;
-          if (eq !== counterActor && eqAtkType === "Melee" && (eq.charge || 0) >= reqWCharge) {
+          if (eq !== counterActor && eqAtkType === "Melee" && (isFreeCounter || (eq.charge || 0) >= reqWCharge)) {
               if (eq.attack) {
                   let wDie = eq.temp_overrideAttackDie || eq.attack;
                   let eqAdv = checkKeyword(eq, currentClash.defenderPlayer, "advantage");
@@ -18165,7 +18188,7 @@ async function closeClashAndApply() {
 
   if (currentClash.isCounter) {
     let counterAsset = currentClash.tType === 'hero' ? currentClash.heroCounterAsset : currentClash.tUnit;
-    const isFreeCounter = currentClash.defenderPlayer.hero.mechanics?.staticModifiers?.some(m => m.effect?.action === "freeCounterstrike");
+    const isFreeCounter = Boolean(currentClash.usedFreeCounterstrike || hasFreeCounterstrike(currentClash.defenderPlayer));
     if (!isFreeCounter && counterAsset && counterAsset.strikeType !== "Multi" && !checkKeyword(counterAsset, currentClash.defenderPlayer, "multiStrike")) {
         if (currentClash.tType === 'hero') currentClash.defenderPlayer.hero.isExhausted = true;
         else currentClash.tUnit.isExhausted = true;
@@ -18797,7 +18820,7 @@ function getAIUnitCounterThreat(defUnit, defPlayer, atkCard, atkPlayer, useMaxRo
   if (!defUnit || !defPlayer || !atkCard) return 0;
   const atkUnit = (atkCard.type === "Skill" && atkPlayer) ? atkPlayer.hero : atkCard;
   const atkDef = atkUnit ? (getStat(atkUnit, 'defense', atkPlayer) || 0) : 0;
-  const isFreeCounter = Boolean(defPlayer.hero?.mechanics?.staticModifiers?.some(m => m.effect?.action === "freeCounterstrike"));
+  const isFreeCounter = hasFreeCounterstrike(defPlayer);
   const canRangeMatch = (cAtkType) => !(atkCard.attackType === "Ranged" && (cAtkType || "Melee") !== "Ranged");
 
   if (defUnit.type === "Hero") {
