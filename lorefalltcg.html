@@ -16862,7 +16862,6 @@ async function executeStrikeResolution(aInfo, defenderPlayer, tType, tSlot, tUni
       const counterSlot = (tType === 'hero' && heroCounterAsset) ? defenderPlayer.skills.indexOf(heroCounterAsset) : tSlot;
       const counterAInfo = { card: counterActor, type: counterType, slot: counterSlot, playerIndex: defenderPlayer.index, isCounter: true };
       await dispatchGlobalHook('onStrikeDeclared', { triggerPlayer: defenderPlayer, strikeCount: strikeNum, aInfo: counterAInfo, isCounter: true });
-      await dispatchGlobalHook('onCounterstrike', { counterstriker: counterActor, counterstrikerPlayer: defenderPlayer, originalAttackerPlayer: attackerPlayer, strikeCount: strikeNum, aInfo: counterAInfo });
   }
 
   if (gameState.irithTokenSpawned) {
@@ -18231,6 +18230,14 @@ async function closeClashAndApply() {
       }
       await dispatchGlobalHook('onDamageDealt', { triggerPlayer: attackerPlayer, damageSource: attacker, damagedTarget: tUnit, damage: currentClash.finalDamage, attackRollValue: currentClash.atkSkillDieRoll || 0 });
       await dispatchGlobalHook('onStrikeResolution', { triggerPlayer: attackerPlayer, attackRollValue: currentClash.atkSkillDieRoll || currentClash.finalDamage });
+  }
+
+  if (clash.isCounter && !gameState.gameOver) {
+      const counterActor = (clash.tType === 'hero' && clash.heroCounterAsset) ? clash.heroCounterAsset : clash.tUnit;
+      const counterType = (clash.tType === 'hero' && clash.heroCounterAsset) ? (clash.heroCounterAsset.type === 'Skill' ? 'skill' : 'equipment') : 'ally';
+      const counterSlot = (clash.tType === 'hero' && clash.heroCounterAsset) ? clash.defenderPlayer.skills.indexOf(clash.heroCounterAsset) : clash.tSlot;
+      const counterAInfo = { card: counterActor, type: counterType, slot: counterSlot, playerIndex: clash.defenderPlayer.index, isCounter: true };
+      await dispatchGlobalHook('onCounterstrike', { counterstriker: counterActor, counterstrikerPlayer: clash.defenderPlayer, originalAttackerPlayer: attackerPlayer, strikeCount: clash.strikeNum, aInfo: counterAInfo });
   }
 
   if (attacker?.mechanics?.strikeEndsCombatPhase || currentClash?.attacker?.mechanics?.strikeEndsCombatPhase || currentClash?.aInfo?.card?.mechanics?.strikeEndsCombatPhase) {
