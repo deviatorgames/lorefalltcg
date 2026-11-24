@@ -5492,7 +5492,6 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
       const m = clause.match(/gain\s+(\d+)\s+health/i);
       mech.passiveAbilities.push({
         trigger: "onCounterstrike",
-        condition: { type: "isAttacker" },
         effect: { action: "heal", amount: m ? parseInt(m[1]) : 1, target: "selfHero" }
       });
       return;
@@ -7627,17 +7626,21 @@ async function applyEffectAction(effect, targets, sourceCard, context) {
        for(let i=0; i<effect.amount; i++) await drawCard(context.triggerPlayer, true);
     }
     else if (effect.action === "heal") {
-       let amount = effect.amount === "attackRollValue" || effect.amount === "damageDealt"
-           ? (context.damage || 0)
-           : (effect.amount === "damageReduced" ? (context.damageReduced || 0) : (effect.amount === "healAmount" ? (context.healAmount || context.amount || 0) : effect.amount));
+       let amount = effect.amount === "attackRollValue"
+           ? (context.attackRollValue !== undefined ? context.attackRollValue : (context.damage || 0))
+           : (effect.amount === "damageDealt"
+               ? (context.damage || 0)
+               : (effect.amount === "damageReduced" ? (context.damageReduced || 0) : (effect.amount === "healAmount" ? (context.healAmount || context.amount || 0) : effect.amount)));
        if (amount > 0) await healCharacter(context.triggerPlayer, target, amount);
     }
     else if (effect.action === "buffHealth") {
        let amount = effect.amount === "damageReduced"
            ? (context.damageReduced || 0)
-           : (effect.amount === "attackRollValue" || effect.amount === "damageDealt"
-               ? (context.damage || 0)
-               : (effect.amount === "healAmount" ? (context.healAmount || context.amount || 0) : effect.amount));
+           : (effect.amount === "attackRollValue"
+               ? (context.attackRollValue !== undefined ? context.attackRollValue : (context.damage || 0))
+               : (effect.amount === "damageDealt"
+                   ? (context.damage || 0)
+                   : (effect.amount === "healAmount" ? (context.healAmount || context.amount || 0) : effect.amount)));
        if (amount > 0) {
            target.currentHealth += amount; 
            addLogEntry(`${target.name} gained +${amount} health this turn.`);
@@ -7856,7 +7859,9 @@ async function applyEffectAction(effect, targets, sourceCard, context) {
        let isStrike = effect.duration === "thisStrike";
        let resolvedVal = effect.value === "damageReduced"
            ? (context.damageReduced || 0)
-           : (effect.value === "attackRollValue" || effect.value === "damageDealt" ? (context.damage || 0) : effect.value);
+           : (effect.value === "attackRollValue"
+               ? (context.attackRollValue !== undefined ? context.attackRollValue : (context.damage || 0))
+               : (effect.value === "damageDealt" ? (context.damage || 0) : effect.value));
        if (effect.stats) {
           if (effect.stats.dexterity) target[isStrike ? 'strikeTempDex' : 'tempDex'] = (target[isStrike ? 'strikeTempDex' : 'tempDex'] || 0) + effect.stats.dexterity;
           if (effect.stats.rangedAttack) target[isStrike ? 'strikeTempRanged' : 'tempRanged'] = (target[isStrike ? 'strikeTempRanged' : 'tempRanged'] || 0) + effect.stats.rangedAttack;
@@ -14879,6 +14884,7 @@ async function drawCard(player, isFromAbility = false) {
   renderAll(); return c;
 }
 
+let _healHookDepth = 0;
 async function healCharacter(player, target, amount) {
   let actualGained = 0;
   if (target.type === "Hero") {
@@ -14893,7 +14899,14 @@ async function healCharacter(player, target, amount) {
       actualGained = target.currentHealth - prevH;
       addLogEntry(`${target.name} healed for ${actualGained} (New HP: ${target.currentHealth}).`);
   }
-  await dispatchGlobalHook('onHeal', { triggerPlayer: player, healedTarget: target, amount: actualGained });
+  if (actualGained > 0 && _healHookDepth < 3) {
+      _healHookDepth++;
+      try {
+          await dispatchGlobalHook('onHeal', { triggerPlayer: player, healedTarget: target, amount: actualGained });
+      } finally {
+          _healHookDepth = Math.max(0, _healHookDepth - 1);
+      }
+  }
   renderAll(); 
 }
 
@@ -16849,7 +16862,7 @@ async function executeStrikeResolution(aInfo, defenderPlayer, tType, tSlot, tUni
       const counterSlot = (tType === 'hero' && heroCounterAsset) ? defenderPlayer.skills.indexOf(heroCounterAsset) : tSlot;
       const counterAInfo = { card: counterActor, type: counterType, slot: counterSlot, playerIndex: defenderPlayer.index, isCounter: true };
       await dispatchGlobalHook('onStrikeDeclared', { triggerPlayer: defenderPlayer, strikeCount: strikeNum, aInfo: counterAInfo, isCounter: true });
-      await dispatchGlobalHook('onCounterstrike', { triggerPlayer: defenderPlayer, counterstriker: counterActor, strikeCount: strikeNum, aInfo: counterAInfo });
+      await dispatchGlobalHook('onCounterstrike', { counterstriker: counterActor, counterstrikerPlayer: defenderPlayer, originalAttackerPlayer: attackerPlayer, strikeCount: strikeNum, aInfo: counterAInfo });
   }
 
   if (gameState.irithTokenSpawned) {
@@ -17348,6 +17361,7 @@ async function rollClashAttacker() {
           }
       }
 
+      currentClash.atkSkillDieRoll = totalDieRoll;
       let extraDiceTotal = 0;
       const activeWeapons = currentClash.aInfo.activeWeapons || [];
       for (let eq of activeWeapons) {
@@ -17637,6 +17651,7 @@ async function rollClashDefender() {
           }
       }
 
+      currentClash.defSkillDieRoll = totalDieRoll;
       let extraDiceTotal = 0;
       let counterWeaponPow = 0;
       const defActiveWeapons = currentClash.defActiveWeapons || [];
@@ -18025,7 +18040,7 @@ async function resolveClashDamage() {
       }
   }
 
-  document.getElementById('clash-actions').innerHTML = `<button class="btn btn-primary" onclick="closeClashAndApply()">Complete Strike</button>`;
+  document.getElementById('clash-actions').innerHTML = `<button class="btn btn-primary" onclick="this.disabled=true; closeClashAndApply()">Complete Strike</button>`;
   if (onlineSession.active) {
     sendOnlineBroadcast({
       type: 'UI_CLASH_RESOLVED',
@@ -18049,6 +18064,8 @@ async function resolveClashDamage() {
 }
 
 async function closeClashAndApply() {
+  if (!currentClash || currentClash._closing) return;
+  currentClash._closing = true;
   if (onlineSession.active && onlineSession.role !== 'HOST') {
     sendOnlineBroadcast({
       type: 'CLIENT_ACTION',
@@ -18061,11 +18078,12 @@ async function closeClashAndApply() {
     return;
   }
   document.getElementById('clash-modal').style.display = 'none';
-  
-  const attackerPlayer = gameState.players[currentClash.aInfo.playerIndex];
-  const attacker = currentClash.aInfo.card;
-  const tUnit = currentClash.tUnit;
-  let aUnit = currentClash.aInfo.type === 'skill' ? attackerPlayer.hero : attacker;
+  const clash = currentClash;
+  const attackerPlayer = gameState.players[clash.aInfo.playerIndex];
+  const attacker = clash.aInfo.card;
+  const tUnit = clash.tUnit;
+  let aUnit = clash.aInfo.type === 'skill' ? attackerPlayer.hero : attacker;
+  try {
 
   if (!currentClash.evaded && currentClash.atkHit) {
       if (currentClash.tType === 'hero') {
@@ -18174,7 +18192,8 @@ async function closeClashAndApply() {
     aUnit.currentHealth -= currentClash.defDamage;
     if (currentClash.aInfo.type !== 'skill' && aUnit.currentHealth <= 0) await checkDefeated(attackerPlayer, aUnit);
     if (aUnit.type === 'Hero' && aUnit.currentHealth <= 0) handlePlayerElimination(attackerPlayer);
-    await dispatchGlobalHook('onDamageDealt', { triggerPlayer: currentClash.defenderPlayer, damageSource: tUnit, damagedTarget: aUnit, damage: currentClash.defDamage });
+    const counterDmgSource = (currentClash.tType === 'hero' && currentClash.heroCounterAsset) ? currentClash.heroCounterAsset : tUnit;
+    await dispatchGlobalHook('onDamageDealt', { triggerPlayer: currentClash.defenderPlayer, damageSource: counterDmgSource, damagedTarget: aUnit, damage: currentClash.defDamage, attackRollValue: currentClash.defSkillDieRoll || 0 });
   }
 
   const hasMultiStrike = attacker.strikeType === "Multi" || checkKeyword(attacker, attackerPlayer, "multiStrike") || checkKeyword(aUnit, attackerPlayer, "multiStrike");
@@ -18210,8 +18229,8 @@ async function closeClashAndApply() {
               damageReduced: currentClash.heroBreakthroughDamageReduced
           });
       }
-      await dispatchGlobalHook('onDamageDealt', { triggerPlayer: attackerPlayer, damageSource: attacker, damagedTarget: tUnit, damage: currentClash.finalDamage });
-      await dispatchGlobalHook('onStrikeResolution', { triggerPlayer: attackerPlayer, attackRollValue: currentClash.finalDamage });
+      await dispatchGlobalHook('onDamageDealt', { triggerPlayer: attackerPlayer, damageSource: attacker, damagedTarget: tUnit, damage: currentClash.finalDamage, attackRollValue: currentClash.atkSkillDieRoll || 0 });
+      await dispatchGlobalHook('onStrikeResolution', { triggerPlayer: attackerPlayer, attackRollValue: currentClash.atkSkillDieRoll || currentClash.finalDamage });
   }
 
   if (attacker?.mechanics?.strikeEndsCombatPhase || currentClash?.attacker?.mechanics?.strikeEndsCombatPhase || currentClash?.aInfo?.card?.mechanics?.strikeEndsCombatPhase) {
@@ -18242,6 +18261,18 @@ async function closeClashAndApply() {
   }
 
   if (typeof onTutorialAction === 'function') onTutorialAction('CLASH_CLOSED', { currentClash });
+  } catch (err) {
+    console.error("Error in closeClashAndApply:", err);
+  }
+  const breakthroughHeroTargetsSafe = [];
+  if (clash && !clash.evaded && clash.atkHit && clash.breakthrough > 0 && clash.tType === 'bz') {
+    const btHeroPlayer = clash.breakthroughHeroPlayer || gameState.players[tUnit.ownerIndex ?? clash.defenderPlayer.index] || clash.defenderPlayer;
+    if (btHeroPlayer) breakthroughHeroTargetsSafe.push({ playerIndex: btHeroPlayer.index, zone: 'hero', slot: 0 });
+  }
+  if (clash && clash.defDamage > 0 && clash.counterBreakthrough > 0) {
+    const aBtOwner = gameState.players[aUnit.ownerIndex ?? attackerPlayer.index] || attackerPlayer;
+    if (aBtOwner) breakthroughHeroTargetsSafe.push({ playerIndex: aBtOwner.index, zone: 'hero', slot: 0 });
+  }
   checkGameOver(); renderAll();
   if (onlineSession.active) {
     sendOnlineBroadcast({ type: 'UI_CLASH_END' });
@@ -18249,7 +18280,7 @@ async function closeClashAndApply() {
   }
   currentClash = null;
 
-  for (const btInfo of breakthroughHeroTargets) {
+  for (const btInfo of breakthroughHeroTargetsSafe) {
     playBoardSlashAnimation(btInfo);
     if (onlineSession.active) {
       sendOnlineBroadcast({ type: 'UI_BOARD_SLASH', targetInfo: btInfo });
@@ -20665,8 +20696,9 @@ function triggerTradeAction() {
    UTILITIES & ASYNC MODAL PROMPTS
    ========================================================================= */
 
+let _modalAsyncQueue = Promise.resolve();
 function showModalAsync(title, bHTML, acts) {
-    return new Promise(resolve => {
+    const run = () => new Promise(resolve => {
         document.getElementById('modal-title').innerText = title;
         document.getElementById('modal-body').innerHTML = bHTML;
         const c = document.getElementById('modal-actions'); c.innerHTML = "";
@@ -20684,6 +20716,9 @@ function showModalAsync(title, bHTML, acts) {
             setTimeout(updateTutorialUI, 120);
         }
     });
+    const next = _modalAsyncQueue.then(run, run);
+    _modalAsyncQueue = next.then(() => {}, () => {});
+    return next;
 }
 
 function isLocalPlayer(playerOrIndex) {
