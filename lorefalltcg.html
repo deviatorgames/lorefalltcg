@@ -8815,7 +8815,10 @@ function syncDecksAndCards(cardsList, savedDecksMap) {
               const rawCardObj = ec.data ? ec.data : ec;
               resolvedName = rawCardObj["Card Name"] || rawCardObj["Hero Name"] || null;
               const ecImg = ec.image_url || ec["Image URL"] || rawCardObj["Image URL"] || null;
-              registerCardInEngine(resolvedId, ec.type || ec._type, rawCardObj, ecImg);
+              // Never let stale card snapshots embedded in saved_decks overwrite live card definitions from the cards database
+              if (!CARDS_DATA[resolvedId] && !(resolvedName && CARDS_BY_NAME[resolvedName])) {
+                registerCardInEngine(resolvedId, ec.type || ec._type, rawCardObj, ecImg);
+              }
             }
             cardsArr.push({
               id: resolvedId,
