@@ -6110,13 +6110,42 @@ function formatArenaImageUrl(url) {
 const IS_LOCAL_ARENA_HOST = (typeof window !== 'undefined' && (window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
 
 const CANONICAL_CARD_IMG_WIDTH = 600;
+const GITHUB_ART_SHA_STORAGE_KEY = 'lorefall_github_art_sha_map';
+let githubArtShaMap = {};
+try {
+  const savedShas = localStorage.getItem(GITHUB_ART_SHA_STORAGE_KEY);
+  if (savedShas) {
+    const parsedShas = JSON.parse(savedShas);
+    if (parsedShas && typeof parsedShas === 'object') githubArtShaMap = parsedShas;
+  }
+} catch (e) {}
+
+function getGitHubArtShaForUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return null;
+  try {
+    const clean = rawUrl.split('#')[0].split('?')[0];
+    const lastSlash = clean.lastIndexOf('/');
+    const segment = lastSlash >= 0 ? clean.slice(lastSlash + 1) : clean;
+    if (!segment) return null;
+    let decoded = segment;
+    try { decoded = decodeURIComponent(segment); } catch (e) {}
+    return githubArtShaMap[decoded] || githubArtShaMap[decoded.toLowerCase()] || null;
+  } catch (e) {
+    return null;
+  }
+}
 
 function getOptimizedArenaImageUrl(rawUrl, width = CANONICAL_CARD_IMG_WIDTH) {
   if (!rawUrl || typeof rawUrl !== 'string') return rawUrl;
-  if (/^https?:\/\//i.test(rawUrl) && !/(^https?:\/\/)?(localhost|127\.0\.0\.1|wsrv\.nl|images\.weserv\.nl)/i.test(rawUrl)) {
-    return `https://wsrv.nl/?url=${encodeURIComponent(rawUrl).replace(/'/g, '%27')}&w=${width}&output=webp&q=80&we`;
+  const isRemote = /^https?:\/\//i.test(rawUrl);
+  const sha = isRemote ? getGitHubArtShaForUrl(rawUrl) : null;
+  const versionedRaw = (sha && !/[?&]v=/.test(rawUrl))
+    ? `${rawUrl}${rawUrl.includes('?') ? '&' : '?'}v=${sha}`
+    : rawUrl;
+  if (isRemote && !/(^https?:\/\/)?(localhost|127\.0\.0\.1|wsrv\.nl|images\.weserv\.nl)/i.test(rawUrl)) {
+    return `https://wsrv.nl/?url=${encodeURIComponent(versionedRaw).replace(/'/g, '%27')}&w=${width}&output=webp&q=80&we${sha ? `&v=${sha}` : ''}`;
   }
-  return rawUrl;
+  return versionedRaw;
 }
 
 function extractRawUrlFromProxy(url) {
@@ -11427,16 +11456,30 @@ const missingCardArtSet = new Set();
 
 window.__discoveredBgmUrls = window.__discoveredBgmUrls || [];
 
-// Dynamically discover any newly added PNGs and Audio tracks in the GitHub repositories
+// Dynamically discover any newly added or replaced PNGs and Audio tracks in the GitHub repositories
 async function refreshGitHubArtList() {
+  let anyShaChanged = false;
+  const changedFileNames = new Set();
+
   const scanRepoForAssets = async (url) => {
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: 'no-cache' });
       if (!res.ok) return;
       const files = await res.json();
       if (Array.isArray(files)) {
         files.forEach(f => {
           if (!f || !f.name) return;
+          // Track per-file Git blob SHA so replacing a PNG with the same filename auto-busts wsrv.nl & browser cache
+          if (f.sha && /\.(png|jpg|jpeg|webp|gif)$/i.test(f.name)) {
+            const shortSha = String(f.sha).slice(0, 10);
+            const lowerName = f.name.toLowerCase();
+            if (githubArtShaMap[f.name] !== shortSha || githubArtShaMap[lowerName] !== shortSha) {
+              githubArtShaMap[f.name] = shortSha;
+              githubArtShaMap[lowerName] = shortSha;
+              anyShaChanged = true;
+              changedFileNames.add(lowerName);
+            }
+          }
           // Card Art discovery
           if (f.name.toLowerCase().endsWith('.png') && f.name !== 'Lorefall Cardback.png') {
             if (/\s-\sboard\.png$/i.test(f.name)) {
@@ -11476,10 +11519,44 @@ async function refreshGitHubArtList() {
 
   await Promise.allSettled([
     scanRepoForAssets("https://api.github.com/repos/deviatorgames/Lorefall-Card-Art/contents"),
-    scanRepoForAssets("https://api.github.com/repos/deviatorgames/lorefalltcg/contents")
+    scanRepoForAssets("https://api.github.com/repos/deviatorgames/lorefalltcg/contents"),
+    scanRepoForAssets("https://api.github.com/repos/deviatorgames/lorefalltcg/contents/Board%20Cards")
   ]);
+
+  if (anyShaChanged) {
+    try {
+      localStorage.setItem(GITHUB_ART_SHA_STORAGE_KEY, JSON.stringify(githubArtShaMap));
+    } catch (e) {}
+    if (typeof resolvedBoardArtUrlCache !== 'undefined' && resolvedBoardArtUrlCache && typeof resolvedBoardArtUrlCache.clear === 'function') {
+      resolvedBoardArtUrlCache.clear();
+    }
+    if (changedFileNames.size > 0) {
+      const urlMatchesChanged = (u) => {
+        if (!u || typeof u !== 'string') return false;
+        const inner = extractRawUrlFromProxy(u) || u;
+        const clean = inner.split('#')[0].split('?')[0];
+        const seg = clean.slice(clean.lastIndexOf('/') + 1);
+        let dec = seg;
+        try { dec = decodeURIComponent(seg); } catch (e) {}
+        return changedFileNames.has(dec.toLowerCase());
+      };
+      if (typeof preloadedImageCache !== 'undefined' && preloadedImageCache) {
+        for (const k of Array.from(preloadedImageCache.keys())) {
+          if (urlMatchesChanged(k)) preloadedImageCache.delete(k);
+        }
+      }
+      if (typeof preloadQueuedUrls !== 'undefined' && preloadQueuedUrls) {
+        for (const k of Array.from(preloadQueuedUrls)) {
+          if (urlMatchesChanged(k)) preloadQueuedUrls.delete(k);
+        }
+      }
+    }
+  }
+
   if (typeof gameState !== 'undefined' && gameState.players && gameState.players.length > 0 && typeof renderAll === 'function') {
     renderAll();
+  } else if (anyShaChanged && typeof renderDeckSelectionUI === 'function') {
+    renderDeckSelectionUI();
   }
 }
 
@@ -11803,7 +11880,9 @@ function handleCardArtError(cardName, imgEl) {
     }
     if (cardName && KNOWN_GITHUB_ART_MAP[cardName] && !imgEl.dataset.triedRepoFallback) {
       imgEl.dataset.triedRepoFallback = "1";
-      imgEl.src = GITHUB_CARD_ART_BASE + encodeURIComponent(KNOWN_GITHUB_ART_MAP[cardName]).replace(/'/g, '%27');
+      const repoRawUrl = GITHUB_CARD_ART_BASE + encodeURIComponent(KNOWN_GITHUB_ART_MAP[cardName]).replace(/'/g, '%27');
+      const repoSha = getGitHubArtShaForUrl(repoRawUrl);
+      imgEl.src = repoSha ? `${repoRawUrl}?v=${repoSha}` : repoRawUrl;
       return;
     }
   }

@@ -486,14 +486,74 @@
     }
 
     const loadedCardImgUrls = new Set();
+    const GITHUB_ART_SHA_STORAGE_KEY = 'lorefall_github_art_sha_map';
+    let githubArtShaMap = {};
+    try {
+        const savedShas = localStorage.getItem(GITHUB_ART_SHA_STORAGE_KEY);
+        if (savedShas) {
+            const parsedShas = JSON.parse(savedShas);
+            if (parsedShas && typeof parsedShas === 'object') githubArtShaMap = parsedShas;
+        }
+    } catch (e) {}
+
+    function getGitHubArtShaForUrl(rawUrl) {
+        if (!rawUrl || typeof rawUrl !== 'string') return null;
+        try {
+            const clean = rawUrl.split('#')[0].split('?')[0];
+            const lastSlash = clean.lastIndexOf('/');
+            const segment = lastSlash >= 0 ? clean.slice(lastSlash + 1) : clean;
+            if (!segment) return null;
+            let decoded = segment;
+            try { decoded = decodeURIComponent(segment); } catch (e) {}
+            return githubArtShaMap[decoded] || githubArtShaMap[decoded.toLowerCase()] || null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    async function refreshGitHubArtShas() {
+        let anyShaChanged = false;
+        const scanUrl = async (apiUrl) => {
+            try {
+                const res = await fetch(apiUrl, { cache: 'no-cache' });
+                if (!res.ok) return;
+                const files = await res.json();
+                if (!Array.isArray(files)) return;
+                files.forEach(f => {
+                    if (!f || !f.name || !f.sha) return;
+                    if (/\.(png|jpg|jpeg|webp|gif)$/i.test(f.name)) {
+                        const shortSha = String(f.sha).slice(0, 10);
+                        const lowerName = f.name.toLowerCase();
+                        if (githubArtShaMap[f.name] !== shortSha || githubArtShaMap[lowerName] !== shortSha) {
+                            githubArtShaMap[f.name] = shortSha;
+                            githubArtShaMap[lowerName] = shortSha;
+                            anyShaChanged = true;
+                        }
+                    }
+                });
+            } catch (e) {}
+        };
+        await Promise.allSettled([
+            scanUrl('https://api.github.com/repos/deviatorgames/Lorefall-Card-Art/contents'),
+            scanUrl('https://api.github.com/repos/deviatorgames/lorefalltcg/contents'),
+            scanUrl('https://api.github.com/repos/deviatorgames/lorefalltcg/contents/Board%20Cards')
+        ]);
+        if (anyShaChanged) {
+            try {
+                localStorage.setItem(GITHUB_ART_SHA_STORAGE_KEY, JSON.stringify(githubArtShaMap));
+            } catch (e) {}
+        }
+        return anyShaChanged;
+    }
 
     function getOptimizedImageUrl(url, width = 600, bustToken = null) {
         const raw = formatImageUrl(url);
         if (!raw) return { optUrl: null, rawUrl: null };
-        const rawWithBust = bustToken ? `${raw}${raw.includes('?') ? '&' : '?'}t=${bustToken}` : raw;
+        const effectiveToken = bustToken || getGitHubArtShaForUrl(raw);
+        const rawWithBust = effectiveToken ? `${raw}${raw.includes('?') ? '&' : '?'}v=${effectiveToken}` : raw;
         if (/^https?:\/\//i.test(raw) && !/(^https?:\/\/)?(localhost|127\.0\.0\.1|wsrv\.nl|images\.weserv\.nl)/i.test(raw)) {
-            const proxySrc = bustToken ? `${raw}${raw.includes('?') ? '&' : '?'}v=${bustToken}` : raw;
-            const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(proxySrc).replace(/'/g, '%27')}&w=${width}&output=webp&q=80&we${bustToken ? `&v=${bustToken}` : ''}`;
+            const proxySrc = effectiveToken ? `${raw}${raw.includes('?') ? '&' : '?'}v=${effectiveToken}` : raw;
+            const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(proxySrc).replace(/'/g, '%27')}&w=${width}&output=webp&q=80&we${effectiveToken ? `&v=${effectiveToken}` : ''}`;
             return { optUrl, rawUrl: rawWithBust };
         }
         return { optUrl: rawWithBust, rawUrl: rawWithBust };
@@ -4048,8 +4108,17 @@
       const [showAbilityBuilder, setShowAbilityBuilder] = useState(false);
       const [abilityBuilderTarget, setAbilityBuilderTarget] = useState('forge');
       const [initialBuilderClause, setInitialBuilderClause] = useState('');
-      // Per-card image cache buster (only busted when a card's Image URL is explicitly edited)
+      // Per-card image cache buster (only busted when a card's Image URL is explicitly edited or its repo PNG SHA changes)
       const [imageBustMap, setImageBustMap] = useState({});
+      const [artShaVersion, setArtShaVersion] = useState(0);
+
+      useEffect(() => {
+        let cancelled = false;
+        refreshGitHubArtShas().then(changed => {
+          if (!cancelled && changed) setArtShaVersion(v => v + 1);
+        });
+        return () => { cancelled = true; };
+      }, []);
 
       const [view, setView] = useState('arena');
       const [arenaNavCollapsed, setArenaNavCollapsed] = useState(false);
@@ -5665,7 +5734,7 @@
                                       url={card["Image URL"]}
                                       alt={card["Card Name"] || card["Hero Name"]}
                                       width={600}
-                                      bustToken={imageBustMap[card._id]}
+                                      bustToken={imageBustMap[card._id] || getGitHubArtShaForUrl(formatImageUrl(card["Image URL"]))}
                                       loading={cardIdx < 10 ? "eager" : "lazy"}
                                       fetchPriority={cardIdx < 10 ? "high" : "auto"}
                                       className="max-w-full max-h-full object-contain drop-shadow-md rounded"
@@ -6162,6 +6231,7 @@
                                   url={forgeData["Image URL"]}
                                   alt={forgeData["Card Name"] || "Preview"}
                                   width={600}
+                                  bustToken={getGitHubArtShaForUrl(formatImageUrl(forgeData["Image URL"]))}
                                   loading="eager"
                                   fetchPriority="high"
                                   className="max-w-full max-h-full object-contain drop-shadow-md rounded"
@@ -6714,7 +6784,7 @@
                       url={modalCard["Image URL"]}
                       alt={modalCard["Card Name"] || modalCard["Hero Name"]}
                       width={600}
-                      bustToken={imageBustMap[modalCard._id]}
+                      bustToken={imageBustMap[modalCard._id] || getGitHubArtShaForUrl(formatImageUrl(modalCard["Image URL"]))}
                       loading="eager"
                       fetchPriority="high"
                       className="max-w-full max-h-full object-contain drop-shadow-2xl rounded-xl"
