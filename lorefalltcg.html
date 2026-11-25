@@ -5492,6 +5492,7 @@ function inferMechanicsFromCardData(type, data, existingMechanics) {
       const m = clause.match(/gain\s+(\d+)\s+health/i);
       mech.passiveAbilities.push({
         trigger: "onCounterstrike",
+        condition: { type: "isAttacker" },
         effect: { action: "heal", amount: m ? parseInt(m[1]) : 1, target: "selfHero" }
       });
       return;
@@ -18234,10 +18235,7 @@ async function closeClashAndApply() {
 
   if (clash.isCounter && !gameState.gameOver) {
       const counterActor = (clash.tType === 'hero' && clash.heroCounterAsset) ? clash.heroCounterAsset : clash.tUnit;
-      const counterType = (clash.tType === 'hero' && clash.heroCounterAsset) ? (clash.heroCounterAsset.type === 'Skill' ? 'skill' : 'equipment') : 'ally';
-      const counterSlot = (clash.tType === 'hero' && clash.heroCounterAsset) ? clash.defenderPlayer.skills.indexOf(clash.heroCounterAsset) : clash.tSlot;
-      const counterAInfo = { card: counterActor, type: counterType, slot: counterSlot, playerIndex: clash.defenderPlayer.index, isCounter: true };
-      await dispatchGlobalHook('onCounterstrike', { counterstriker: counterActor, counterstrikerPlayer: clash.defenderPlayer, originalAttackerPlayer: attackerPlayer, strikeCount: clash.strikeNum, aInfo: counterAInfo });
+      await dispatchGlobalHook('onCounterstrike', { triggerPlayer: attackerPlayer, counterstriker: counterActor, counterstrikerPlayer: clash.defenderPlayer, originalAttackerPlayer: attackerPlayer, strikeCount: clash.strikeNum, aInfo: clash.aInfo });
   }
 
   if (attacker?.mechanics?.strikeEndsCombatPhase || currentClash?.attacker?.mechanics?.strikeEndsCombatPhase || currentClash?.aInfo?.card?.mechanics?.strikeEndsCombatPhase) {
