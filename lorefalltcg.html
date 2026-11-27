@@ -7833,8 +7833,6 @@ async function applyEffectAction(effect, targets, sourceCard, context) {
        const p = context.triggerPlayer;
        const token = await spawnToken(p, effect.unit || "Elf Companion", true, "bz");
        if (token) {
-           gameState.maxStrikes += 1;
-           updateStrikePips();
            gameState.irithTokenSpawned = token;
            addLogEntry(`<strong>${token.name}</strong> was summoned ready to strike first! Irith must strike after.`);
        }
@@ -21160,7 +21158,7 @@ function initMobileHandTouchSift() {
     document.querySelectorAll('.hand-card.touch-sifting-card').forEach(c => c.classList.remove('touch-sifting-card'));
     cardEl.classList.add('touch-sifting-card');
 
-    const bottomIdx = (gameState.gameMode === "TEST" && gameState.activePlayerIndex === 1) ? 1 : 0;
+    const bottomIdx = getBottomPrimaryIndex();
     showArenaPreview({ clientX: touch.clientX, clientY: touch.clientY, currentTarget: cardEl }, bottomIdx, 'hand', idx);
 
     if (typeof AudioManager !== 'undefined' && typeof AudioManager.playHover === 'function') {
@@ -21219,7 +21217,7 @@ function initMobileHandTouchSift() {
     clearSift();
 
     if (wasQuickTap && tappedIdx >= 0) {
-      const bottomIdx = (gameState.gameMode === "TEST" && gameState.activePlayerIndex === 1) ? 1 : 0;
+      const bottomIdx = getBottomPrimaryIndex();
       hideArenaPreview();
       openCardDetail(bottomIdx, 'hand', tappedIdx);
     }
